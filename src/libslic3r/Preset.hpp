@@ -445,7 +445,10 @@ public:
     static std::string                      remove_suffix_modified(const std::string& name);
     static void                             normalize(DynamicPrintConfig &config);
     // Report configuration fields, which are misplaced into a wrong group, remove them from the config.
-    static std::string                      remove_invalid_keys(DynamicPrintConfig &config, const DynamicPrintConfig &default_config);
+    // `added`, when given, is the diff applied over a copy of default_config, and only
+    // its keys are checked, since no other key can be missing from default_config.
+    static std::string                      remove_invalid_keys(DynamicPrintConfig &config, const DynamicPrintConfig &default_config,
+                                                                const DynamicPrintConfig *added = nullptr);
 
     // BBS: move constructor to public
     Preset(Type type, const std::string &name, bool is_default = false) : type(type), is_default(is_default), name(name) {}
@@ -939,6 +942,12 @@ private:
             return a_generic; // generics first
         return a.name < b.name;
     }
+
+    // Add a preset at the end rather than at its place in the order, which turns one
+    // O(n) insertion per preset into a single sort for a caller installing a whole
+    // vendor. The collection is unsorted, and find_preset() unusable, until
+    // sort_presets() runs.
+    Preset& append_preset(const std::string &path, const std::string &name, DynamicPrintConfig &&config);
 
     // Sort presets: filament presets use generic-first ordering, others sort alphabetically.
     void sort_presets() {

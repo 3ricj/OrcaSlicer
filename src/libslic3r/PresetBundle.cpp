@@ -6692,24 +6692,21 @@ PresetBundle::PresetInstall PresetBundle::resolve_vendor_preset(
         out.included->apply_only(out.config, out.config.diff(presets_collection.default_preset_for(out.config).config));
     }
     extend_default_config_length(out.config, true, *default_config);
+    // Report configuration fields, which are misplaced into a wrong group, before
+    // Preset::normalize derives keys from them. An include diff holds only keys of the
+    // collection default, so only the entry's own keys can be missing from default_config.
+    std::string incorrect_keys = Preset::remove_invalid_keys(out.config, *default_config, &entry.config_src);
+    if (!incorrect_keys.empty())
+        out.errors.push_back(std::string(__FUNCTION__) + ": The config " + subfile + " contains incorrect keys: " +
+                             incorrect_keys + ", which were removed");
     if (entry.instantiation == "false" && "Template" != vendor_name) {
-        // Report configuration fields, which are misplaced into a wrong group.
-        std::string incorrect_keys = Preset::remove_invalid_keys(out.config, *default_config);
-        if (!incorrect_keys.empty())
-            out.errors.push_back(std::string(__FUNCTION__) + ": The config " + subfile + " contains incorrect keys: " +
-                                 incorrect_keys + ", which were removed");
         out.config_only = true;
         return out;
     }
     if (out.config.has("alias"))
         out.alias = (dynamic_cast<const ConfigOptionString *>(out.config.option("alias")))->value;
-    Preset::normalize(out.config);
 
-    // Report configuration fields, which are misplaced into a wrong group.
-    std::string incorrect_keys = Preset::remove_invalid_keys(out.config, *default_config);
-    if (!incorrect_keys.empty())
-        out.errors.push_back(std::string(__FUNCTION__) + ": The config " + subfile + " contains incorrect keys: " +
-                             incorrect_keys + ", which were removed");
+    Preset::normalize(out.config);
 
     if (presets_collection.type() == Preset::TYPE_PRINTER) {
         // Filter out printer presets, which are not mentioned in the vendor profile.

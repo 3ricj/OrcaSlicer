@@ -508,10 +508,11 @@ void Preset::normalize(DynamicPrintConfig &config)
     handle_legacy_sla(config);
 }
 
-std::string Preset::remove_invalid_keys(DynamicPrintConfig &config, const DynamicPrintConfig &default_config)
+std::string Preset::remove_invalid_keys(DynamicPrintConfig &config, const DynamicPrintConfig &default_config,
+                                        const DynamicPrintConfig *added)
 {
     std::string incorrect_keys;
-    for (const std::string &key : config.keys())
+    for (const std::string &key : (added != nullptr ? *added : config).keys())
         if (! default_config.has(key)) {
             if (incorrect_keys.empty())
                 incorrect_keys = key;
@@ -2869,6 +2870,19 @@ std::pair<Preset*, bool> PresetCollection::load_external_preset(
     //BBS: add config related logs
     BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(", type %1% added a preset, name %2%, path %3%, is_system %4%, is_default %5% is_external %6%")%Preset::get_type_string(m_type) %preset.name %preset.file %preset.is_system %preset.is_default %preset.is_external;
     return std::make_pair(&preset, false);
+}
+
+Preset& PresetCollection::append_preset(const std::string &path, const std::string &name, DynamicPrintConfig &&config)
+{
+    lock();
+    m_presets.emplace_back(Preset(m_type, name, false));
+    Preset &preset = m_presets.back();
+    preset.file = path;
+    preset.config = std::move(config);
+    preset.loaded = true;
+    preset.is_dirty = false;
+    unlock();
+    return preset;
 }
 
 Preset& PresetCollection::load_preset(const std::string &path, const std::string &name, DynamicPrintConfig &&config, bool select, Semver file_version)
