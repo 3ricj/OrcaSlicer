@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <numeric>
 #include <set>
 #include <fstream>
 #include <unordered_set>
@@ -37,6 +38,7 @@
 #include <miniz/miniz.h>
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_for.h>
+#include <tbb/partitioner.h>
 
 // Mark string for localization and translate.
 #define L(s) Slic3r::I18N::translate(s)
@@ -2552,9 +2554,32 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_pre
     std::vector<PresetsConfigSubstitutions>         parallel_substitutions(other_vendors.size());
     std::vector<std::string>                        parallel_errors(other_vendors.size());
 
-    tbb::parallel_for(tbb::blocked_range<size_t>(0, other_vendors.size()),
+    // Started slowest first, since this step ends when the slowest vendor does.
+    std::vector<size_t> by_cost(other_vendors.size());
+    std::iota(by_cost.begin(), by_cost.end(), size_t(0));
+    // A vendor with no cache is parsed from its JSONs, which costs far more than
+    // any cache load, so those come first, and within each group the bigger file
+    // goes first, the cache or the <vendor>.json that names every preset to parse.
+    std::vector<std::pair<bool, uintmax_t>> vendor_costs(other_vendors.size());
+    for (size_t i = 0; i < other_vendors.size(); ++i) {
+        boost::system::error_code ec;
+        const uintmax_t cache_size = boost::filesystem::file_size(dir / (other_vendors[i] + ".opc"), ec);
+        if (! ec) {
+            vendor_costs[i] = { false, cache_size };
+            continue;
+        }
+        const uintmax_t index_size = boost::filesystem::file_size(dir / (other_vendors[i] + ".json"), ec);
+        vendor_costs[i] = { true, ec ? 0 : index_size };
+    }
+    std::stable_sort(by_cost.begin(), by_cost.end(),
+        [&](size_t a, size_t b) { return vendor_costs[a] > vendor_costs[b]; });
+
+    // An auto_partitioner splits the range only while a worker is asking for work,
+    // which at this size left every vendor on the calling thread.
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, other_vendors.size(), 1),
         [&](const tbb::blocked_range<size_t>& range) {
-            for (size_t i = range.begin(); i < range.end(); ++i) {
+            for (size_t k = range.begin(); k < range.end(); ++k) {
+                const size_t i = by_cost[k];
                 auto bundle = std::make_unique<PresetBundle>();
                 bundle->set_is_validation_mode(validation_mode);
                 bundle->set_generate_vendor_caches(m_generate_vendor_caches);
@@ -2567,7 +2592,7 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_pre
                     parallel_errors[i] = err.what();
                 }
             }
-        });
+        }, tbb::simple_partitioner());
 
     // Step 3: Sequentially merge the parallel-loaded bundles into `this`.
     // The merge order is the original vendor order so any duplicate-warning
