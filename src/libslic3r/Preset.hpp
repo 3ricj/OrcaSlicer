@@ -801,6 +801,8 @@ public:
     // Return number of presets including the "- default -" preset.
     size_t          size() const                { return m_presets.size(); }
     bool            has_defaults_only() const   { return m_presets.size() <= m_num_default_presets; }
+    // How many presets this collection refused or repaired while loading.
+    int             error_count() const         { return m_errors; }
 
     // For Print / Filament presets, disable those, which are not compatible with the printer.
     template<typename PreferedCondition>
@@ -890,6 +892,43 @@ protected:
     void            set_custom_preset_alias(Preset &preset);
 
 private:
+    // One preset file read and flattened against the presets already in this
+    // collection, before anything the collection shares has been touched.
+    struct UserPresetLoad
+    {
+        Preset      preset;
+        // Joins the collection. A file that threw partway still joins it, without
+        // the steps that did not run.
+        bool        install { false };
+        // The whole of the load ran, so the preset is ready to be aliased.
+        bool        complete { false };
+        // A filament preset that named no compatible printer and was given one from
+        // its name, which commit writes back to its file.
+        bool        save_compatible_printers { false };
+        // Unreadable, so commit removes it and its .info file.
+        bool        discard_file { false };
+        // The .info file read beside the preset, which commit logs.
+        std::string info_file;
+        // Counted and logged by commit, in the order the directory listed the files.
+        std::vector<std::string>   errors;
+        PresetsConfigSubstitutions substitutions;
+    };
+
+    // Read and flatten one preset file. It reads only, and resolves against the presets
+    // loaded before this pass, never another file of the same pass, so the files of a
+    // pass are independent of each other.
+    UserPresetLoad  resolve_user_preset(const boost::filesystem::path &file, const std::string &canonical_name,
+                                        const PresetOrigin &load_origin, ForwardCompatibilitySubstitutionRule substitution_rule,
+                                        const std::string &extruder_id_name, const std::string &extruder_variant_name,
+                                        std::set<std::string> *key_set1, std::set<std::string> *key_set2) const;
+
+    // Install one resolved preset. The collection, its alias maps, the error count
+    // and the preset files on disk are touched here and only here.
+    void            commit_user_preset(UserPresetLoad &&loaded, std::deque<Preset> &presets_loaded,
+                                       PresetsConfigSubstitutions &substitutions,
+                                       const std::function<void(Preset&)> &preset_loaded_fn,
+                                       bool read_only);
+
     std::string canonical_preset_name(const std::string &name, const PresetOrigin &load_origin = PresetOrigin()) const;
 
     // Comparator that sorts "Generic " prefixed presets before others, then alphabetically within each group.

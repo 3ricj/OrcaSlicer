@@ -5,6 +5,8 @@
 #include "Preset.hpp"
 #include "PresetBundle.hpp"
 #include "AppConfig.hpp"
+#include "LocalesUtils.hpp"
+#include "ParallelResolve.hpp"
 
 #ifdef _MSC_VER
     #define WIN32_LEAN_AND_MEAN
@@ -621,7 +623,6 @@ void Preset::load_info(const std::string& file)
             }
             else if (v.first.compare("base_id") == 0) {
                 this->base_id = v.second.get_value<std::string>();
-                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " load info from: " << file << " and base_id: " << this->base_id;
                 if (this->base_id.compare("null") == 0)
                     this->base_id.clear();
             }
@@ -1669,6 +1670,170 @@ std::string PresetCollection::canonical_preset_name(const std::string &name, con
     return get_preset_canonical_name(parsed.bare, origin);
 }
 
+PresetCollection::UserPresetLoad PresetCollection::resolve_user_preset(
+    const boost::filesystem::path &file, const std::string &canonical_name,
+    const PresetOrigin &load_origin, ForwardCompatibilitySubstitutionRule substitution_rule,
+    const std::string &extruder_id_name, const std::string &extruder_variant_name,
+    std::set<std::string> *key_set1, std::set<std::string> *key_set2) const
+{
+    UserPresetLoad out;
+    out.preset = Preset(m_type, canonical_name, false);
+    Preset &preset = out.preset;
+    preset.bundle_id = load_origin.bundle_id;
+    preset.file = file.string();
+    // Load the preset file, apply preset values on top of defaults.
+    try {
+        fs::path idx_path(preset.file);
+        idx_path.replace_extension(".info");
+        if (fs::exists(idx_path)) {
+            out.info_file = idx_path.string();
+            preset.load_info(out.info_file);
+        }
+        DynamicPrintConfig config;
+        //BBS: change to json format
+        //ConfigSubstitutions config_substitutions = config.load_from_ini(preset.file, substitution_rule);
+        std::map<std::string, std::string> key_values;
+        std::string reason;
+        ConfigSubstitutions config_substitutions = config.load_from_json(preset.file, substitution_rule, key_values, reason);
+        if (! config_substitutions.empty())
+            out.substitutions.push_back({ preset.name, m_type, PresetConfigSubstitutions::Source::UserFile, preset.file, std::move(config_substitutions) });
+        if (!reason.empty()) {
+            out.discard_file = true;
+            out.errors.push_back((boost::format("parse config %1% failed") % preset.file).str());
+            return out;
+        }
+
+        std::string version_str = key_values[BBL_JSON_KEY_VERSION];
+        boost::optional<Semver> version = Semver::parse(version_str);
+        if (!version) return out;
+        preset.version = *version;
+
+        if (key_values.find(BBL_JSON_KEY_FILAMENT_ID) != key_values.end())
+            preset.filament_id = key_values[BBL_JSON_KEY_FILAMENT_ID];
+        if (key_values.find(BBL_JSON_KEY_DESCRIPTION) != key_values.end())
+            preset.description = key_values[BBL_JSON_KEY_DESCRIPTION];
+        if (key_values.find(BBL_JSON_KEY_INSTANTIATION) != key_values.end())
+            preset.is_visible = key_values[BBL_JSON_KEY_INSTANTIATION] != "false";
+
+        //Orca: find and use the inherit config as the base
+        const Preset* inherit_preset = nullptr;
+        ConfigOption* inherits_config = config.option(BBL_JSON_KEY_INHERITS);
+
+        // check inherits_config
+        if (inherits_config) {
+            ConfigOptionString * option_str = dynamic_cast<ConfigOptionString *> (inherits_config);
+            std::string inherits_value = option_str->value;
+            // Orca: try to find if the parent preset has been renamed
+            inherit_preset = this->find_preset2(inherits_value);
+            Preset::normalize_inherits(config, inherit_preset);
+        }
+        const Preset& default_preset = this->default_preset_for(config);
+        if (inherit_preset) {
+            preset.config = inherit_preset->config;
+            preset.filament_id = inherit_preset->filament_id;
+            extend_default_config_length(config, false, {});
+            preset.config.update_diff_values_to_child_config(config, extruder_id_name, extruder_variant_name, *key_set1, *key_set2);
+        }
+        else {
+            auto inherits_config2 = dynamic_cast<ConfigOptionString *>(inherits_config);
+            if ((inherits_config2 && !inherits_config2->value.empty())) {
+                out.errors.push_back((boost::format("can not find parent %1% for config %2%!") % inherits_config2->value % preset.file).str());
+                return out;
+            }
+            // We support custom root preset now
+            // Find a default preset for the config. The PrintPresetCollection provides different default preset based on the "printer_technology" field.
+            preset.config = default_preset.config;
+            preset.config.apply(std::move(config));
+            extend_default_config_length(preset.config, true, default_preset.config);
+        }
+
+        Preset::normalize(preset.config);
+        // Report configuration fields, which are misplaced into a wrong group.
+        std::string incorrect_keys = Preset::remove_invalid_keys(preset.config, default_preset.config);
+        if (!incorrect_keys.empty())
+            out.errors.push_back("Error in a preset file: The preset \"" + preset.file +
+                                 "\" contains the following incorrect keys: " + incorrect_keys + ", which were removed");
+
+        if (preset.type == Preset::TYPE_FILAMENT && preset.is_user() && preset.inherits().empty()) {
+            auto compatible_printers = dynamic_cast<ConfigOptionStrings *>(preset.config.option("compatible_printers", true));
+            if (compatible_printers && compatible_printers->values.empty()) {
+                size_t at_pos = canonical_name.find('@');
+                if (at_pos != std::string::npos && at_pos + 1 < canonical_name.length()) {
+                    compatible_printers->values.push_back(canonical_name.substr(at_pos + 1));
+                    out.save_compatible_printers = true;
+                }
+            }
+        }
+
+        preset.loaded = true;
+        out.complete = true;
+    } catch (const std::ifstream::failure &err) {
+        out.discard_file = true;
+        out.errors.push_back((boost::format("The user-config cannot be loaded: %1%. Reason: %2%") % preset.file % err.what()).str());
+        //throw Slic3r::RuntimeError(std::string("The selected preset cannot be loaded: ") + preset.file + "\n\tReason: " + err.what());
+    } catch (const std::runtime_error &err) {
+        out.discard_file = true;
+        out.errors.push_back((boost::format("Failed loading the user-config file: %1%. Reason: %2%") % preset.file % err.what()).str());
+        //throw Slic3r::RuntimeError(std::string("Failed loading the preset file: ") + preset.file + "\n\tReason: " + err.what());
+    }
+    out.install = true;
+    return out;
+}
+
+void PresetCollection::commit_user_preset(UserPresetLoad &&loaded, std::deque<Preset> &presets_loaded,
+                                          PresetsConfigSubstitutions &substitutions,
+                                          const std::function<void(Preset&)> &preset_loaded_fn,
+                                          bool read_only)
+{
+    Preset &preset = loaded.preset;
+    if (! loaded.info_file.empty())
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " load info from: " << loaded.info_file << " and base_id: " << preset.base_id;
+    append(substitutions, std::move(loaded.substitutions));
+    for (const std::string &error : loaded.errors) {
+        ++m_errors;
+        BOOST_LOG_TRIVIAL(error) << error;
+    }
+    if (loaded.discard_file && !read_only) {
+        fs::path file_path(loaded.preset.file);
+        if (fs::exists(file_path))
+            fs::remove(file_path);
+        file_path.replace_extension(".info");
+        if (fs::exists(file_path))
+            fs::remove(file_path);
+    }
+    if (!loaded.install)
+        return;
+
+    if (loaded.complete) {
+        if (loaded.save_compatible_printers) {
+            // The preset loads with the derived printer whether or not its file
+            // can be rewritten.
+            try {
+                if (!read_only)
+                    preset.save(nullptr);
+                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " added compatible_printers for preset: " << preset.name;
+            } catch (const std::runtime_error &err) {
+                ++m_errors;
+                BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " can not write compatible_printers back to " << preset.file << ": " << err.what();
+            }
+        }
+        //BBS: add some workaround for previous incorrect settings
+        if ((!preset.setting_id.empty())&&(preset.setting_id == preset.base_id))
+            preset.setting_id.clear();
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " load preset: " << preset.name << " and filament_id: " << preset.filament_id << " and base_id: " << preset.base_id;
+        //BBS: add config related logs
+        BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(", preset type %1%, name %2%, path %3%, is_system %4%, is_default %5% is_visible %6%")%Preset::get_type_string(m_type) %preset.name %preset.file %preset.is_system %preset.is_default %preset.is_visible;
+        // add alias for custom filament preset
+        set_custom_preset_alias(preset);
+    }
+
+    if (preset_loaded_fn != nullptr)
+        preset_loaded_fn(preset);
+
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << __LINE__ << " load config successful and preset name is:" << preset.name;
+    presets_loaded.emplace_back(std::move(preset));
+}
+
 // Load all presets found in dir_path.
 // Throws an exception on error.
 void PresetCollection::load_presets(
@@ -1706,6 +1871,8 @@ void PresetCollection::load_presets(
     std::set<std::string> *key_set1 = nullptr, *key_set2 = nullptr;
     Preset::get_extruder_names_and_keysets(m_type, extruder_id_name, extruder_variant_name, &key_set1, &key_set2);
 
+    struct UserPresetFile { fs::path path; std::string canonical_name; };
+    std::vector<UserPresetFile> files;
     //BBS: change to json format
     for (auto &dir_entry : boost::filesystem::directory_iterator(dir))
     {
@@ -1721,149 +1888,26 @@ void PresetCollection::load_presets(
                 BOOST_LOG_TRIVIAL(warning) << "Preset already present, not loading: " << canonical_name;
                 continue;
             }
+            files.push_back({ dir_entry.path(), std::move(canonical_name) });
+        }
+    }
+
+    resolve_then_commit<CNumericLocalesSetter>(files.size(),
+        [&](size_t i) {
+            return this->resolve_user_preset(files[i].path, files[i].canonical_name, resolved_origin, substitution_rule,
+                                             extruder_id_name, extruder_variant_name, key_set1, key_set2);
+        },
+        [&](size_t, UserPresetLoad &&loaded) {
+            // Committing can remove an unreadable preset's file, and a filesystem error
+            // there is reported without stopping the rest of the directory.
             try {
-                Preset preset(m_type, canonical_name, false);
-                preset.bundle_id = resolved_origin.bundle_id;
-                preset.file = dir_entry.path().string();
-                // Load the preset file, apply preset values on top of defaults.
-                try {
-                    fs::path idx_path(preset.file);
-                    idx_path.replace_extension(".info");
-                    if (fs::exists(idx_path)) {
-                        preset.load_info(idx_path.string());
-                    }
-                    DynamicPrintConfig config;
-                    //BBS: change to json format
-                    //ConfigSubstitutions config_substitutions = config.load_from_ini(preset.file, substitution_rule);
-                    std::map<std::string, std::string> key_values;
-                    std::string reason;
-                    ConfigSubstitutions config_substitutions = config.load_from_json(preset.file, substitution_rule, key_values, reason);
-                    if (! config_substitutions.empty())
-                        substitutions.push_back({ preset.name, m_type, PresetConfigSubstitutions::Source::UserFile, preset.file, std::move(config_substitutions) });
-                    if (!reason.empty()) {
-                        fs::path file_path(preset.file);
-                        if (!read_only && fs::exists(file_path))
-                            fs::remove(file_path);
-                        file_path.replace_extension(".info");
-                        if (!read_only && fs::exists(file_path))
-                            fs::remove(file_path);
-                        BOOST_LOG_TRIVIAL(error) << boost::format("parse config %1% failed")%preset.file;
-                        ++m_errors;
-                        continue;
-                    }
-
-                    std::string version_str = key_values[BBL_JSON_KEY_VERSION];
-                    boost::optional<Semver> version = Semver::parse(version_str);
-                    if (!version) continue;
-                    preset.version = *version;
-
-                    if (key_values.find(BBL_JSON_KEY_FILAMENT_ID) != key_values.end())
-                        preset.filament_id = key_values[BBL_JSON_KEY_FILAMENT_ID];
-                    if (key_values.find(BBL_JSON_KEY_DESCRIPTION) != key_values.end())
-                        preset.description = key_values[BBL_JSON_KEY_DESCRIPTION];
-                    if (key_values.find(BBL_JSON_KEY_INSTANTIATION) != key_values.end())
-                        preset.is_visible = key_values[BBL_JSON_KEY_INSTANTIATION] != "false";
-
-                    //Orca: find and use the inherit config as the base
-                    Preset* inherit_preset = nullptr;
-                    ConfigOption* inherits_config = config.option(BBL_JSON_KEY_INHERITS);
-
-                    // check inherits_config
-                    if (inherits_config) {
-                        ConfigOptionString * option_str = dynamic_cast<ConfigOptionString *> (inherits_config);
-                        std::string inherits_value = option_str->value;
-                        // Orca: try to find if the parent preset has been renamed
-                        inherit_preset = this->find_preset2(inherits_value);
-                        Preset::normalize_inherits(config, inherit_preset);
-                    } else {
-                        ;
-                    }
-                    const Preset& default_preset = this->default_preset_for(config);
-                    if (inherit_preset) {
-                        preset.config = inherit_preset->config;
-                        preset.filament_id = inherit_preset->filament_id;
-                        extend_default_config_length(config, false, {});
-                        preset.config.update_diff_values_to_child_config(config, extruder_id_name, extruder_variant_name, *key_set1, *key_set2);
-                    }
-                    else {
-                        auto inherits_config2 = dynamic_cast<ConfigOptionString *>(inherits_config);
-                        if ((inherits_config2 && !inherits_config2->value.empty())) {
-                            BOOST_LOG_TRIVIAL(error) << boost::format("can not find parent %1% for config %2%!")%inherits_config2->value %preset.file;
-                            ++m_errors;
-                            continue;
-                        }
-                        // We support custom root preset now
-                        // Find a default preset for the config. The PrintPresetCollection provides different default preset based on the "printer_technology" field.
-                        preset.config = default_preset.config;
-                        preset.config.apply(std::move(config));
-                        extend_default_config_length(preset.config, true, default_preset.config);
-                    }
-                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " load preset: " << name << " and filament_id: " << preset.filament_id << " and base_id: " << preset.base_id;
-
-                    Preset::normalize(preset.config);
-                    // Report configuration fields, which are misplaced into a wrong group.
-                    std::string incorrect_keys = Preset::remove_invalid_keys(preset.config, default_preset.config);
-                    if (!incorrect_keys.empty()) {
-                        ++m_errors;
-                        BOOST_LOG_TRIVIAL(error)
-                            << "Error in a preset file: The preset \"" << preset.file
-                            << "\" contains the following incorrect keys: " << incorrect_keys << ", which were removed";
-                    }
-
-                    if (preset.type == Preset::TYPE_FILAMENT && preset.is_user() && preset.inherits().empty()) {
-                        auto compatible_printers = dynamic_cast<ConfigOptionStrings *>(preset.config.option("compatible_printers", true));
-                        if (compatible_printers && compatible_printers->values.empty()) {
-                            size_t at_pos = name.find('@');
-                            if (at_pos != std::string::npos && at_pos + 1 < name.length()) {
-                                compatible_printers->values.push_back(name.substr(at_pos + 1));
-                                if (!read_only)
-                                    preset.save(nullptr);
-                                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " added compatible_printers for preset: " << name;
-                            }
-                        }
-                    }
-
-                    preset.loaded = true;
-                    //BBS: add some workaround for previous incorrect settings
-                    if ((!preset.setting_id.empty())&&(preset.setting_id == preset.base_id))
-                        preset.setting_id.clear();
-                    //BBS: add config related logs
-                    BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(", preset type %1%, name %2%, path %3%, is_system %4%, is_default %5% is_visible %6%")%Preset::get_type_string(m_type) %preset.name %preset.file %preset.is_system %preset.is_default %preset.is_visible;
-                    // add alias for custom filament preset
-                    set_custom_preset_alias(preset);
-                } catch (const std::ifstream::failure &err) {
-                    ++m_errors;
-                    BOOST_LOG_TRIVIAL(error) << boost::format("The user-config cannot be loaded: %1%. Reason: %2%")%preset.file %err.what();
-                    fs::path file_path(preset.file);
-                    if (!read_only && fs::exists(file_path))
-                        fs::remove(file_path);
-                    file_path.replace_extension(".info");
-                    if (!read_only && fs::exists(file_path))
-                        fs::remove(file_path);
-                    //throw Slic3r::RuntimeError(std::string("The selected preset cannot be loaded: ") + preset.file + "\n\tReason: " + err.what());
-                } catch (const std::runtime_error &err) {
-                    ++m_errors;
-                    BOOST_LOG_TRIVIAL(error) << boost::format("Failed loading the user-config file: %1%. Reason: %2%")%preset.file %err.what();
-                    //throw Slic3r::RuntimeError(std::string("Failed loading the preset file: ") + preset.file + "\n\tReason: " + err.what());
-                    fs::path file_path(preset.file);
-                    if (!read_only && fs::exists(file_path))
-                        fs::remove(file_path);
-                    file_path.replace_extension(".info");
-                    if (!read_only && fs::exists(file_path))
-                        fs::remove(file_path);
-                }
-
-                if (preset_loaded_fn != nullptr)
-                    preset_loaded_fn(preset);
-
-                presets_loaded.emplace_back(preset);
-                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << __LINE__ << " load config successful and preset name is:" << preset.name;
+                this->commit_user_preset(std::move(loaded), presets_loaded, substitutions, preset_loaded_fn, read_only);
             } catch (const std::runtime_error &err) {
                 errors_cummulative += err.what();
                 errors_cummulative += "\n";
             }
-        }
-    }
+        });
+
     if (presets_loaded.size() > 0)
         m_presets.insert(m_presets.end(), std::make_move_iterator(presets_loaded.begin()), std::make_move_iterator(presets_loaded.end()));
     sort_presets();

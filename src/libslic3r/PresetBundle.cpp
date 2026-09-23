@@ -5,6 +5,7 @@
 
 #include "PresetBundle.hpp"
 
+#include "ParallelResolve.hpp"
 #include "PresetCacheFormat.hpp"
 #include "PrintConfig.hpp"
 #include "PublishSettings.hpp"
@@ -20,7 +21,6 @@
 #include <algorithm>
 #include <cstdlib>
 #include <numeric>
-#include <thread>
 #include <set>
 #include <fstream>
 #include <unordered_set>
@@ -8116,33 +8116,21 @@ bool PresetBundle::load_vendor_cache(const std::string& cache_path, const std::s
             // the order the vendor lists them, because what it registers in `configs`
             // or `include_maps` is what they resolve against. So is an entry that
             // includes one listed after it, which it must find missing. The rest
-            // depend on nothing else, so they resolve at once. Two cores or fewer
-            // stay one at a time.
-            const bool resolve_together = std::thread::hardware_concurrency() > 2;
+            // depend on nothing else.
             std::vector<size_t> leaves;
             leaves.reserve(entries.size());
             for (size_t i = 0; i < entries.size(); ++ i) {
                 const CachedPreset& entry = entries[i];
                 const bool includes_installed = std::all_of(entry.includes.begin(), entry.includes.end(),
                     [&](const std::string& name) { return include_maps.count(name) != 0; });
-                if (resolve_together && inherited.count(entry.name) == 0 && included.count(entry.name) == 0 && includes_installed)
+                if (inherited.count(entry.name) == 0 && included.count(entry.name) == 0 && includes_installed)
                     leaves.push_back(i);
                 else
                     commit(entry, resolve(entry));
             }
-            if (leaves.empty())
-                return;
-
-            std::vector<PresetInstall> resolved(leaves.size());
-            tbb::parallel_for(tbb::blocked_range<size_t>(0, leaves.size()),
-                [&](const tbb::blocked_range<size_t>& range) {
-                    for (size_t k = range.begin(); k < range.end(); ++ k)
-                        resolved[k] = resolve(entries[leaves[k]]);
-                });
-            // Installed in the order the vendor lists them, so a duplicate name
-            // or a rejected entry is reported as it would be one at a time.
-            for (size_t k = 0; k < leaves.size(); ++ k)
-                commit(entries[leaves[k]], std::move(resolved[k]));
+            resolve_then_commit(leaves.size(),
+                [&](size_t k) { return resolve(entries[leaves[k]]); },
+                [&](size_t k, PresetInstall&& resolved) { commit(entries[leaves[k]], std::move(resolved)); });
         };
         install_entries(data.process_entries, &this->prints, false);
         const bool is_orca_lib = vendor_name == ORCA_FILAMENT_LIBRARY;
