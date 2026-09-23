@@ -943,11 +943,9 @@ private:
         return a.name < b.name;
     }
 
-    // Add a preset at the end rather than at its place in the order, which turns one
-    // O(n) insertion per preset into a single sort for a caller installing a whole
-    // vendor. The collection is unsorted, and find_preset() unusable, until
-    // sort_presets() runs.
-    Preset& append_preset(const std::string &path, const std::string &name, DynamicPrintConfig &&config);
+    // Append a preset without keeping the collection sorted, for a caller installing
+    // many at once; find_preset() is unusable until sort_presets() runs.
+    Preset& append_preset(std::string &&path, const std::string &name, DynamicPrintConfig &&config);
 
     // Sort presets: filament presets use generic-first ordering, others sort alphabetically.
     void sort_presets() {

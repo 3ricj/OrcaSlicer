@@ -651,6 +651,7 @@ private:
         std::map<std::string, DynamicPrintConfig>& config_maps, std::map<std::string, DynamicPrintConfig>& include_maps,
         std::map<std::string, std::string>& filament_id_maps,
         PresetCollection* presets_collection, size_t& count, bool is_from_lib,
+        std::unordered_set<std::string>& installed_names,
         const std::set<std::string>* retain_configs = nullptr, const std::set<std::string>* retain_includes = nullptr);
 
     // One entry flattened against the preset it inherits, before anything this
@@ -689,6 +690,8 @@ private:
 
     // Install a resolved entry. The collections, the inheritance maps and the
     // error count are touched here and only here, one entry at a time.
+    // Presets are appended, so a repeated name is caught with `installed_names`,
+    // and the caller sorts the collection once every entry is in.
     std::string commit_vendor_preset(const CachedPreset& entry, PresetInstall&& resolved,
         const std::string& path, const std::string& vendor_name,
         LoadConfigBundleAttributes flags,
@@ -696,7 +699,14 @@ private:
         std::map<std::string, DynamicPrintConfig>& config_maps, std::map<std::string, DynamicPrintConfig>& include_maps,
         std::map<std::string, std::string>& filament_id_maps,
         PresetCollection* presets_collection, size_t& count, bool is_from_lib,
+        std::unordered_set<std::string>& installed_names,
         const std::set<std::string>* retain_configs = nullptr);
+
+    // The names an install may not give a preset. A preset is installed by
+    // appending it, so the collection is too unsorted to be searched for a
+    // repeated name, and the default presets are in it before the first entry.
+    void seed_installed_names(std::unordered_set<std::string>& installed_names,
+                              const PresetCollection& presets) const;
 
     // Clear every collection's m_printer_hold_alias, which reset() leaves alone.
     void clear_printer_hold_aliases();

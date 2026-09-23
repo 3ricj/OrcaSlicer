@@ -2872,12 +2872,11 @@ std::pair<Preset*, bool> PresetCollection::load_external_preset(
     return std::make_pair(&preset, false);
 }
 
-Preset& PresetCollection::append_preset(const std::string &path, const std::string &name, DynamicPrintConfig &&config)
+Preset& PresetCollection::append_preset(std::string &&path, const std::string &name, DynamicPrintConfig &&config)
 {
     lock();
-    m_presets.emplace_back(Preset(m_type, name, false));
-    Preset &preset = m_presets.back();
-    preset.file = path;
+    Preset &preset = m_presets.emplace_back(m_type, name, false);
+    preset.file = std::move(path);
     preset.config = std::move(config);
     preset.loaded = true;
     preset.is_dirty = false;
