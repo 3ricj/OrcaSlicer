@@ -128,6 +128,35 @@ void write_lib_tree(const fs::path& dir, const std::string& version, const std::
         << R"("filament_id":"GFL99","filament_cost":")" << cost << R"("})";
 }
 
+// A vendor wide enough for a cache load to resolve its entries together, with
+// two levels of inheritance the load has to work through in order and `leaves`
+// presets that depend on nothing but those.
+void write_wide_vendor_tree(const fs::path& dir, const std::string& vendor, const std::string& version, int leaves)
+{
+    fs::create_directories(dir / vendor / "filament");
+    std::ostringstream filament_list;
+    filament_list << R"({"name":")" << vendor << R"( Base PLA","sub_path":"filament/base.json"},)"
+                  << R"({"name":")" << vendor << R"( Mid PLA","sub_path":"filament/mid.json"})";
+    for (int i = 0; i < leaves; ++ i)
+        filament_list << R"(,{"name":")" << vendor << " PLA " << i << R"( @0.4","sub_path":"filament/leaf)"
+                      << i << R"(.json"})";
+    std::ofstream((dir / (vendor + ".json")).string())
+        << R"({"version":")" << version << R"(","name":")" << vendor << R"(","filament_list":[)"
+        << filament_list.str() << "]}";
+    std::ofstream((dir / vendor / "filament" / "base.json").string())
+        << R"({"type":"filament","name":")" << vendor
+        << R"( Base PLA","from":"system","instantiation":"false","filament_id":"GFA_base","filament_cost":"42"})";
+    std::ofstream((dir / vendor / "filament" / "mid.json").string())
+        << R"({"type":"filament","name":")" << vendor
+        << R"( Mid PLA","from":"system","instantiation":"false","inherits":")" << vendor
+        << R"( Base PLA","filament_flow_ratio":"0.95"})";
+    for (int i = 0; i < leaves; ++ i)
+        std::ofstream((dir / vendor / "filament" / ("leaf" + std::to_string(i) + ".json")).string())
+            << R"({"type":"filament","name":")" << vendor << " PLA " << i
+            << R"( @0.4","from":"system","instantiation":"true","inherits":")" << vendor
+            << R"( Mid PLA","nozzle_temperature":")" << (200 + i % 40) << R"("})";
+}
+
 // A vendor whose one filament inherits the library's base and states nothing of
 // its own — everything it shows comes from the library it is resolved against.
 void write_vendor_with_lib_filament(const fs::path& dir, const std::string& vendor, const std::string& version)
@@ -622,6 +651,86 @@ TEST_CASE("a cache-loaded vendor is indistinguishable from a JSON-loaded one", "
     REQUIRE(pr != nullptr);
     CHECK(pr->renamed_from == std::vector<std::string>{"Acme old 0.4 nozzle"});
     CHECK(pr->config.opt_string("machine_start_gcode") == "G28 ; template");   // through the include
+}
+
+TEST_CASE("a wide vendor loads from its cache exactly as it loads from JSON", "[VendorCache]")
+{
+    TempDir tmp;
+    const fs::path rsrc = tmp.path / "resources" / "profiles";
+    const fs::path user = tmp.path / "data" / PRESET_SYSTEM_DIR;
+    fs::create_directories(rsrc);
+    fs::create_directories(user);
+    // Enough presets that the cache load resolves them across threads while the
+    // JSON parse below keeps installing them one at a time.
+    constexpr int leaves = 400;
+    write_wide_vendor_tree(user, "Acme", "1.0.0", leaves);
+
+    ScopedDirs dirs(tmp.path / "data", tmp.path / "resources");
+
+    PresetBundle from_json;
+    from_json.set_generate_vendor_caches(true);
+    from_json.load_vendor_configs_from_json(user.string(), "Acme", PresetBundle::LoadSystem,
+                                            ForwardCompatibilitySubstitutionRule::EnableSilent);
+    REQUIRE(fs::exists(user / "Acme.opc"));
+
+    fs::remove_all(user / "Acme");
+    PresetBundle from_cache;
+    from_cache.load_vendor_configs_from_json(user.string(), "Acme", PresetBundle::LoadSystem,
+                                             ForwardCompatibilitySubstitutionRule::EnableSilent);
+
+    auto a = presets_for(from_json.filaments, "Acme");
+    auto b = presets_for(from_cache.filaments, "Acme");
+    REQUIRE(a.size() == size_t(leaves));
+    REQUIRE(b.size() == a.size());
+    for (size_t i = 0; i < a.size(); ++ i) {
+        CHECK(a[i]->name == b[i]->name);
+        CHECK(preset_deep_equal(*a[i], *b[i]));
+    }
+    CHECK(from_cache.error_count() == from_json.error_count());
+    // The two-level chain resolved, so the leaf has the middle profile's flow ratio
+    // and the base profile's filament id, neither of which it states.
+    const Preset* leaf = from_cache.filaments.find_preset("Acme PLA 7 @0.4", false);
+    REQUIRE(leaf != nullptr);
+    CHECK(leaf->filament_id == "GFA_base");
+    const auto* flow = leaf->config.option<ConfigOptionFloats>("filament_flow_ratio");
+    REQUIRE(flow != nullptr);
+    CHECK_THAT(flow->values.front(), WithinAbs(0.95, 1e-9));
+}
+
+TEST_CASE("repeated cache loads of one vendor produce the same presets", "[VendorCache]")
+{
+    TempDir tmp;
+    const fs::path rsrc = tmp.path / "resources" / "profiles";
+    const fs::path user = tmp.path / "data" / PRESET_SYSTEM_DIR;
+    fs::create_directories(rsrc);
+    fs::create_directories(user);
+    write_wide_vendor_tree(user, "Acme", "1.0.0", 400);
+
+    ScopedDirs dirs(tmp.path / "data", tmp.path / "resources");
+
+    PresetBundle seed;
+    seed.set_generate_vendor_caches(true);
+    seed.load_vendor_configs_from_json(user.string(), "Acme", PresetBundle::LoadSystem,
+                                       ForwardCompatibilitySubstitutionRule::EnableSilent);
+    REQUIRE(fs::exists(user / "Acme.opc"));
+    fs::remove_all(user / "Acme");
+
+    std::vector<PresetBundle> loads(3);
+    for (PresetBundle& bundle : loads)
+        bundle.load_vendor_configs_from_json(user.string(), "Acme", PresetBundle::LoadSystem,
+                                             ForwardCompatibilitySubstitutionRule::EnableSilent);
+
+    auto first = presets_for(loads[0].filaments, "Acme");
+    REQUIRE(!first.empty());
+    for (size_t run = 1; run < loads.size(); ++ run) {
+        auto again = presets_for(loads[run].filaments, "Acme");
+        REQUIRE(again.size() == first.size());
+        for (size_t i = 0; i < first.size(); ++ i) {
+            CHECK(first[i]->name == again[i]->name);
+            CHECK(preset_deep_equal(*first[i], *again[i]));
+        }
+        CHECK(loads[run].error_count() == loads[0].error_count());
+    }
 }
 
 TEST_CASE("a cache-served vendor reports the errors its parse counted", "[VendorCache]")
@@ -1687,6 +1796,29 @@ TEST_CASE("an include listed after the preset that names it is an error, and the
     REQUIRE(pr != nullptr);
     CHECK(pr->config.opt_string("machine_start_gcode") != "G28 ; template");
     const Preset* silk = bundle.filaments.find_preset("Acme Silk PLA @0.4", false);
+    REQUIRE(silk != nullptr);
+    CHECK(silk->config.option<ConfigOptionFloats>("filament_max_volumetric_speed")->values == std::vector<double>{12.});
+}
+
+TEST_CASE("an include listed after the preset that names it is missing from the cache load too", "[VendorCache]")
+{
+    InstallDirs dirs;
+    write_full_vendor_tree(dirs.system, "Acme", "1.0.0", /*templates_last=*/true);
+    PresetBundle from_json;
+    from_json.set_generate_vendor_caches(true);
+    from_json.load_vendor_configs_from_json(dirs.system.string(), "Acme", PresetBundle::LoadSystem,
+                                            ForwardCompatibilitySubstitutionRule::EnableSilent);
+    REQUIRE(fs::exists(dirs.system / "Acme.opc"));
+
+    fs::remove_all(dirs.system / "Acme");
+    PresetBundle from_cache;
+    from_cache.load_vendor_configs_from_json(dirs.system.string(), "Acme", PresetBundle::LoadSystem,
+                                             ForwardCompatibilitySubstitutionRule::EnableSilent);
+    CHECK(from_cache.error_count() == 2);
+    const Preset* pr = from_cache.printers.find_preset("Acme 0.4 nozzle", false);
+    REQUIRE(pr != nullptr);
+    CHECK(pr->config.opt_string("machine_start_gcode") != "G28 ; template");
+    const Preset* silk = from_cache.filaments.find_preset("Acme Silk PLA @0.4", false);
     REQUIRE(silk != nullptr);
     CHECK(silk->config.option<ConfigOptionFloats>("filament_max_volumetric_speed")->values == std::vector<double>{12.});
 }

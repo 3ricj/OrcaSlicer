@@ -653,6 +653,51 @@ private:
         PresetCollection* presets_collection, size_t& count, bool is_from_lib,
         const std::set<std::string>* retain_configs = nullptr, const std::set<std::string>* retain_includes = nullptr);
 
+    // One entry flattened against the preset it inherits, before anything this
+    // bundle shares has been touched.
+    struct PresetInstall
+    {
+        DynamicPrintConfig       config;
+        std::string              file_path;
+        // Empty when the preset is its own alias.
+        std::string              alias;
+        std::string              filament_id;
+        std::vector<std::string> renamed_from;
+        // Reported by commit, so resolving entries together leaves the log and
+        // the error count as one entry at a time produces them.
+        std::vector<std::string> errors;
+        // What a base states for the presets that include it, when it is retained.
+        std::optional<DynamicPrintConfig> included;
+        // Inherited from and nothing else, so it contributes a config and no preset.
+        bool                     config_only { false };
+        // Non-empty when the entry is rejected, and says why.
+        std::string              reason;
+    };
+
+    // Flatten one entry against config_maps (this bundle's presets) or
+    // base_bundle's filament library, with the bases it includes from
+    // include_maps. It reads only, so entries whose parents are already
+    // installed resolve independently of each other.
+    PresetInstall resolve_vendor_preset(const CachedPreset& entry,
+        const std::string& path, const std::string& vendor_name,
+        const PresetBundle* base_bundle,
+        const std::map<std::string, DynamicPrintConfig>& config_maps,
+        const std::map<std::string, DynamicPrintConfig>& include_maps,
+        const std::map<std::string, std::string>& filament_id_maps,
+        const PresetCollection& presets_collection,
+        const std::set<std::string>* retain_includes = nullptr) const;
+
+    // Install a resolved entry. The collections, the inheritance maps and the
+    // error count are touched here and only here, one entry at a time.
+    std::string commit_vendor_preset(const CachedPreset& entry, PresetInstall&& resolved,
+        const std::string& path, const std::string& vendor_name,
+        LoadConfigBundleAttributes flags,
+        ConfigSubstitutionContext& substitution_context, PresetsConfigSubstitutions& substitutions,
+        std::map<std::string, DynamicPrintConfig>& config_maps, std::map<std::string, DynamicPrintConfig>& include_maps,
+        std::map<std::string, std::string>& filament_id_maps,
+        PresetCollection* presets_collection, size_t& count, bool is_from_lib,
+        const std::set<std::string>* retain_configs = nullptr);
+
     // Clear every collection's m_printer_hold_alias, which reset() leaves alone.
     void clear_printer_hold_aliases();
 
