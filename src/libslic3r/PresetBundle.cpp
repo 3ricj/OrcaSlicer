@@ -7328,8 +7328,10 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_vendor_configs_
     const auto is_orca_lib = vendor_name == ORCA_FILAMENT_LIBRARY;
     load_subfiles(filament_subfiles, cache_data.filament_entries, "filament", is_orca_lib);
     if (is_orca_lib) {
-        m_config_maps      = configs;
-        m_filament_id_maps = filament_id_maps;
+        // The next install clears `configs` before using it again, and for the
+        // library it holds a full config for every one of its presets.
+        m_config_maps      = std::move(configs);
+        m_filament_id_maps = std::move(filament_id_maps);
     }
 
     //3.3) paste the printers
@@ -8163,8 +8165,10 @@ bool PresetBundle::load_vendor_cache(const std::string& cache_path, const std::s
         const bool is_orca_lib = vendor_name == ORCA_FILAMENT_LIBRARY;
         install_entries(data.filament_entries, &this->filaments, is_orca_lib);
         if (is_orca_lib) {
-            m_config_maps      = configs;
-            m_filament_id_maps = filament_id_maps;
+            // The next install clears `configs` before using it again, and for the
+            // library it holds a full config for every one of its presets.
+            m_config_maps      = std::move(configs);
+            m_filament_id_maps = std::move(filament_id_maps);
         }
         install_entries(data.machine_entries, &this->printers, false);
         return true;
