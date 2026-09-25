@@ -634,25 +634,70 @@ private:
     // load_vendor_configs_from_json reads a cache.
     bool load_vendor_cache(const boost::filesystem::path& dir, const std::string& vendor_name, const PresetBundle* base_bundle);
 
-    // Load one source-form preset entry into this bundle: resolve `inherits`
-    // and `include`, flatten, validate and register the preset. Returns the
-    // reason loading failed, empty on success. See the definition for the
-    // sharing contract between the JSON parse and the cache load.
-    // retain_configs / retain_includes, when non-null, name the only presets
-    // registered into config_maps / include_maps (a config copy each). The
-    // cache load passes the names its entries inherit / include — the only
-    // ones ever looked up again; the JSON parse retains all, not knowing what
-    // later subfiles name.
-    std::string load_vendor_preset(const CachedPreset& entry,
-        const std::string& path, const std::string& vendor_name,
-        const PresetBundle* base_bundle,
-        LoadConfigBundleAttributes flags,
-        ConfigSubstitutionContext& substitution_context, PresetsConfigSubstitutions& substitutions,
-        std::map<std::string, DynamicPrintConfig>& config_maps, std::map<std::string, DynamicPrintConfig>& include_maps,
-        std::map<std::string, std::string>& filament_id_maps,
-        PresetCollection* presets_collection, size_t& count, bool is_from_lib,
-        std::unordered_set<std::string>& installed_names,
-        const std::set<std::string>* retain_configs = nullptr, const std::set<std::string>* retain_includes = nullptr);
+    // What parsing one entry's JSON sub-file reported. Its errors and warnings are
+    // logged when the entry installs, so they come out in listing order with the
+    // entry's install errors, as parsing and installing one entry at a time leaves them.
+    struct EntryParse
+    {
+        ConfigSubstitutions      substitutions;
+        // Counted in the bundle's error count.
+        std::vector<std::string> errors;
+        std::vector<std::string> warnings;
+    };
+
+    // An EntryParse for each entry of the VendorCacheData list of the same name.
+    struct VendorParse
+    {
+        std::vector<EntryParse> process_entries;
+        std::vector<EntryParse> filament_entries;
+        std::vector<EntryParse> machine_entries;
+    };
+
+    // Log and count errors reported by a resolve or a parse.
+    void log_errors(const std::vector<std::string>& errors);
+
+    // The state of installing one collection of one vendor, which
+    // resolve_vendor_preset reads through a const reference and only
+    // commit_vendor_preset writes.
+    struct VendorInstall
+    {
+        // The directory holding <vendor_name>/, whose sub-paths the entries name.
+        std::string                path;
+        std::string                vendor_name;
+        const VendorProfile*       vendor_profile;
+        const PresetBundle*        base_bundle;
+        LoadConfigBundleAttributes flags;
+        PresetCollection*          presets;
+        // The Orca filament library, which keeps every config for other vendors to
+        // resolve against.
+        bool                       is_from_lib;
+        PresetsConfigSubstitutions* substitutions;
+        // The names some entry inherits / includes, the only ones whose configs /
+        // include diffs are looked up again.
+        std::set<std::string>      inherited;
+        std::set<std::string>      included;
+        std::map<std::string, DynamicPrintConfig> config_maps;
+        std::map<std::string, DynamicPrintConfig> include_maps;
+        std::map<std::string, std::string>        filament_id_maps;
+        std::unordered_set<std::string>           installed_names;
+        size_t                     count { 0 };
+    };
+
+    // Install a vendor's source-form entries, parsed from its JSON or read from its
+    // cache: processes, then filaments, then printers. Both loads go through here,
+    // so a cache-loaded bundle cannot come out different from a JSON-loaded one.
+    // `parsed` is given for entries parsed just now. `complete` says the entries
+    // are the vendor's whole lists; only then are the filament library's configs
+    // and filament ids left in m_config_maps and m_filament_id_maps. Returns the
+    // number of presets installed, and throws ConfigurationError at the first
+    // entry that cannot be installed.
+    size_t install_vendor(const std::string& path, const std::string& vendor_name, const PresetBundle* base_bundle,
+                          LoadConfigBundleAttributes flags, const VendorCacheData& entries,
+                          VendorParse* parsed, bool complete, PresetsConfigSubstitutions& substitutions);
+
+    // Install one collection's entries in the order they are listed.
+    void install_vendor_entries(VendorInstall& install, const std::vector<CachedPreset>& entries,
+                                std::vector<EntryParse>* parsed);
 
     // One entry flattened against the preset it inherits, before anything this
     // bundle shares has been touched.
@@ -669,44 +714,24 @@ private:
         std::vector<std::string> errors;
         // What a base states for the presets that include it, when it is retained.
         std::optional<DynamicPrintConfig> included;
-        // Inherited from and nothing else, so it contributes a config and no preset.
+        // Not instantiated, so it contributes a config and no preset.
         bool                     config_only { false };
         // Non-empty when the entry is rejected, and says why.
         std::string              reason;
     };
 
-    // Flatten one entry against config_maps (this bundle's presets) or
-    // base_bundle's filament library, with the bases it includes from
-    // include_maps. It reads only, so entries whose parents are already
-    // installed resolve independently of each other.
-    PresetInstall resolve_vendor_preset(const CachedPreset& entry,
-        const std::string& path, const std::string& vendor_name,
-        const PresetBundle* base_bundle,
-        const std::map<std::string, DynamicPrintConfig>& config_maps,
-        const std::map<std::string, DynamicPrintConfig>& include_maps,
-        const std::map<std::string, std::string>& filament_id_maps,
-        const PresetCollection& presets_collection,
-        const std::set<std::string>* retain_includes = nullptr) const;
+    // Flatten one entry against the config it inherits, from this collection's
+    // config_maps or base_bundle's filament library, with the include diffs it
+    // names layered in. It looks up nothing but the names the entry inherits and
+    // includes, and writes nothing.
+    PresetInstall resolve_vendor_preset(const CachedPreset& entry, const VendorInstall& install) const;
 
-    // Install a resolved entry. The collections, the inheritance maps and the
+    // Install a resolved entry. The collections, the maps in `install` and the
     // error count are touched here and only here, one entry at a time.
     // Presets are appended, so a repeated name is caught with `installed_names`,
-    // and the caller sorts the collection once every entry is in.
+    // and the collection is sorted once every entry is in.
     std::string commit_vendor_preset(const CachedPreset& entry, PresetInstall&& resolved,
-        const std::string& path, const std::string& vendor_name,
-        LoadConfigBundleAttributes flags,
-        ConfigSubstitutionContext& substitution_context, PresetsConfigSubstitutions& substitutions,
-        std::map<std::string, DynamicPrintConfig>& config_maps, std::map<std::string, DynamicPrintConfig>& include_maps,
-        std::map<std::string, std::string>& filament_id_maps,
-        PresetCollection* presets_collection, size_t& count, bool is_from_lib,
-        std::unordered_set<std::string>& installed_names,
-        const std::set<std::string>* retain_configs = nullptr);
-
-    // The names an install may not give a preset. A preset is installed by
-    // appending it, so the collection is too unsorted to be searched for a
-    // repeated name, and the default presets are in it before the first entry.
-    void seed_installed_names(std::unordered_set<std::string>& installed_names,
-                              const PresetCollection& presets) const;
+                                     ConfigSubstitutions&& substitutions, VendorInstall& install);
 
     // Clear every collection's m_printer_hold_alias, which reset() leaves alone.
     void clear_printer_hold_aliases();

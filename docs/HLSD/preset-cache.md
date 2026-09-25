@@ -211,17 +211,28 @@ shipped cache answered first, so the profile in `<data_dir>/system/` was never p
 and its cache was never written back.
 
 Serving from a cache is not a memory-image restore. The entries are deserialized and
-then installed one by one — inheritance resolved against the presets installed before
-them and the currently loaded filament library, includes layered in, configs flattened
-onto the collection defaults, validated and registered — by the same function the JSON
-path calls straight after parsing a sub-file. An `include` layers what the included
-base states, between the parent and the preset's own keys: the base's diff against the
+then installed by `install_vendor`, the routine the JSON path hands the vendor's entries
+to once it has parsed the sub-files: inheritance resolved against the presets installed
+before them and the currently loaded filament library, includes layered in, configs
+flattened onto the collection defaults, validated and registered. An `include` layers
+what the included base states, between the parent and the preset's own keys: the base's
+diff against the
 default, taken when the base itself was installed and before the per-variant padding
 `inherits` sees, so only what a template sets reaches the presets including it. The two
 paths share everything below the parse, which is what makes a cache-loaded bundle
 indistinguishable from a JSON-loaded one by construction rather than by test coverage.
 Installation also rebuilds each preset's file path from the local data directory, so a
 shipped cache never carries the generating machine's paths.
+
+Installing an entry is split in two. `resolve_vendor_preset` flattens it, reading only
+what is registered under the names it inherits and includes, and `commit_vendor_preset`
+registers it, the only step that writes anything shared. Entries resolve across threads
+in runs and commit in the order the vendor lists them. A run ends before an entry that
+inherits or includes one already in it, since that one's commit registers what the
+entry resolves against, so no entry in a run reads what another in it registers. An
+entry's parse messages are held until it commits. The bundle, the log's parse and
+install messages and the error count therefore come out as parsing and installing one
+entry at a time would leave them, whatever the listing order.
 
 App upgrades work because a cache normally survives one. Only a deliberate
 `CACHE_VERSION` bump makes an installed cache unreadable, and that is handled at
@@ -378,6 +389,13 @@ enumerates only `*.json` will find no vendors at all in a packaged build.
   the `CachedPreset` field list — written and read by `visit_entry` in
   `PresetCacheFormat.cpp`, one list for the save, the load and the name peek alike — or
   the cache's own layout or stamps, requires bumping `CACHE_VERSION` by hand.
+- **Adding a kind of reference between presets**, as `inherits` and `include` are:
+  parse the names into `CachedPreset` (a field change, so `CACHE_VERSION` is bumped),
+  have `install_vendor_entries` end a run before an entry that names one already in it
+  and retain what the names point at, look them up only in `resolve_vendor_preset`, and
+  register what they point at only in `commit_vendor_preset`. The listing-order test in
+  `test_vendor_cache.cpp` fails for a kind the runs do not check once its fixture uses
+  it.
 - **The dictionary indexes with a `uint16`**, so `print_config_def` may hold at most
   65535 options and one cache at most 65535 distinct enum value names.
   `CacheDictionary::save` throws past that, which surfaces when CI generates the
