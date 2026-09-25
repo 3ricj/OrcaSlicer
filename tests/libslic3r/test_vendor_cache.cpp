@@ -4,6 +4,7 @@
 #include <boost/crc.hpp>
 #include <cereal/archives/binary.hpp>
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <fstream>
 #include <functional>
@@ -806,6 +807,51 @@ TEST_CASE("a key misplaced into a vendor preset is reported and removed", "[Vend
     CHECK_FALSE(preset->config.has("filament_cost"));
     CHECK_FALSE(preset->config.has("nozzle_temperature"));
     CHECK(preset->config.opt_int("wall_loops") == 5);
+}
+
+TEST_CASE("each vendor loads from the directory it is listed with", "[VendorCache]")
+{
+    InstallDirs dirs;
+    write_vendor_tree(dirs.system, "Acme", "1.0.0");
+    write_vendor_tree(dirs.profiles, "Zeta", "2.0.0");
+    PresetBundle bundle;
+    bundle.load_vendors({ { "Acme", dirs.system }, { "Zeta", dirs.profiles } },
+                        ForwardCompatibilitySubstitutionRule::EnableSilent, /*allow_cache=*/false);
+
+    CHECK(bundle.vendors.count("Acme") == 1);
+    CHECK(bundle.vendors.count("Zeta") == 1);
+    CHECK(bundle.prints.find_preset("0.20mm Standard @Acme", false) != nullptr);
+    CHECK(bundle.prints.find_preset("0.20mm Standard @Zeta", false) != nullptr);
+}
+
+TEST_CASE("a vendor that fails to load is left out, reported, and the others still load", "[VendorCache]")
+{
+    InstallDirs dirs;
+    write_vendor_tree(dirs.system, "Acme", "1.0.0");
+    write_process_vendor(dirs.system, "Broken", { { "Broken A", "{not-json" } });
+    PresetBundle bundle;
+    const std::string errors = bundle.load_vendors({ { "Acme", dirs.system }, { "Broken", dirs.system } },
+                                                   ForwardCompatibilitySubstitutionRule::EnableSilent,
+                                                   /*allow_cache=*/false).second;
+
+    CHECK(bundle.vendors.count("Acme") == 1);
+    CHECK(bundle.vendors.count("Broken") == 0);
+    CHECK(bundle.prints.find_preset("0.20mm Standard @Acme", false) != nullptr);
+    CHECK(errors.find("Broken") != std::string::npos);
+}
+
+TEST_CASE("a canceled vendor load starts no vendor", "[VendorCache]")
+{
+    InstallDirs dirs;
+    write_vendor_tree(dirs.system, "Acme", "1.0.0");
+    write_vendor_tree(dirs.system, "Zeta", "1.0.0");
+    const std::atomic<bool> cancel { true };
+    PresetBundle bundle;
+    bundle.load_vendors({ { "Acme", dirs.system }, { "Zeta", dirs.system } },
+                        ForwardCompatibilitySubstitutionRule::EnableSilent, /*allow_cache=*/false, &cancel);
+
+    CHECK(bundle.vendors.empty());
+    CHECK(bundle.prints.find_preset("0.20mm Standard @Acme", false) == nullptr);
 }
 
 TEST_CASE("repeated cache loads of one vendor produce the same presets", "[VendorCache]")

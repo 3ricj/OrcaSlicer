@@ -2502,35 +2502,50 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_pre
     if (validation_mode)
         dir = (boost::filesystem::path(data_dir())).make_preferred();
 
-    const auto load_t0 = std::chrono::steady_clock::now();
-
     // The vendors below are loaded whole and against each other — the filament
     // library first, then every other vendor with it as the base — so each parse
     // is complete enough to be worth caching.
     m_generate_vendor_caches = allow_cache && (m_generate_vendor_caches || !validation_mode);
 
+    // Sorted, so any duplicate-preset warning comes out in the same order on every run.
+    std::vector<VendorSource> vendors;
+    for (const std::string& name : vendor_names_in(dir))
+        if (name == ORCA_FILAMENT_LIBRARY || !(validation_mode && !vendor_to_validate.empty() && name != vendor_to_validate))
+            vendors.push_back({ name, dir });
+    auto result = this->load_vendors(vendors, compatibility_rule, allow_cache);
+
+	this->update_system_maps();
+
+    //BBS: add config related logs
+    BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(" finished, errors_cummulative %1%")%result.second;
+    return result;
+}
+
+std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_vendors(const std::vector<VendorSource>& vendors,
+    ForwardCompatibilitySubstitutionRule compatibility_rule, bool allow_cache, const std::atomic<bool>* cancel)
+{
+    const auto load_t0   = std::chrono::steady_clock::now();
+    auto       canceled  = [cancel] { return cancel != nullptr && cancel->load(); };
+
     PresetsConfigSubstitutions  substitutions;
     std::string                 errors_cummulative;
     bool first = true;
-    // Sorted, so any duplicate-preset warning below comes out in the same order on
-    // every run.
-    const std::set<std::string> vendor_names = vendor_names_in(dir);
     // Separate ORCA_FILAMENT_LIBRARY from other vendors. It must be loaded
     // first because other vendors' filaments may inherit from it via the
-    // `base_bundle` lookup in parse_subfile. The remaining vendors are
+    // `base_bundle` lookup in install_vendor. The remaining vendors are
     // independent (no cross-vendor inheritance) and can be loaded in parallel.
-    std::string orca_lib_vendor;
-    std::vector<std::string> other_vendors;
-    other_vendors.reserve(vendor_names.size());
-    for (auto& vn : vendor_names) {
-        if (vn == ORCA_FILAMENT_LIBRARY)
-            orca_lib_vendor = vn;
-        else if (!(validation_mode && !vendor_to_validate.empty() && vn != vendor_to_validate))
-            other_vendors.push_back(vn);
+    const VendorSource*              orca_lib = nullptr;
+    std::vector<const VendorSource*> other_vendors;
+    other_vendors.reserve(vendors.size());
+    for (const VendorSource& vendor : vendors) {
+        if (vendor.name == ORCA_FILAMENT_LIBRARY)
+            orca_lib = &vendor;
+        else
+            other_vendors.push_back(&vendor);
     }
 
     // Step 1: Load ORCA_FILAMENT_LIBRARY into `this` synchronously.
-    if (! orca_lib_vendor.empty()) {
+    if (orca_lib != nullptr && ! canceled()) {
         try {
             // Match a fresh launch before parsing: hold aliases and the error
             // counter survive reset(), and would otherwise carry prior-cycle
@@ -2538,7 +2553,7 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_pre
             this->clear_printer_hold_aliases();
             this->m_errors = 0;
             append(substitutions, this->load_vendor_configs_from_json(
-                dir.string(), orca_lib_vendor, PresetBundle::LoadSystem, compatibility_rule, nullptr, allow_cache).first);
+                orca_lib->dir.string(), orca_lib->name, PresetBundle::LoadSystem, compatibility_rule, nullptr, allow_cache).first);
             first = false;
         } catch (const std::runtime_error &err) {
             if (validation_mode)
@@ -2563,13 +2578,14 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_pre
     // goes first, the cache or the <vendor>.json that names every preset to parse.
     std::vector<std::pair<bool, uintmax_t>> vendor_costs(other_vendors.size());
     for (size_t i = 0; i < other_vendors.size(); ++i) {
+        const VendorSource& vendor = *other_vendors[i];
         boost::system::error_code ec;
-        const uintmax_t cache_size = boost::filesystem::file_size(dir / (other_vendors[i] + ".opc"), ec);
+        const uintmax_t cache_size = boost::filesystem::file_size(vendor.dir / (vendor.name + ".opc"), ec);
         if (! ec) {
             vendor_costs[i] = { false, cache_size };
             continue;
         }
-        const uintmax_t index_size = boost::filesystem::file_size(dir / (other_vendors[i] + ".json"), ec);
+        const uintmax_t index_size = boost::filesystem::file_size(vendor.dir / (vendor.name + ".json"), ec);
         vendor_costs[i] = { true, ec ? 0 : index_size };
     }
     std::stable_sort(by_cost.begin(), by_cost.end(),
@@ -2581,12 +2597,15 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_pre
         [&](const tbb::blocked_range<size_t>& range) {
             for (size_t k = range.begin(); k < range.end(); ++k) {
                 const size_t i = by_cost[k];
+                if (canceled())
+                    continue;
+                const VendorSource& vendor = *other_vendors[i];
                 auto bundle = std::make_unique<PresetBundle>();
                 bundle->set_is_validation_mode(validation_mode);
                 bundle->set_generate_vendor_caches(m_generate_vendor_caches);
                 try {
                     auto result = bundle->load_vendor_configs_from_json(
-                        dir.string(), other_vendors[i], PresetBundle::LoadSystem, compatibility_rule, this, allow_cache);
+                        vendor.dir.string(), vendor.name, PresetBundle::LoadSystem, compatibility_rule, this, allow_cache);
                     parallel_substitutions[i] = std::move(result.first);
                     parallel_bundles[i] = std::move(bundle);
                 } catch (const std::runtime_error &err) {
@@ -2609,7 +2628,7 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_pre
         if (!parallel_bundles[i])
             continue;
 
-        const std::string& vendor_name = other_vendors[i];
+        const std::string& vendor_name = other_vendors[i]->name;
         append(substitutions, std::move(parallel_substitutions[i]));
         std::vector<std::string> duplicates = this->merge_presets(std::move(*parallel_bundles[i]));
         first = false;
@@ -2630,14 +2649,9 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_pre
 		this->reset(false);
 	}
 
-	this->update_system_maps();
-
     const auto load_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - load_t0).count();
-    BOOST_LOG_TRIVIAL(info) << "PresetBundle: " << vendor_names.size() << " vendor(s) loaded in " << load_ms << " ms";
-
-    //BBS: add config related logs
-    BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(" finished, errors_cummulative %1%")%errors_cummulative;
+    BOOST_LOG_TRIVIAL(info) << "PresetBundle: " << vendors.size() << " vendor(s) loaded in " << load_ms << " ms";
     return std::make_pair(std::move(substitutions), errors_cummulative);
 }
 

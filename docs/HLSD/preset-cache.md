@@ -28,8 +28,8 @@ Per-vendor granularity is what makes the system practical:
 - A vendor whose profile is bumped invalidates only its own cache. The other 60-odd
   vendors keep theirs — even when the bumped vendor is the shared Orca filament
   library everyone else inherits from.
-- The setup wizard, which loads vendors one at a time, gets the same speedup as
-  startup without a second code path.
+- The setup wizard loads its vendors through the same routine as startup, so it
+  gets the same speedup without a second code path.
 - A vendor with no cache, or a broken one, costs only that vendor a parse.
 
 A cache holds *system* presets only. User presets, project settings and modified
@@ -171,6 +171,9 @@ flowchart LR
     lib["1 · OrcaFilamentLibrary<br/>loaded first, synchronously"] --> par["2 · every other vendor in parallel,<br/>each into its own bundle, filaments<br/>resolving against the loaded library"] --> merge["3 · bundles merged into one,<br/>sequentially, in stable vendor order"]
 ```
 
+`PresetBundle::load_vendors` runs these steps for startup and for the setup wizard,
+which hand it the vendors to load and the directory each is installed in.
+
 Whether a vendor comes from its cache or from a parse changes nothing in that
 order — both produce the same bundle, so cached and parsed vendors mix freely in
 one startup.
@@ -265,17 +268,19 @@ the wizard caches the *derived JSON*, not another form of the inputs:
 open, the wizard computes the current stamps (one version peek per vendor) and, when
 they match, serves the catalog from the file — no bundle built, no preset installed.
 Caching bundle inputs instead was tried and measured: rebuilding the bundle from
-per-vendor caches costs ~2 s of preset installation whatever feeds it, so only
-skipping the rebuild entirely wins.
+per-vendor caches costs over a second of preset installation whatever feeds it, so
+only skipping the rebuild entirely wins.
 
 Any change to the set — a vendor added, removed or updated, or its cache-only
 `.opc` replaced by a newer one — changes the stamps and retires the whole file;
-the wizard then rebuilds the bundle vendor by vendor (per-vendor caches serving where
-they cover) and writes the catalog back. Selections, region and per-open decorations
-are applied downstream of the cache either way, so a served catalog is
-indistinguishable from a rebuilt one. Nothing ships this file and the updater never
-touches it; it is a locally written artifact, re-derived whenever stale, written
-through a temp file and rename so half a cache is never readable.
+the wizard then rebuilds the bundle with `PresetBundle::load_vendors`, the load
+startup uses (per-vendor caches serving where they cover), and writes the catalog
+back. When a vendor fails to load, that open falls back to the wizard's own scan of
+the vendor JSONs, as when no bundle can be built, and writes nothing. Selections,
+region and per-open decorations are applied downstream of the cache either way, so a
+served catalog is indistinguishable from a rebuilt one. Nothing ships this file and
+the updater never touches it; it is a locally written artifact, re-derived whenever
+stale, written through a temp file and rename so half a cache is never readable.
 
 The cache lives under `<data_dir>/cache/`, not beside the vendors: everything that
 scans `<data_dir>/system/` treats any `.opc` there as a vendor, so a non-vendor

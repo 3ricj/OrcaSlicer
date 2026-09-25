@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <optional>
 #include <array>
+#include <atomic>
 #include <boost/filesystem/path.hpp>
 #include <unordered_set>
 
@@ -622,12 +623,26 @@ public:
     // default_filament_profile must resolve to a system filament.
     bool check_printer_default_materials() const;
 
-    // Merge one vendor's presets with the other vendor's presets, report duplicates.
-    // Public so per-vendor-cache consumers (e.g. the setup wizard) can assemble a
-    // bundle out of several per-vendor caches loaded into separate PresetBundle instances.
-    std::vector<std::string>    merge_presets(PresetBundle &&other);
+    // One vendor to load, and the directory it is installed in.
+    struct VendorSource
+    {
+        std::string             name;
+        boost::filesystem::path dir;
+    };
+
+    // Load `vendors` into this bundle, the Orca filament library first and alone, then
+    // every other vendor in parallel into a bundle of its own with this one to
+    // inherit from, merged in the order given. A vendor that cannot be loaded is left
+    // out and its error added to the returned text, or thrown in validation mode.
+    // Once `cancel` is set, no further vendor starts loading.
+    std::pair<PresetsConfigSubstitutions, std::string> load_vendors(const std::vector<VendorSource>& vendors,
+        ForwardCompatibilitySubstitutionRule compatibility_rule, bool allow_cache,
+        const std::atomic<bool>* cancel = nullptr);
 
 private:
+    // Merge one vendor's presets with the other vendor's presets, report duplicates.
+    std::vector<std::string>    merge_presets(PresetBundle &&other);
+
     // Load one vendor from the preset cache installed in `dir`, judged against
     // the vendor profile there. False, with this bundle left clean, when there
     // is no usable cache and the vendor has to be parsed. This is how
