@@ -879,8 +879,10 @@ protected:
     // This is a temporary state, which shall be fixed immediately by the following step.
     bool            select_preset_by_name_strict(const std::string &name);
 
-    // Merge one vendor's presets with the other vendor's presets, report duplicates.
-    std::vector<std::string> merge_presets(PresetCollection &&other, const VendorMap &new_vendors);
+    // Move the presets of `others` into this collection in one pass. A name this
+    // collection or an earlier one of `others` already has is left out, and reported
+    // in the list of the collection that repeats it.
+    std::vector<std::vector<std::string>> merge_presets(const std::vector<PresetCollection*> &others, const VendorMap &new_vendors);
 
     // Update m_map_alias_to_profile_name from loaded system profiles.
 	void 			update_map_alias_to_profile_name();

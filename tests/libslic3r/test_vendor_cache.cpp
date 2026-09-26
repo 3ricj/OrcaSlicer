@@ -904,6 +904,64 @@ TEST_CASE("a canceled vendor load starts no vendor", "[VendorCache]")
     CHECK(bundle.prints.find_preset("0.20mm Standard @Acme", false) == nullptr);
 }
 
+TEST_CASE("a preset two vendors both define is kept from the first listed and reported under the others", "[VendorCache]")
+{
+    InstallDirs dirs;
+    for (const std::string vendor : { "Acme", "Mira", "Zeta" })
+        write_process_vendor(dirs.system, vendor, {
+            { "Shared", process_json("Shared", R"("instantiation":"true",)") },
+            { "Own @" + vendor, process_json("Own @" + vendor, R"("instantiation":"true",)") } });
+    PresetBundle bundle;
+    const std::string errors = bundle.load_vendors({ { "Mira", dirs.system }, { "Acme", dirs.system }, { "Zeta", dirs.system } },
+                                                   ForwardCompatibilitySubstitutionRule::EnableSilent,
+                                                   /*allow_cache=*/false).second;
+
+    const Preset* shared = bundle.prints.find_preset("Shared", false);
+    REQUIRE(shared != nullptr);
+    REQUIRE(shared->vendor != nullptr);
+    CHECK(shared->vendor->id == "Mira");
+    CHECK(errors.find("vendor Mira") == std::string::npos);
+    CHECK(errors.find("Found duplicated settings in vendor Acme's json file lists: Shared") != std::string::npos);
+    CHECK(errors.find("Found duplicated settings in vendor Zeta's json file lists: Shared") != std::string::npos);
+    CHECK(bundle.error_count() == 2);
+    for (const std::string vendor : { "Acme", "Mira", "Zeta" }) {
+        const Preset* own = bundle.prints.find_preset("Own @" + vendor, false);
+        REQUIRE(own != nullptr);
+        CHECK(own->vendor == &bundle.vendors.at(vendor));
+    }
+}
+
+TEST_CASE("filaments merged from several vendors come out generic first, then by name", "[VendorCache]")
+{
+    InstallDirs dirs;
+    auto write_filaments = [&](const std::string& vendor, const std::vector<std::string>& names) {
+        fs::create_directories(dirs.system / vendor / "filament");
+        std::ofstream index((dirs.system / (vendor + ".json")).string());
+        index << R"({"version":"1.0.0","name":")" << vendor << R"(","filament_list":[)";
+        for (size_t i = 0; i < names.size(); ++ i) {
+            const std::string sub_path = "filament/f" + std::to_string(i) + ".json";
+            index << (i ? "," : "") << R"({"name":")" << names[i] << R"(","sub_path":")" << sub_path << R"("})";
+            std::ofstream((dirs.system / vendor / sub_path).string())
+                << R"({"type":"filament","name":")" << names[i] << R"(","from":"system","instantiation":"true",)"
+                << R"("filament_id":"GF)" << vendor << i << R"("})";
+        }
+        index << "]}";
+    };
+    write_filaments("Zeta", { "Zeta PLA @0.4", "Generic PETG @Zeta" });
+    write_filaments("Acme", { "Acme PLA @0.4", "Generic PLA @Acme" });
+    PresetBundle bundle;
+    bundle.load_vendors({ { "Zeta", dirs.system }, { "Acme", dirs.system } },
+                        ForwardCompatibilitySubstitutionRule::EnableSilent, /*allow_cache=*/false);
+
+    std::vector<std::string> names;
+    for (const Preset& preset : bundle.filaments.get_presets())
+        if (! preset.is_default)
+            names.push_back(preset.name);
+    CHECK(names == std::vector<std::string>{ "Generic PETG @Zeta", "Generic PLA @Acme", "Acme PLA @0.4", "Zeta PLA @0.4" });
+    for (const std::string& name : names)
+        CHECK(bundle.filaments.find_preset(name, false) != nullptr);
+}
+
 TEST_CASE("a vendor read while the filament library loads resolves against it, from JSON and from its cache", "[VendorCache]")
 {
     InstallDirs dirs;

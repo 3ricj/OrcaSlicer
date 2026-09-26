@@ -2651,6 +2651,12 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_vendors(co
 
     // Merged in the original vendor order, so any duplicate-warning output stays
     // stable across runs.
+    std::vector<PresetBundle*> bundles;
+    for (VendorLoad& load : loads)
+        if (load.bundle)
+            bundles.push_back(load.bundle.get());
+    const std::vector<std::vector<std::string>> duplicates = this->merge_presets(bundles);
+    size_t merged = 0;
     for (VendorLoad& load : loads) {
         if (! load.error.empty()) {
             if (validation_mode)
@@ -2664,18 +2670,18 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_vendors(co
         if (! load.bundle)
             continue;
 
-        const std::string& vendor_name = load.source->name;
+        const std::string&              vendor_name       = load.source->name;
+        const std::vector<std::string>& vendor_duplicates = duplicates[merged ++];
         append(substitutions, std::move(load.substitutions));
-        std::vector<std::string> duplicates = this->merge_presets(std::move(*load.bundle));
         first = false;
-        if (!duplicates.empty()) {
+        if (!vendor_duplicates.empty()) {
             errors_cummulative += "Found duplicated settings in vendor " + vendor_name + "'s json file lists: ";
-            for (size_t j = 0; j < duplicates.size(); ++j) {
-                if (j > 0)
+            for (size_t k = 0; k < vendor_duplicates.size(); ++k) {
+                if (k > 0)
                     errors_cummulative += ", ";
-                errors_cummulative += duplicates[j];
+                errors_cummulative += vendor_duplicates[k];
                 ++m_errors;
-                BOOST_LOG_TRIVIAL(error) << "Found duplicated preset: " + duplicates[j] + " in vendor: " + vendor_name + ": ";
+                BOOST_LOG_TRIVIAL(error) << "Found duplicated preset: " + vendor_duplicates[k] + " in vendor: " + vendor_name + ": ";
             }
         }
     }
@@ -2756,7 +2762,7 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_fil
                     // Report duplicate profiles.
                     PresetBundle other;
                     append(substitutions, other.load_vendor_configs_from_json(dir.string(), vendor_name, PresetBundle::LoadSystem | PresetBundle::LoadFilamentOnly, compatibility_rule).first);
-                    std::vector<std::string> duplicates = this->merge_presets(std::move(other));
+                    std::vector<std::string> duplicates = std::move(this->merge_presets({ &other }).front());
                     if (!duplicates.empty()) {
                         errors_cummulative += "Found duplicated settings in vendor " + vendor_name + "'s json file lists: ";
                         for (size_t i = 0; i < duplicates.size(); ++i) {
@@ -2802,26 +2808,33 @@ VendorProfile PresetBundle::get_custom_vendor_models() const
     return vendor;
 }
 
-// Merge one vendor's presets with the other vendor's presets, report duplicates.
-std::vector<std::string> PresetBundle::merge_presets(PresetBundle &&other)
+std::vector<std::vector<std::string>> PresetBundle::merge_presets(const std::vector<PresetBundle*> &others)
 {
-    this->vendors.insert(other.vendors.begin(), other.vendors.end());
-    std::vector<std::string> duplicate_prints        = this->prints       .merge_presets(std::move(other.prints),        this->vendors);
-    std::vector<std::string> duplicate_sla_prints    = this->sla_prints   .merge_presets(std::move(other.sla_prints),    this->vendors);
-    std::vector<std::string> duplicate_filaments     = this->filaments    .merge_presets(std::move(other.filaments),     this->vendors);
-    std::vector<std::string> duplicate_sla_materials = this->sla_materials.merge_presets(std::move(other.sla_materials), this->vendors);
-    std::vector<std::string> duplicate_printers      = this->printers     .merge_presets(std::move(other.printers),      this->vendors);
-	append(this->obsolete_presets.prints,        std::move(other.obsolete_presets.prints));
-	append(this->obsolete_presets.sla_prints,    std::move(other.obsolete_presets.sla_prints));
-	append(this->obsolete_presets.filaments,     std::move(other.obsolete_presets.filaments));
-    append(this->obsolete_presets.sla_materials, std::move(other.obsolete_presets.sla_materials));
-	append(this->obsolete_presets.printers,      std::move(other.obsolete_presets.printers));
-	append(duplicate_prints, std::move(duplicate_sla_prints));
-	append(duplicate_prints, std::move(duplicate_filaments));
-    append(duplicate_prints, std::move(duplicate_sla_materials));
-    append(duplicate_prints, std::move(duplicate_printers));
-    m_errors += other.m_errors;
-    return duplicate_prints;
+    for (PresetBundle *other : others)
+        this->vendors.insert(other->vendors.begin(), other->vendors.end());
+    std::vector<std::vector<std::string>> duplicates(others.size());
+    auto merge = [&](auto collection) {
+        std::vector<PresetCollection*> other_collections;
+        for (PresetBundle *other : others)
+            other_collections.push_back(&(other->*collection));
+        std::vector<std::vector<std::string>> collection_duplicates = (this->*collection).merge_presets(other_collections, this->vendors);
+        for (size_t i = 0; i < others.size(); ++ i)
+            append(duplicates[i], std::move(collection_duplicates[i]));
+    };
+    merge(&PresetBundle::prints);
+    merge(&PresetBundle::sla_prints);
+    merge(&PresetBundle::filaments);
+    merge(&PresetBundle::sla_materials);
+    merge(&PresetBundle::printers);
+    for (PresetBundle *other : others) {
+        append(this->obsolete_presets.prints,        std::move(other->obsolete_presets.prints));
+        append(this->obsolete_presets.sla_prints,    std::move(other->obsolete_presets.sla_prints));
+        append(this->obsolete_presets.filaments,     std::move(other->obsolete_presets.filaments));
+        append(this->obsolete_presets.sla_materials, std::move(other->obsolete_presets.sla_materials));
+        append(this->obsolete_presets.printers,      std::move(other->obsolete_presets.printers));
+        m_errors += other->m_errors;
+    }
+    return duplicates;
 }
 
 void PresetBundle::update_system_maps()

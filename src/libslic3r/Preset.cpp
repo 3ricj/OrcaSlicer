@@ -3903,28 +3903,53 @@ bool PresetCollection::select_preset_by_name_strict(const std::string &name)
     return false;
 }
 
-// Merge one vendor's presets with the other vendor's presets, report duplicates.
-std::vector<std::string> PresetCollection::merge_presets(PresetCollection &&other, const VendorMap &new_vendors)
+std::vector<std::vector<std::string>> PresetCollection::merge_presets(const std::vector<PresetCollection*> &others, const VendorMap &new_vendors)
 {
-    std::vector<std::string> duplicates;
-    for (Preset &preset : other.m_presets) {
-        if (preset.is_default || preset.is_external)
-            continue;
-        Preset key(m_type, preset.name);
-        auto it = (m_type == Preset::TYPE_FILAMENT)
-            ? std::lower_bound(m_presets.begin() + m_num_default_presets, m_presets.end(), key, filament_preset_less)
-            : std::lower_bound(m_presets.begin() + m_num_default_presets, m_presets.end(), key);
-        if (it == m_presets.end() || it->name != preset.name) {
+    auto less = [this](const Preset &a, const Preset &b) {
+        return m_type == Preset::TYPE_FILAMENT ? filament_preset_less(a, b) : a < b;
+    };
+    struct Incoming { Preset *preset; size_t source; };
+    auto incoming_less = [&less](const Incoming &a, const Incoming &b) { return less(*a.preset, *b.preset); };
+    // Each of `others` is sorted, so its presets form one sorted run.
+    std::vector<Incoming> incoming;
+    std::vector<size_t>   run_ends { 0 };
+    for (size_t source = 0; source < others.size(); ++ source) {
+        for (Preset &preset : others[source]->m_presets)
+            if (! preset.is_default && ! preset.is_external)
+                incoming.push_back({ &preset, source });
+        assert(std::is_sorted(incoming.begin() + run_ends.back(), incoming.end(), incoming_less));
+        run_ends.push_back(incoming.size());
+    }
+    // Merged pairwise and stably, so equal names stay in the order of `others`.
+    const size_t runs = others.size();
+    for (size_t width = 1; width < runs; width *= 2)
+        for (size_t i = 0; i + width < runs; i += 2 * width)
+            std::inplace_merge(incoming.begin() + run_ends[i], incoming.begin() + run_ends[i + width],
+                               incoming.begin() + run_ends[std::min(i + 2 * width, runs)], incoming_less);
+
+    std::vector<std::vector<std::string>> duplicates(others.size());
+    std::deque<Preset> merged;
+    auto own = m_presets.begin() + m_num_default_presets;
+    std::move(m_presets.begin(), own, std::back_inserter(merged));
+    // On equal names this collection's preset is kept, else the earliest of `others`,
+    // and each repeat is listed under the collection it came from.
+    for (auto next = incoming.begin(); own != m_presets.end() || next != incoming.end();) {
+        if (next == incoming.end() || (own != m_presets.end() && ! less(*next->preset, *own)))
+            merged.emplace_back(std::move(*own ++));
+        else {
+            Preset &preset = *(next ++)->preset;
             if (preset.vendor != nullptr) {
                 // Re-assign a pointer to the vendor structure in the new PresetBundle.
                 auto it = new_vendors.find(preset.vendor->id);
                 assert(it != new_vendors.end());
                 preset.vendor = &it->second;
             }
-            m_presets.emplace(it, std::move(preset));
-        } else
-            duplicates.emplace_back(std::move(preset.name));
+            merged.emplace_back(std::move(preset));
+        }
+        for (; next != incoming.end() && next->preset->name == merged.back().name; ++ next)
+            duplicates[next->source].emplace_back(next->preset->name);
     }
+    m_presets = std::move(merged);
     return duplicates;
 }
 

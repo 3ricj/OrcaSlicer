@@ -170,7 +170,7 @@ merged in a stable order:
 
 ```mermaid
 flowchart LR
-    lib["1 · OrcaFilamentLibrary loaded;<br/>meanwhile every other vendor read<br/>from its cache or its JSONs"] --> par["2 · every other vendor installed<br/>in parallel, each into its own bundle,<br/>filaments resolving against the library"] --> merge["3 · bundles merged into one,<br/>sequentially, in stable vendor order"]
+    lib["1 · OrcaFilamentLibrary loaded;<br/>meanwhile every other vendor read<br/>from its cache or its JSONs"] --> par["2 · every other vendor installed<br/>in parallel, each into its own bundle,<br/>filaments resolving against the library"] --> merge["3 · bundles merged into one,<br/>in one pass per collection,<br/>in stable vendor order"]
 ```
 
 `PresetBundle::load_vendors` runs these steps for startup and for the setup wizard,

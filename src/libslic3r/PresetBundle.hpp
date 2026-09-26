@@ -641,8 +641,10 @@ public:
         const std::atomic<bool>* cancel = nullptr, std::vector<std::string>* failed = nullptr);
 
 private:
-    // Merge one vendor's presets with the other vendor's presets, report duplicates.
-    std::vector<std::string>    merge_presets(PresetBundle &&other);
+    // Move the presets and vendor profiles of `others` into this bundle, in one pass
+    // over each collection. A preset whose name this bundle or an earlier one of
+    // `others` already has is left out and listed under the bundle that repeats it.
+    std::vector<std::vector<std::string>> merge_presets(const std::vector<PresetBundle*> &others);
 
     // What parsing one entry's JSON sub-file reported. Its errors and warnings are
     // logged when the entry installs, so they come out in listing order with the
