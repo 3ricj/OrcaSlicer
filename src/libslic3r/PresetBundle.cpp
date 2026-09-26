@@ -6656,6 +6656,7 @@ PresetBundle::PresetInstall PresetBundle::resolve_vendor_preset(const CachedPres
     const VendorProfile&      current_vendor_profile = *install.vendor_profile;
     const std::string&        preset_name = entry.name;
     const DynamicPrintConfig* default_config = nullptr;
+    const bool                retain = install.is_from_lib || install.inherited.count(preset_name) != 0;
 
     PresetInstall out;
     out.filament_id  = entry.filament_id;
@@ -6723,6 +6724,8 @@ PresetBundle::PresetInstall PresetBundle::resolve_vendor_preset(const CachedPres
                              " contains incorrect keys: " + incorrect_keys + ", which were removed");
     if (entry.instantiation == "false" && "Template" != vendor_name) {
         out.config_only = true;
+        if (retain)
+            out.retained = std::move(out.config);
         return out;
     }
     if (out.config.has("alias"))
@@ -6814,6 +6817,8 @@ PresetBundle::PresetInstall PresetBundle::resolve_vendor_preset(const CachedPres
         out.file_path = (boost::filesystem::path(data_dir()) / vendor_name / entry.sub_path).make_preferred().string();
     if (m_preserve_vendor_source_paths)
         out.file_path = (boost::filesystem::path(path) / vendor_name / entry.sub_path).make_preferred().string();
+    if (retain)
+        out.retained = out.config;
     return out;
 }
 
@@ -6832,11 +6837,9 @@ std::string PresetBundle::commit_vendor_preset(const CachedPreset& entry, Preset
     if (! resolved.reason.empty())
         return resolved.reason;
 
-    const bool retain_config = install.is_from_lib || install.inherited.count(preset_name) != 0;
-
     if (resolved.config_only) {
-        if (retain_config)
-            install.config_maps.emplace(preset_name, std::move(resolved.config));
+        if (resolved.retained)
+            install.config_maps.emplace(preset_name, std::move(*resolved.retained));
         if ((presets_collection->type() == Preset::TYPE_FILAMENT) && (!resolved.filament_id.empty()))
             install.filament_id_maps.emplace(preset_name, resolved.filament_id);
         return std::string();
@@ -6890,8 +6893,8 @@ std::string PresetBundle::commit_vendor_preset(const CachedPreset& entry, Preset
         install.substitutions->push_back({
             preset_name, presets_collection->type(), PresetConfigSubstitutions::Source::ConfigBundle,
             std::string(), std::move(substitutions) });
-    if (retain_config)
-        install.config_maps.emplace(preset_name, loaded.config);
+    if (resolved.retained)
+        install.config_maps.emplace(preset_name, std::move(*resolved.retained));
     ++install.count;
     //BBS: add config related logs
     BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << ", got preset " << loaded.name << ", filament_id " << loaded.filament_id

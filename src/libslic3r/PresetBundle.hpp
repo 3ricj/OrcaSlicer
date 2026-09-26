@@ -729,6 +729,9 @@ private:
         std::vector<std::string> errors;
         // What a base states for the presets that include it, when it is retained.
         std::optional<DynamicPrintConfig> included;
+        // The config kept for the entries that inherit this one, or for other
+        // vendors when this is the filament library.
+        std::optional<DynamicPrintConfig> retained;
         // Not instantiated, so it contributes a config and no preset.
         bool                     config_only { false };
         // Non-empty when the entry is rejected, and says why.
