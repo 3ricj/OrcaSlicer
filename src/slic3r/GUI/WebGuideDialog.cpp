@@ -32,7 +32,6 @@
 #include <boost/cast.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/filesystem.hpp>
-#include <algorithm>
 #include <unordered_map>
 
 #include "MainFrame.hpp"
@@ -1463,17 +1462,17 @@ bool GuideFrame::BuildProfileDataFromVendors()
 
         // Each vendor comes from its preset cache where one covers it, which is
         // what makes this worth doing instead of the scan below.
-        PresetBundle bundle;
+        PresetBundle             bundle;
+        std::vector<std::string> failed;
         const std::string errors = bundle.load_vendors(ordered, ForwardCompatibilitySubstitutionRule::EnableSilent,
-                                                       /*allow_cache=*/true, m_cancel_token.get()).second;
+                                                       /*allow_cache=*/true, m_cancel_token.get(), &failed).second;
         if (*m_cancel_token || bundle.vendors.empty())
             return false;
         if (! errors.empty())
             BOOST_LOG_TRIVIAL(warning) << "GuideFrame: loading the vendors reported: " << errors;
         // A vendor that failed to load sends this open to the scan below, which lists
         // what it can read of every vendor.
-        if (! std::all_of(ordered.begin(), ordered.end(),
-                          [&bundle](const PresetBundle::VendorSource& v) { return bundle.vendors.count(v.name) != 0; }))
+        if (! failed.empty())
             return false;
         if (! BuildProfileJson(bundle, /*require_all_resource_vendors=*/false))
             return false;

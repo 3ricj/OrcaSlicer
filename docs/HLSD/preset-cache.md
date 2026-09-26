@@ -162,13 +162,15 @@ cache nothing can invalidate is worse than no cache.
 
 Vendors load in a fixed order, because filament inheritance crosses exactly one
 boundary: any vendor's filament may inherit from the shared Orca filament library,
-and nothing else reaches across vendors — an `include` is always vendor-local. The
-library therefore goes first, alone; every other vendor follows in parallel, resolving
-against it; and the results are merged in a stable order:
+and nothing else reaches across vendors — an `include` is always vendor-local. Only
+installing a vendor's presets crosses it; reading the vendor, from its cache or its
+JSONs, needs nothing from the library. So every other vendor is read while the library
+loads, each is installed against it as soon as both are done, and the results are
+merged in a stable order:
 
 ```mermaid
 flowchart LR
-    lib["1 · OrcaFilamentLibrary<br/>loaded first, synchronously"] --> par["2 · every other vendor in parallel,<br/>each into its own bundle, filaments<br/>resolving against the loaded library"] --> merge["3 · bundles merged into one,<br/>sequentially, in stable vendor order"]
+    lib["1 · OrcaFilamentLibrary loaded;<br/>meanwhile every other vendor read<br/>from its cache or its JSONs"] --> par["2 · every other vendor installed<br/>in parallel, each into its own bundle,<br/>filaments resolving against the library"] --> merge["3 · bundles merged into one,<br/>sequentially, in stable vendor order"]
 ```
 
 `PresetBundle::load_vendors` runs these steps for startup and for the setup wizard,
@@ -275,12 +277,13 @@ Any change to the set — a vendor added, removed or updated, or its cache-only
 `.opc` replaced by a newer one — changes the stamps and retires the whole file;
 the wizard then rebuilds the bundle with `PresetBundle::load_vendors`, the load
 startup uses (per-vendor caches serving where they cover), and writes the catalog
-back. When a vendor fails to load, that open falls back to the wizard's own scan of
-the vendor JSONs, as when no bundle can be built, and writes nothing. Selections,
-region and per-open decorations are applied downstream of the cache either way, so a
-served catalog is indistinguishable from a rebuilt one. Nothing ships this file and
-the updater never touches it; it is a locally written artifact, re-derived whenever
-stale, written through a temp file and rename so half a cache is never readable.
+back. When a vendor fails to load, the filament library included, that open falls
+back to the wizard's own scan of the vendor JSONs, as when no bundle can be built,
+and writes nothing. Selections, region and per-open decorations are applied
+downstream of the cache either way, so a served catalog is indistinguishable from a
+rebuilt one. Nothing ships this file and the updater never touches it; it is a
+locally written artifact, re-derived whenever stale, written through a temp file and
+rename so half a cache is never readable.
 
 The cache lives under `<data_dir>/cache/`, not beside the vendors: everything that
 scans `<data_dir>/system/` treats any `.opc` there as a vendor, so a non-vendor

@@ -39,6 +39,7 @@
 #include <miniz/miniz.h>
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_for.h>
+#include <tbb/task_group.h>
 #include <tbb/partitioner.h>
 
 // Mark string for localization and translate.
@@ -2522,18 +2523,17 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_pre
 }
 
 std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_vendors(const std::vector<VendorSource>& vendors,
-    ForwardCompatibilitySubstitutionRule compatibility_rule, bool allow_cache, const std::atomic<bool>* cancel)
+    ForwardCompatibilitySubstitutionRule compatibility_rule, bool allow_cache, const std::atomic<bool>* cancel,
+    std::vector<std::string>* failed)
 {
-    const auto load_t0   = std::chrono::steady_clock::now();
-    auto       canceled  = [cancel] { return cancel != nullptr && cancel->load(); };
+    const auto load_t0  = std::chrono::steady_clock::now();
+    auto       canceled = [cancel] { return cancel != nullptr && cancel->load(); };
 
     PresetsConfigSubstitutions  substitutions;
     std::string                 errors_cummulative;
     bool first = true;
-    // Separate ORCA_FILAMENT_LIBRARY from other vendors. It must be loaded
-    // first because other vendors' filaments may inherit from it via the
-    // `base_bundle` lookup in install_vendor. The remaining vendors are
-    // independent (no cross-vendor inheritance) and can be loaded in parallel.
+    // Other vendors inherit from nothing but the library, and only installing them
+    // looks it up, so each is read while it loads and installed once both are done.
     const VendorSource*              orca_lib = nullptr;
     std::vector<const VendorSource*> other_vendors;
     other_vendors.reserve(vendors.size());
@@ -2544,7 +2544,87 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_vendors(co
             other_vendors.push_back(&vendor);
     }
 
-    // Step 1: Load ORCA_FILAMENT_LIBRARY into `this` synchronously.
+    // One of the other vendors, loaded into a PresetBundle of its own.
+    struct VendorLoad
+    {
+        const VendorSource*           source { nullptr };
+        std::unique_ptr<PresetBundle> bundle;
+        VendorRead                    read;
+        PresetsConfigSubstitutions    substitutions;
+        std::string                   error;
+        // Counts the vendor's read and the library load; the second to finish installs it.
+        std::atomic<int>              ready { 0 };
+    };
+    std::vector<VendorLoad> loads(other_vendors.size());
+    for (size_t i = 0; i < other_vendors.size(); ++i)
+        loads[i].source = other_vendors[i];
+
+    // Started slowest first, since the load ends when the slowest vendor does.
+    std::vector<size_t> by_cost(loads.size());
+    std::iota(by_cost.begin(), by_cost.end(), size_t(0));
+    // A parse from JSON costs far more than any cache load, so parses go first, and
+    // within each group the bigger file, the cache or the <vendor>.json that lists what
+    // to parse. A cache older than its profile is ordered as a parse.
+    const bool reads_caches = allow_cache && ! validation_mode;
+    std::vector<std::pair<bool, uintmax_t>> vendor_costs(loads.size());
+    for (size_t i = 0; i < loads.size(); ++i) {
+        const VendorSource&           vendor  = *loads[i].source;
+        const boost::filesystem::path cache   = vendor.dir / (vendor.name + ".opc");
+        const boost::filesystem::path profile = vendor.dir / (vendor.name + ".json");
+        boost::system::error_code ec, profile_ec;
+        const uintmax_t cache_size = reads_caches ? boost::filesystem::file_size(cache, ec) : 0;
+        if (reads_caches && ! ec) {
+            const std::time_t profile_time = boost::filesystem::last_write_time(profile, profile_ec);
+            if (profile_ec || profile_time <= boost::filesystem::last_write_time(cache, ec)) {
+                vendor_costs[i] = { false, cache_size };
+                continue;
+            }
+        }
+        const uintmax_t profile_size = boost::filesystem::file_size(profile, profile_ec);
+        vendor_costs[i] = { true, profile_ec ? 0 : profile_size };
+    }
+    std::stable_sort(by_cost.begin(), by_cost.end(),
+        [&](size_t a, size_t b) { return vendor_costs[a] > vendor_costs[b]; });
+
+    // A vendor that failed to read, or that is still to install when `cancel` is
+    // set, is left out.
+    auto install = [&](VendorLoad& load) {
+        if (load.bundle && ! canceled()) {
+            try {
+                load.substitutions = load.bundle->install_vendor_read(std::move(load.read), this).first;
+            } catch (const std::runtime_error &err) {
+                load.error = err.what();
+                load.bundle.reset();
+            }
+        } else
+            load.bundle.reset();
+        load.read = VendorRead();
+    };
+    tbb::task_group group;
+    group.run([&] {
+        // An auto_partitioner splits the range only while a worker is asking for work,
+        // which at this size left every vendor on the calling thread.
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, loads.size(), 1),
+            [&](const tbb::blocked_range<size_t>& range) {
+                for (size_t k = range.begin(); k < range.end(); ++k) {
+                    VendorLoad& load = loads[by_cost[k]];
+                    if (! canceled()) {
+                        try {
+                            auto bundle = std::make_unique<PresetBundle>();
+                            bundle->set_is_validation_mode(validation_mode);
+                            bundle->set_generate_vendor_caches(m_generate_vendor_caches);
+                            load.read   = bundle->read_vendor(load.source->dir.string(), load.source->name,
+                                                              PresetBundle::LoadSystem, compatibility_rule, allow_cache);
+                            load.bundle = std::move(bundle);
+                        } catch (const std::runtime_error &err) {
+                            load.error = err.what();
+                        }
+                    }
+                    if (++ load.ready == 2)
+                        install(load);
+                }
+            }, tbb::simple_partitioner());
+    });
     if (orca_lib != nullptr && ! canceled()) {
         try {
             // Match a fresh launch before parsing: hold aliases and the error
@@ -2560,77 +2640,33 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_vendors(co
                 throw err;
             errors_cummulative += err.what();
             errors_cummulative += "\n";
+            if (failed != nullptr)
+                failed->push_back(orca_lib->name);
         }
     }
+    for (size_t k : by_cost)
+        if (++ loads[k].ready == 2)
+            group.run([&install, &load = loads[k]] { install(load); });
+    group.wait();
 
-    // Step 2: Load remaining vendors in parallel. Each gets its own
-    // PresetBundle and uses `this` (which contains ORCA_FILAMENT_LIBRARY)
-    // as the base_bundle for cross-bundle inheritance lookups.
-    std::vector<std::unique_ptr<PresetBundle>>      parallel_bundles(other_vendors.size());
-    std::vector<PresetsConfigSubstitutions>         parallel_substitutions(other_vendors.size());
-    std::vector<std::string>                        parallel_errors(other_vendors.size());
-
-    // Started slowest first, since this step ends when the slowest vendor does.
-    std::vector<size_t> by_cost(other_vendors.size());
-    std::iota(by_cost.begin(), by_cost.end(), size_t(0));
-    // A vendor with no cache is parsed from its JSONs, which costs far more than
-    // any cache load, so those come first, and within each group the bigger file
-    // goes first, the cache or the <vendor>.json that names every preset to parse.
-    std::vector<std::pair<bool, uintmax_t>> vendor_costs(other_vendors.size());
-    for (size_t i = 0; i < other_vendors.size(); ++i) {
-        const VendorSource& vendor = *other_vendors[i];
-        boost::system::error_code ec;
-        const uintmax_t cache_size = boost::filesystem::file_size(vendor.dir / (vendor.name + ".opc"), ec);
-        if (! ec) {
-            vendor_costs[i] = { false, cache_size };
-            continue;
-        }
-        const uintmax_t index_size = boost::filesystem::file_size(vendor.dir / (vendor.name + ".json"), ec);
-        vendor_costs[i] = { true, ec ? 0 : index_size };
-    }
-    std::stable_sort(by_cost.begin(), by_cost.end(),
-        [&](size_t a, size_t b) { return vendor_costs[a] > vendor_costs[b]; });
-
-    // An auto_partitioner splits the range only while a worker is asking for work,
-    // which at this size left every vendor on the calling thread.
-    tbb::parallel_for(tbb::blocked_range<size_t>(0, other_vendors.size(), 1),
-        [&](const tbb::blocked_range<size_t>& range) {
-            for (size_t k = range.begin(); k < range.end(); ++k) {
-                const size_t i = by_cost[k];
-                if (canceled())
-                    continue;
-                const VendorSource& vendor = *other_vendors[i];
-                auto bundle = std::make_unique<PresetBundle>();
-                bundle->set_is_validation_mode(validation_mode);
-                bundle->set_generate_vendor_caches(m_generate_vendor_caches);
-                try {
-                    auto result = bundle->load_vendor_configs_from_json(
-                        vendor.dir.string(), vendor.name, PresetBundle::LoadSystem, compatibility_rule, this, allow_cache);
-                    parallel_substitutions[i] = std::move(result.first);
-                    parallel_bundles[i] = std::move(bundle);
-                } catch (const std::runtime_error &err) {
-                    parallel_errors[i] = err.what();
-                }
-            }
-        }, tbb::simple_partitioner());
-
-    // Step 3: Sequentially merge the parallel-loaded bundles into `this`.
-    // The merge order is the original vendor order so any duplicate-warning
-    // output stays stable across runs.
-    for (size_t i = 0; i < other_vendors.size(); ++i) {
-        if (!parallel_errors[i].empty()) {
+    // Merged in the original vendor order, so any duplicate-warning output stays
+    // stable across runs.
+    for (VendorLoad& load : loads) {
+        if (! load.error.empty()) {
             if (validation_mode)
-                throw std::runtime_error(parallel_errors[i]);
-            errors_cummulative += parallel_errors[i];
+                throw std::runtime_error(load.error);
+            errors_cummulative += load.error;
             errors_cummulative += "\n";
+            if (failed != nullptr)
+                failed->push_back(load.source->name);
             continue;
         }
-        if (!parallel_bundles[i])
+        if (! load.bundle)
             continue;
 
-        const std::string& vendor_name = other_vendors[i]->name;
-        append(substitutions, std::move(parallel_substitutions[i]));
-        std::vector<std::string> duplicates = this->merge_presets(std::move(*parallel_bundles[i]));
+        const std::string& vendor_name = load.source->name;
+        append(substitutions, std::move(load.substitutions));
+        std::vector<std::string> duplicates = this->merge_presets(std::move(*load.bundle));
         first = false;
         if (!duplicates.empty()) {
             errors_cummulative += "Found duplicated settings in vendor " + vendor_name + "'s json file lists: ";
@@ -6994,12 +7030,14 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_vendor_configs_
     const std::string &dir, const std::string &vendor_name, LoadConfigBundleAttributes flags,
     ForwardCompatibilitySubstitutionRule compatibility_rule, const PresetBundle* base_bundle, bool allow_cache)
 {
-    // Enable substitutions for user config bundle, throw an exception when loading a system profile.
-    ConfigSubstitutionContext  substitution_context { compatibility_rule };
-    PresetsConfigSubstitutions substitutions;
-    // Errors already on this bundle when the load began; the cache stamp below
-    // counts only what this parse adds.
-    const int errors_at_entry = m_errors;
+    return this->install_vendor_read(this->read_vendor(dir, vendor_name, flags, compatibility_rule, allow_cache), base_bundle);
+}
+
+PresetBundle::VendorRead PresetBundle::read_vendor(const std::string& dir, const std::string& vendor_name,
+    LoadConfigBundleAttributes flags, ForwardCompatibilitySubstitutionRule compatibility_rule, bool allow_cache)
+{
+    VendorRead read { dir, vendor_name, flags, compatibility_rule };
+    read.errors_at_entry = m_errors;
 
     //BBS: add config related logs
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(" enter, path %1%, compatibility_rule %2%")%dir.c_str()%compatibility_rule;
@@ -7009,16 +7047,34 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_vendor_configs_
 
     // Orca: only a whole-vendor load has a cache — the vendor-only and filament-only
     // scans want a slice of one. Validation reads the JSONs whatever is cached.
-    const boost::filesystem::path dir_path(dir);
-    const bool cacheable = allow_cache && flags.has(LoadConfigBundleAttribute::LoadSystem) && ! flags.has(LoadConfigBundleAttribute::LoadFilamentOnly);
-    if (cacheable && ! validation_mode && this->load_vendor_cache(dir_path, vendor_name, base_bundle)) {
-        size_t presets_loaded = 0;
-        for (const PresetCollection* coll : std::initializer_list<const PresetCollection*>{
-                 &this->prints, &this->sla_prints, &this->filaments, &this->sla_materials, &this->printers })
-            presets_loaded += coll->m_presets.size() - coll->m_num_default_presets;
-        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(", %1% served from its preset cache, %2% presets")%vendor_name%presets_loaded;
-        return std::make_pair(std::move(substitutions), presets_loaded);
+    read.cacheable = allow_cache && flags.has(LoadConfigBundleAttribute::LoadSystem) && ! flags.has(LoadConfigBundleAttribute::LoadFilamentOnly);
+    if (read.cacheable && ! validation_mode) {
+        // A vendor is loaded from where it is installed and nowhere else; resources
+        // reaches the app by being installed into `dir` first. The cache there is
+        // judged against the profile beside it — or, where the cache is the whole
+        // of the installation, against nothing, since nothing on disk can then be
+        // newer than it. That state is Semver::inf(), which no real profile carries.
+        const boost::filesystem::path dir_path(dir);
+        const boost::filesystem::path profile = dir_path / (vendor_name + ".json");
+        const Semver version = boost::filesystem::exists(profile) ? get_version_from_json(profile.string()) : Semver::inf();
+        read.cache_path = (dir_path / (vendor_name + ".opc")).string();
+        read.from_cache = VendorCacheFile::load(read.cache_path, vendor_name, version, read.data);
+        if (read.from_cache)
+            return read;
     }
+    this->parse_vendor_json(read);
+    return read;
+}
+
+void PresetBundle::parse_vendor_json(VendorRead& read)
+{
+    // Starts over from what read_vendor was asked for, since a cache that could
+    // not be installed leaves its own state behind.
+    read = VendorRead { std::move(read.dir), std::move(read.vendor_name), read.flags, read.compatibility_rule,
+                        read.errors_at_entry, read.cacheable };
+    const std::string&         dir         = read.dir;
+    const std::string&         vendor_name = read.vendor_name;
+    LoadConfigBundleAttributes flags       = read.flags;
 
     // 1) load the vroot json and construct the vendor profile
     VendorProfile vendor_profile(vendor_name);
@@ -7239,11 +7295,12 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_vendor_configs_
 
     BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(", loaded vendor profile, name %1%, id %2%, version %3%")%vendor_profile.name%vendor_profile.id%vendor_profile.config_version.to_string();
 
-    if (flags.has(LoadConfigBundleAttribute::LoadVendorOnly))
-        return std::make_pair(PresetsConfigSubstitutions{}, 0);
+    if (flags.has(LoadConfigBundleAttribute::LoadVendorOnly)) {
+        read.vendor_only = true;
+        return;
+    }
 
     // 3) paste the process/filament/print configs
-    size_t                   presets_loaded = 0;
 
     // Parse one subfile into a source-form entry — everything the JSON states,
     // nothing resolved. Installing the entries (install_vendor) is the
@@ -7332,26 +7389,23 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_vendor_configs_
     // and stamped with the version that profile claims — a profile without one
     // cannot be judged for staleness later, and a cache nothing can invalidate is
     // worse than none.
-    const bool will_cache = cacheable && m_generate_vendor_caches && vendor_profile.config_version.valid();
-    VendorCacheData cache_data;
+    read.will_cache = read.cacheable && m_generate_vendor_caches && vendor_profile.config_version.valid();
+    read.version    = vendor_profile.config_version.to_string();
+    // Enable substitutions for user config bundle, throw an exception when loading a system profile.
+    ConfigSubstitutionContext substitution_context { read.compatibility_rule };
     // Parsed up to the first sub-file that fails, and the ones before it are
     // installed before that failure is raised, since the filament library and a
     // filament-only scan keep what a throwing load installed.
-    VendorParse parsed;
-    std::string reason;
-    std::string              failed_subfile;
-    const char*              failed_kind = nullptr;
-    std::vector<std::string> failed_errors;
     auto parse_subfiles = [&](const std::vector<std::pair<std::string, std::string>>& subfiles,
                               std::vector<CachedPreset>& entries, std::vector<EntryParse>& entries_parsed, const char* kind) {
         for (const auto& subfile : subfiles) {
             CachedPreset             entry;
             std::vector<std::string> errors, warnings;
-            reason = parse_subfile(substitution_context, subfile, entry, errors, warnings);
-            if (! reason.empty()) {
-                failed_subfile = subfile.second;
-                failed_kind    = kind;
-                failed_errors  = std::move(errors);
+            read.reason = parse_subfile(substitution_context, subfile, entry, errors, warnings);
+            if (! read.reason.empty()) {
+                read.failed_subfile = subfile.second;
+                read.failed_kind    = kind;
+                read.failed_errors  = std::move(errors);
                 return false;
             }
             entries.emplace_back(std::move(entry));
@@ -7359,40 +7413,60 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_vendor_configs_
         }
         return true;
     };
-    {
-        // One setter for every sub-file, so the ones load_from_json makes have
-        // nothing to set.
-        CNumericLocalesSetter locales_setter;
-        if (parse_subfiles(process_subfiles, cache_data.process_entries, parsed.process_entries, "process") &&
-            parse_subfiles(filament_subfiles, cache_data.filament_entries, parsed.filament_entries, "filament"))
-            parse_subfiles(machine_subfiles, cache_data.machine_entries, parsed.machine_entries, "printer");
+    // One setter for every sub-file, so the ones load_from_json makes have
+    // nothing to set.
+    CNumericLocalesSetter locales_setter;
+    if (parse_subfiles(process_subfiles, read.data.process_entries, read.parsed.process_entries, "process") &&
+        parse_subfiles(filament_subfiles, read.data.filament_entries, read.parsed.filament_entries, "filament"))
+        parse_subfiles(machine_subfiles, read.data.machine_entries, read.parsed.machine_entries, "printer");
+}
+
+std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::install_vendor_read(VendorRead&& read, const PresetBundle* base_bundle)
+{
+    const std::string&         dir         = read.dir;
+    const std::string&         vendor_name = read.vendor_name;
+    PresetsConfigSubstitutions substitutions;
+    if (read.from_cache) {
+        if (this->install_vendor_cache(read.cache_path, vendor_name, std::move(read.data), base_bundle)) {
+            size_t presets_loaded = 0;
+            for (const PresetCollection* coll : std::initializer_list<const PresetCollection*>{
+                     &this->prints, &this->sla_prints, &this->filaments, &this->sla_materials, &this->printers })
+                presets_loaded += coll->m_presets.size() - coll->m_num_default_presets;
+            BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(", %1% served from its preset cache, %2% presets")%vendor_name%presets_loaded;
+            return std::make_pair(std::move(substitutions), presets_loaded);
+        }
+        this->parse_vendor_json(read);
     }
+    if (read.vendor_only)
+        return std::make_pair(PresetsConfigSubstitutions{}, 0);
+
     int parse_errors = 0;
-    for (const std::vector<EntryParse>* list : { &parsed.process_entries, &parsed.filament_entries, &parsed.machine_entries })
+    for (const std::vector<EntryParse>* list : { &read.parsed.process_entries, &read.parsed.filament_entries, &read.parsed.machine_entries })
         for (const EntryParse& entry_parsed : *list)
             parse_errors += int(entry_parsed.errors.size());
-    const int errors_before_install = m_errors;
-    presets_loaded = install_vendor(dir, vendor_name, base_bundle, flags, cache_data, &parsed, reason.empty(), substitutions);
+    const int    errors_before_install = m_errors;
+    const size_t presets_loaded = install_vendor(dir, vendor_name, base_bundle, read.flags, read.data, &read.parsed,
+                                                 read.reason.empty(), substitutions);
     // Errors added by install are counted apart: a cache load runs install again,
     // so the parse_errors stamped into the cache must hold only what a cache load
     // will not recount.
     const int install_errors = m_errors - errors_before_install - parse_errors;
-    if (! reason.empty()) {
-        log_errors(failed_errors);
+    if (! read.reason.empty()) {
+        log_errors(read.failed_errors);
         ++m_errors;
         //parse error
-        std::string subfile_path = dir + "/" + vendor_name + "/" + failed_subfile;
-        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << boost::format(", got error when parse %1% setting from %2%") % failed_kind % subfile_path;
+        std::string subfile_path = dir + "/" + vendor_name + "/" + read.failed_subfile;
+        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << boost::format(", got error when parse %1% setting from %2%") % read.failed_kind % subfile_path;
         throw failed_loading_error(subfile_path, dir);
     }
 
-    if (will_cache) {
+    if (read.will_cache) {
         // Clamped: the count is a difference of three tallies, and a stamp that
         // wrapped would be added to every future load of this vendor.
-        cache_data.parse_errors = uint64_t(std::max(0, m_errors - errors_at_entry - install_errors));
-        cache_data.vendors      = this->vendors;
-        if (! VendorCacheFile::save((dir_path / (vendor_name + ".opc")).string(), vendor_name,
-                                    vendor_profile.config_version.to_string(), cache_data))
+        read.data.parse_errors = uint64_t(std::max(0, m_errors - read.errors_at_entry - install_errors));
+        read.data.vendors      = this->vendors;
+        if (! VendorCacheFile::save((boost::filesystem::path(dir) / (vendor_name + ".opc")).string(), vendor_name,
+                                    read.version, read.data))
             BOOST_LOG_TRIVIAL(warning) << "PresetBundle: failed to save vendor cache for " << vendor_name;
     }
 
@@ -8107,33 +8181,26 @@ bool BundleMetadata::save_to_json(const std::string& path) const
 // ---- Per-vendor preset cache: install into this bundle -------------------
 // The file format itself lives in PresetCacheFormat.cpp (VendorCacheFile).
 
-bool PresetBundle::load_vendor_cache(const boost::filesystem::path& dir, const std::string& vendor_name, const PresetBundle* base_bundle)
-{
-    // A vendor is loaded from where it is installed and nowhere else; resources
-    // reaches the app by being installed into `dir` first. The cache there is
-    // judged against the profile beside it — or, where the cache is the whole
-    // of the installation, against nothing, since nothing on disk can then be
-    // newer than it. That state is Semver::inf(), which no real profile carries.
-    const boost::filesystem::path profile = dir / (vendor_name + ".json");
-    const Semver version = boost::filesystem::exists(profile) ? get_version_from_json(profile.string())
-                                                              : Semver::inf();
-    return this->load_vendor_cache((dir / (vendor_name + ".opc")).string(), vendor_name, version, base_bundle);
-}
-
 bool PresetBundle::load_vendor_cache(const std::string& cache_path, const std::string& expected_vendor_name,
                                      const Semver& expected_vendor_version, const PresetBundle* base_bundle)
 {
-    // What this bundle had counted before the cache was tried. The caller
-    // measures its own parse against this same baseline, so a rejection must
-    // put it back rather than reset it to zero.
-    const int errors_at_entry = this->m_errors;
     // Read and validated before this bundle is touched: a rejected file leaves
     // no state to roll back.
     VendorCacheData data;
     if (! VendorCacheFile::load(cache_path, expected_vendor_name, expected_vendor_version, data))
         return false;
+    // VendorCacheFile::load checked the names match.
+    return this->install_vendor_cache(cache_path, expected_vendor_name, std::move(data), base_bundle);
+}
+
+bool PresetBundle::install_vendor_cache(const std::string& cache_path, const std::string& vendor_name, VendorCacheData&& data,
+                                        const PresetBundle* base_bundle)
+{
+    // What this bundle had counted before the cache was tried. The caller
+    // measures its own parse against this same baseline, so a rejection must
+    // put it back rather than reset it to zero.
+    const int errors_at_entry = this->m_errors;
     try {
-        const std::string& vendor_name = expected_vendor_name;   // VendorCacheFile::load checked they match
         this->vendors = std::move(data.vendors);
 
         // What the parse counted before install took over; install recounts its
@@ -8146,6 +8213,10 @@ bool PresetBundle::load_vendor_cache(const std::string& cache_path, const std::s
                        LoadConfigBundleAttribute::LoadSystem, data, nullptr, true, substitutions);
         return true;
     } catch (const std::exception& e) {
+        // A cancellation of the caller's task group stops the install without
+        // anything being wrong with the cache.
+        if (tbb::is_current_task_group_canceling())
+            throw;
         BOOST_LOG_TRIVIAL(warning) << "PresetBundle: rejecting vendor cache " << cache_path << ": " << e.what();
         // Restore a clean state so the caller can fall back to the JSON parse.
         this->reset(false);

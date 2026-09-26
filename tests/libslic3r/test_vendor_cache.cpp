@@ -14,6 +14,10 @@
 #include <set>
 #include <sstream>
 
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
+#include <tbb/task_group.h>
+
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PresetCacheFormat.hpp"
 #include "libslic3r/Preset.hpp"
@@ -829,6 +833,52 @@ TEST_CASE("a vendor that fails to load is left out, reported, and the others sti
     InstallDirs dirs;
     write_vendor_tree(dirs.system, "Acme", "1.0.0");
     write_process_vendor(dirs.system, "Broken", { { "Broken A", "{not-json" } });
+    PresetBundle             bundle;
+    std::vector<std::string> failed;
+    const std::string errors = bundle.load_vendors({ { "Acme", dirs.system }, { "Broken", dirs.system } },
+                                                   ForwardCompatibilitySubstitutionRule::EnableSilent,
+                                                   /*allow_cache=*/false, nullptr, &failed).second;
+
+    CHECK(bundle.vendors.count("Acme") == 1);
+    CHECK(bundle.vendors.count("Broken") == 0);
+    CHECK(bundle.prints.find_preset("0.20mm Standard @Acme", false) != nullptr);
+    CHECK(errors.find("Broken") != std::string::npos);
+    CHECK(failed == std::vector<std::string>{ "Broken" });
+}
+
+TEST_CASE("a filament library that fails partway is reported, and vendors inheriting from it are left out", "[VendorCache]")
+{
+    InstallDirs dirs;
+    const std::string lib(PresetBundle::ORCA_FILAMENT_LIBRARY);
+    write_lib_tree(dirs.system, "1.0.0", "20");
+    std::ofstream((dirs.system / (lib + ".json")).string())
+        << R"({"version":"1.0.0","name":")" << lib << R"(","filament_list":[)"
+        << R"({"name":"Generic PLA","sub_path":"filament/generic_pla.json"},)"
+        << R"({"name":"Generic PETG","sub_path":"filament/generic_petg.json"}]})";
+    std::ofstream((dirs.system / lib / "filament" / "generic_petg.json").string()) << "{not-json";
+    write_vendor_with_lib_filament(dirs.system, "Acme", "1.0.0");
+    write_vendor_tree(dirs.system, "Zeta", "1.0.0");
+
+    PresetBundle             bundle;
+    std::vector<std::string> failed;
+    const std::string errors = bundle.load_vendors({ { "Acme", dirs.system }, { lib, dirs.system }, { "Zeta", dirs.system } },
+                                                   ForwardCompatibilitySubstitutionRule::EnableSilent,
+                                                   /*allow_cache=*/false, nullptr, &failed).second;
+
+    CHECK(failed == std::vector<std::string>{ lib, "Acme" });
+    CHECK(errors.find("generic_petg.json") != std::string::npos);
+    CHECK(bundle.vendors.count(lib) == 1);
+    CHECK(bundle.vendors.count("Acme") == 0);
+    CHECK(bundle.filaments.find_preset("Acme PLA @0.4", false) == nullptr);
+    CHECK(bundle.vendors.count("Zeta") == 1);
+    CHECK(bundle.prints.find_preset("0.20mm Standard @Zeta", false) != nullptr);
+}
+
+TEST_CASE("a vendor whose profile cannot be read is left out, reported, and the others still load", "[VendorCache]")
+{
+    InstallDirs dirs;
+    write_vendor_tree(dirs.system, "Acme", "1.0.0");
+    std::ofstream((dirs.system / "Broken.json").string()) << "{not-json";
     PresetBundle bundle;
     const std::string errors = bundle.load_vendors({ { "Acme", dirs.system }, { "Broken", dirs.system } },
                                                    ForwardCompatibilitySubstitutionRule::EnableSilent,
@@ -837,7 +887,7 @@ TEST_CASE("a vendor that fails to load is left out, reported, and the others sti
     CHECK(bundle.vendors.count("Acme") == 1);
     CHECK(bundle.vendors.count("Broken") == 0);
     CHECK(bundle.prints.find_preset("0.20mm Standard @Acme", false) != nullptr);
-    CHECK(errors.find("Broken") != std::string::npos);
+    CHECK(errors.find("Broken.json") != std::string::npos);
 }
 
 TEST_CASE("a canceled vendor load starts no vendor", "[VendorCache]")
@@ -852,6 +902,34 @@ TEST_CASE("a canceled vendor load starts no vendor", "[VendorCache]")
 
     CHECK(bundle.vendors.empty());
     CHECK(bundle.prints.find_preset("0.20mm Standard @Acme", false) == nullptr);
+}
+
+TEST_CASE("a vendor read while the filament library loads resolves against it, from JSON and from its cache", "[VendorCache]")
+{
+    InstallDirs dirs;
+    const std::string lib(PresetBundle::ORCA_FILAMENT_LIBRARY);
+    write_lib_tree(dirs.system, "1.0.0", "20");
+    write_vendor_with_lib_filament(dirs.system, "Acme", "1.0.0");
+    auto load = [&] {
+        auto bundle = std::make_unique<PresetBundle>();
+        bundle->set_generate_vendor_caches(true);
+        bundle->load_vendors({ { "Acme", dirs.system }, { lib, dirs.system } },
+                             ForwardCompatibilitySubstitutionRule::EnableSilent, /*allow_cache=*/true);
+        return bundle;
+    };
+
+    const auto from_json = load();
+    REQUIRE(fs::exists(dirs.system / "Acme.opc"));
+    fs::remove_all(dirs.system / "Acme");
+    const auto from_cache = load();
+
+    for (const PresetBundle* bundle : { from_json.get(), from_cache.get() }) {
+        const Preset* pla = bundle->filaments.find_preset("Acme PLA @0.4", false);
+        REQUIRE(pla != nullptr);
+        CHECK(pla->filament_id == "GFL99");
+        CHECK_THAT(pla->config.option<ConfigOptionFloats>("filament_cost")->values.front(), WithinAbs(20., 1e-9));
+        CHECK(bundle->error_count() == 0);
+    }
 }
 
 TEST_CASE("repeated cache loads of one vendor produce the same presets", "[VendorCache]")
@@ -1126,6 +1204,27 @@ TEST_CASE("a vendor installed as its cache alone still loads after a library upd
     CHECK_THAT(cost->values.front(), WithinAbs(30., 1e-9));
 }
 
+TEST_CASE("a cache install stopped by a canceled task group throws instead of rejecting the cache", "[VendorCache]")
+{
+    TempDir tmp;
+    const std::string cache = (tmp.path / "Acme.opc").string();
+    REQUIRE(save_one_vendor(cache, one_vendor("Acme"), "Acme", "1.0.0", {filament_entry("Acme PLA @0.4")}));
+
+    PresetBundle            bundle;
+    bool                    threw = false;
+    tbb::task_group_context context;
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, 1), [&](const tbb::blocked_range<size_t>&) {
+        context.cancel_group_execution();
+        try {
+            bundle.load_vendor_cache(cache, "Acme", Semver(1, 0, 0));
+        } catch (const std::runtime_error&) {
+            threw = true;
+        }
+    }, context);
+
+    CHECK(threw);
+}
+
 TEST_CASE("a cache entry whose parent is missing falls back to the vendor's JSONs", "[VendorCache]")
 {
     TempDir tmp;
@@ -1153,6 +1252,12 @@ TEST_CASE("a cache entry whose parent is missing falls back to the vendor's JSON
         user.string(), "Acme", PresetBundle::LoadSystem, ForwardCompatibilitySubstitutionRule::EnableSilent);
     CHECK(presets_loaded == 1);
     CHECK(out.vendors.at("Acme").name == "Acme");   // the profile's name, not the cache's
+
+    // Through load_vendors, which reads the cache before installing it.
+    PresetBundle several;
+    several.load_vendors({ { "Acme", user } }, ForwardCompatibilitySubstitutionRule::EnableSilent, /*allow_cache=*/true);
+    CHECK(several.vendors.at("Acme").name == "Acme");
+    CHECK(several.prints.find_preset("0.20mm Standard @Acme", false) != nullptr);
 }
 
 TEST_CASE("a profile with no usable version is never served from cache", "[VendorCache]")

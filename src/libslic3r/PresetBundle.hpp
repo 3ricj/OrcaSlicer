@@ -630,24 +630,19 @@ public:
         boost::filesystem::path dir;
     };
 
-    // Load `vendors` into this bundle, the Orca filament library first and alone, then
-    // every other vendor in parallel into a bundle of its own with this one to
-    // inherit from, merged in the order given. A vendor that cannot be loaded is left
-    // out and its error added to the returned text, or thrown in validation mode.
-    // Once `cancel` is set, no further vendor starts loading.
+    // Load `vendors` into this bundle, the Orca filament library directly and every
+    // other vendor in parallel into a bundle of its own that inherits from it, merged
+    // in the order given. A vendor that cannot be loaded has its error added to the
+    // returned text, or thrown in validation mode, and its name to `failed`; it is
+    // left out, except for the library, which keeps what it installed before the
+    // failure. Once `cancel` is set, no further vendor starts loading.
     std::pair<PresetsConfigSubstitutions, std::string> load_vendors(const std::vector<VendorSource>& vendors,
         ForwardCompatibilitySubstitutionRule compatibility_rule, bool allow_cache,
-        const std::atomic<bool>* cancel = nullptr);
+        const std::atomic<bool>* cancel = nullptr, std::vector<std::string>* failed = nullptr);
 
 private:
     // Merge one vendor's presets with the other vendor's presets, report duplicates.
     std::vector<std::string>    merge_presets(PresetBundle &&other);
-
-    // Load one vendor from the preset cache installed in `dir`, judged against
-    // the vendor profile there. False, with this bundle left clean, when there
-    // is no usable cache and the vendor has to be parsed. This is how
-    // load_vendor_configs_from_json reads a cache.
-    bool load_vendor_cache(const boost::filesystem::path& dir, const std::string& vendor_name, const PresetBundle* base_bundle);
 
     // What parsing one entry's JSON sub-file reported. Its errors and warnings are
     // logged when the entry installs, so they come out in listing order with the
@@ -667,6 +662,56 @@ private:
         std::vector<EntryParse> filament_entries;
         std::vector<EntryParse> machine_entries;
     };
+
+    // One vendor read from its cache or its JSONs by read_vendor, for
+    // install_vendor_read to install.
+    struct VendorRead
+    {
+        std::string                          dir;
+        std::string                          vendor_name;
+        LoadConfigBundleAttributes           flags;
+        ForwardCompatibilitySubstitutionRule compatibility_rule;
+        // The errors this bundle had counted before the read, which the cache stamp leaves out.
+        int                                  errors_at_entry { 0 };
+        // A whole-vendor load, which can read a cache and write one.
+        bool                                 cacheable { false };
+        // Read from the cache at cache_path, which install can still reject.
+        bool                                 from_cache { false };
+        std::string                          cache_path;
+        // Only the vendor profile was asked for.
+        bool                                 vendor_only { false };
+        VendorCacheData                      data;
+        // What each entry's JSON parse reported, and whether and with which version
+        // the cache is written once the entries install.
+        VendorParse                          parsed;
+        bool                                 will_cache { false };
+        std::string                          version;
+        // The sub-file the parse stopped at, its kind, why, and the errors it reported.
+        std::string                          reason;
+        std::string                          failed_subfile;
+        const char*                          failed_kind { nullptr };
+        std::vector<std::string>             failed_errors;
+    };
+
+    // Read a vendor into this bundle's vendor profiles and `data`, from its cache
+    // when one covers it, else from its JSONs; nothing is installed. Throws
+    // ConfigurationError when the vendor's own JSON cannot be parsed.
+    VendorRead read_vendor(const std::string& dir, const std::string& vendor_name, LoadConfigBundleAttributes flags,
+                           ForwardCompatibilitySubstitutionRule compatibility_rule, bool allow_cache);
+
+    // Parse the vendor's JSONs into `read`, up to the first sub-file that fails.
+    void parse_vendor_json(VendorRead& read);
+
+    // Install what read_vendor read, against base_bundle's filament library. A cache
+    // that cannot be installed is replaced by a parse of the JSONs. Throws
+    // ConfigurationError at the first entry that cannot be installed, or after
+    // installing the entries before a sub-file that could not be parsed.
+    std::pair<PresetsConfigSubstitutions, size_t> install_vendor_read(VendorRead&& read, const PresetBundle* base_bundle);
+
+    // Install a cache's entries. False, with this bundle left clean, when one of them
+    // cannot be installed.
+    bool install_vendor_cache(const std::string& cache_path, const std::string& vendor_name, VendorCacheData&& data,
+                              const PresetBundle* base_bundle);
 
     // Log and count errors reported by a resolve or a parse.
     void log_errors(const std::vector<std::string>& errors);
