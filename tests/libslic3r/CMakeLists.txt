@@ -32,6 +32,7 @@ add_executable(${_TEST_NAME}_tests
     test_mutable_priority_queue.cpp
     test_minimum_spanning_tree.cpp
     test_nozzle_volume_type.cpp
+    test_obj.cpp
     test_step.cpp
     test_stl.cpp
     test_triangle_selector.cpp
