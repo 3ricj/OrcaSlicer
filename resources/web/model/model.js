@@ -214,9 +214,9 @@ function ShowModelInfo( pModel )
 	
 	SendWXDebugInfo("Model Name:  "+sModelName);
 	
-	$('#ModelName').html(sModelName);
+	$('#ModelName').text(sModelName);
 	$('#ModelName').attr('title',sModelName);
-    $('#ModelAuthorName').html(sModelAuthor);
+    $('#ModelAuthorName').text(sModelAuthor);
 	
 	switch(UploadType)
 	{
@@ -268,7 +268,7 @@ function ShowModelInfo( pModel )
 			break;
 	}
 	
-	$('#Model_Desc').html( html_decode(sModelDesc) );
+	$('#Model_Desc').empty().append( SanitizeDescHtml( html_decode(sModelDesc) ) );
 			
 	let ModelPreviewList=pModel.preview_img;				
     let TotalPreview=ModelPreviewList.length;
@@ -410,7 +410,8 @@ function ConstructFileHtml( ID, pItem )
 {
 	let fTotal=pItem.length;
 	
-	let strHtml='';
+	let pBoard=$('#'+ID+'  .FileListBoard');
+	pBoard.empty();
 	for( let f=0;f<fTotal;f++ )
 	{
 		let pOne=pItem[f];
@@ -443,38 +444,91 @@ function ConstructFileHtml( ID, pItem )
 			ImgPath='img/default.png';			
 		}		
 			
-		//Add html
+		//Add html. File names come from the 3MF, so build the nodes rather than concatenating markup.
+		let pIconImg=$('<img />').attr('src',ImgPath);
+		let pMenu=$('<div class="FileMenu"><img src="img/s.svg" /></div>');
 		if( strClass!='ImageIcon' )
 		{
-		strHtml+='<div class="FileItem">'+
-				 '	<div class="'+strClass+'"><img src="'+ImgPath+'" /></div>'+
-				 '	<div class="FileText">'+
-			     '		<div class="FileName">'+tName+'</div>'+
-				 '	</div>'+
-				 '	<div class="FileMenu" onClick="OnClickOpenFile(\''+tPath+'\')"><img src="img/s.svg" /></div>'+
-				 '</div>';
+			pMenu.on('click', function(){ OnClickOpenFile(tPath); });
 		}
 		else
 		{
 			ImgID++;
 			let TmpImgID="AF"+ImgID;
 			
-		strHtml+='<div class="FileItem">'+
-				 '	<div class="'+strClass+'"><img id="'+TmpImgID+'" src="'+ImgPath+'" /></div>'+
-				 '	<div class="FileText">'+
-			     '		<div class="FileName">'+tName+'</div>'+
-				 '	</div>'+
-				 '	<div class="FileMenu" onClick="OnClickOpenImage(\''+TmpImgID+'\')"><img src="img/s.svg" /></div>'+
-				 '</div>';			
+			pIconImg.attr('id',TmpImgID);
+			pMenu.on('click', function(){ OnClickOpenImage(TmpImgID); });
 		}
+		
+		let pFileItem=$('<div class="FileItem"></div>');
+		pFileItem.append( $('<div></div>').addClass(strClass).append(pIconImg) );
+		pFileItem.append( $('<div class="FileText"></div>').append( $('<div class="FileName"></div>').text(tName) ) );
+		pFileItem.append( pMenu );
+		pBoard.append( pFileItem );
 	}
-	
-	$('#'+ID+'  .FileListBoard').html(strHtml);
 	
     if( fTotal>0 )
 		$('#'+ID).show();
 }
 
+
+// Descriptions are untrusted 3MF metadata that may carry rich-text HTML (e.g. from MakerWorld).
+// Rebuild them from an inert parse, keeping only plain formatting tags and http(s) links and images.
+var DescAllowedTags=['P','BR','B','STRONG','I','EM','U','S','STRIKE','SUB','SUP','SMALL','MARK',
+	'H1','H2','H3','H4','H5','H6','UL','OL','LI','BLOCKQUOTE','PRE','CODE','HR','SPAN','DIV',
+	'TABLE','THEAD','TBODY','TFOOT','TR','TH','TD','A','IMG'];
+// Dropped together with their content; any other unknown tag is unwrapped to its children.
+var DescDroppedTags=['SCRIPT','STYLE','TEMPLATE','NOSCRIPT','TEXTAREA','TITLE','IFRAME','FRAME','OBJECT','EMBED','SVG','MATH'];
+
+function IsHttpUrl( strUrl )
+{
+	return /^\s*https?:\/\//i.test(strUrl||'');
+}
+
+function CopyDescNodes( pSrc, pDst )
+{
+	for( let pNode=pSrc.firstChild;pNode!=null;pNode=pNode.nextSibling )
+	{
+		if( pNode.nodeType==Node.TEXT_NODE )
+		{
+			pDst.appendChild( document.createTextNode(pNode.nodeValue) );
+			continue;
+		}
+		if( pNode.nodeType!=Node.ELEMENT_NODE )
+			continue;
+		
+		let sTag=pNode.nodeName.toUpperCase();
+		if( $.inArray(sTag,DescDroppedTags)>=0 )
+			continue;
+		if( $.inArray(sTag,DescAllowedTags)<0 )
+		{
+			CopyDescNodes(pNode,pDst);
+			continue;
+		}
+		
+		let pElem=document.createElement(sTag);
+		if( sTag=='A' && IsHttpUrl(pNode.getAttribute('href')) )
+			pElem.setAttribute('href',pNode.getAttribute('href'));
+		else if( sTag=='IMG' )
+		{
+			if( !IsHttpUrl(pNode.getAttribute('src')) )
+				continue;
+			pElem.setAttribute('src',pNode.getAttribute('src'));
+		}
+		CopyDescNodes(pNode,pElem);
+		pDst.appendChild(pElem);
+	}
+}
+
+function SanitizeDescHtml( strHtml )
+{
+	let pFragment=document.createDocumentFragment();
+	// A DOMParser document is inert: it runs no scripts and loads no resources.
+	let pDoc=new DOMParser().parseFromString(strHtml,'text/html');
+	if( pDoc && pDoc.body )
+		CopyDescNodes(pDoc.body,pFragment);
+	return pFragment;
+}
 
 function ShowProfilelInfo( pProfile )
 {
@@ -483,10 +537,10 @@ function ShowProfilelInfo( pProfile )
 	let sProfileAuthor=decodeURIComponent(pProfile.author);
 	let sProfileDesc=decodeURIComponent(pProfile.description);
 	
-	$('#ProfileName').html(sProfileName);
-    $('#ProfileAuthor').html(sProfileAuthor);
+	$('#ProfileName').text(sProfileName);
+    $('#ProfileAuthor').text(sProfileAuthor);
 		
-	$('#Profile_Desc').html( html_decode(sProfileDesc) );
+	$('#Profile_Desc').empty().append( SanitizeDescHtml( html_decode(sProfileDesc) ) );
 			
 	let ProfilePreviewList=pProfile.preview_img;				
     let TotalPreview=ProfilePreviewList.length;

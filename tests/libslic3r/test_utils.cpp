@@ -322,3 +322,48 @@ TEST_CASE("is_symlink_target_within_root rejects a target that passes through a 
     CHECK(is_symlink_target_within_root("link", "in/lib.so", root));
 }
 #endif
+
+TEST_CASE("is_absolute_path_within_root accepts only entries inside the root", "[utils]") {
+    namespace fs = boost::filesystem;
+    ScopedTemporaryDir outer;
+    const fs::path root = outer.path() / "Auxiliaries";
+    fs::create_directories(root / "Others");
+    const fs::path inside = root / "Others" / "note.txt";
+    const fs::path outside = outer.path() / "secret.txt";
+    std::ofstream(inside.string()) << "inside";
+    std::ofstream(outside.string()) << "outside";
+
+    SECTION("a file inside the root") {
+        REQUIRE(is_absolute_path_within_root(inside, root));
+    }
+    SECTION("a path inside the root whose file does not exist yet") {
+        REQUIRE(is_absolute_path_within_root(root / "Others" / "missing.txt", root));
+    }
+    SECTION("the root itself") {
+        REQUIRE_FALSE(is_absolute_path_within_root(root, root));
+    }
+    SECTION("a parent-directory escape spelled under the root") {
+        REQUIRE_FALSE(is_absolute_path_within_root(root / "Others" / ".." / ".." / "secret.txt", root));
+    }
+    SECTION("an absolute path elsewhere") {
+        REQUIRE_FALSE(is_absolute_path_within_root(outside, root));
+    }
+    SECTION("a sibling directory sharing the root's name as a prefix") {
+        const fs::path sibling = outer.path() / "Auxiliaries2" / "note.txt";
+        REQUIRE_FALSE(is_absolute_path_within_root(sibling, root));
+    }
+    SECTION("a relative path") {
+        REQUIRE_FALSE(is_absolute_path_within_root(fs::path("Others") / "note.txt", root));
+    }
+    SECTION("an empty path") {
+        REQUIRE_FALSE(is_absolute_path_within_root(fs::path(), root));
+    }
+#ifndef _WIN32
+    // Creating symlinks on Windows needs elevated rights or developer mode.
+    SECTION("a symlink inside the root that points outside") {
+        const fs::path link = root / "Others" / "link.txt";
+        fs::create_symlink(outside, link);
+        REQUIRE_FALSE(is_absolute_path_within_root(link, root));
+    }
+#endif
+}

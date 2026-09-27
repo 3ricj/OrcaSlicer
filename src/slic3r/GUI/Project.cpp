@@ -293,9 +293,13 @@ void ProjectPanel::OnScriptMessage(wxWebViewEvent& evt)
             if (!accessory_path.empty()) {
                 std::string decode_path = wxGetApp().url_decode(accessory_path.ToStdString());
                 fs::path path(decode_path);
+                // Only open the project's own extracted auxiliary files, with the root built as in Reload().
+                fs::path aux_root(encode_path(wxGetApp().plater()->model().get_auxiliary_file_temp_path().c_str()));
 
-                if (fs::exists(path)) {
+                if (is_absolute_path_within_root(path, aux_root) && fs::is_regular_file(path)) {
                     wxLaunchDefaultApplication(path.wstring(), 0);
+                } else {
+                    BOOST_LOG_TRIVIAL(warning) << "open_3mf_accessory: ignoring path outside the project auxiliary directory: " << decode_path;
                 }
             }
         }

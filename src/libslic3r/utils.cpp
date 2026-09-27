@@ -1127,6 +1127,12 @@ bool is_symlink_target_within_root(const std::string &link_rel_path, const std::
     return is_path_within_root((sep == std::string::npos ? std::string() : link_rel_path.substr(0, sep + 1)) + target, root);
 }
 
+bool is_absolute_path_within_root(const boost::filesystem::path &path, const boost::filesystem::path &root)
+{
+    const boost::filesystem::path rel = path.lexically_relative(root);
+    return !rel.empty() && rel != "." && is_path_within_root(rel.string(), root);
+}
+
 bool is_img_file(const std::string &path)
 {
 	return boost::iends_with(path, ".png") || boost::iends_with(path, ".svg");
