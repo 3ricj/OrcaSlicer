@@ -320,6 +320,28 @@ TEST_CASE("A project with a plate id below 1 fails to load", "[3mf][Regression]"
     REQUIRE_FALSE(loaded);
 }
 
+TEST_CASE("A project with malformed paint data loads without the damaged facet", "[3mf][Regression]")
+{
+    ScopedTemporaryFile temp(".3mf");
+    store_painted_cube(temp.string());
+    // Split codes with no children behind them: the stream runs out mid-tree.
+    REQUIRE(replace_in_3mf_entry(temp.string(), ".model", "paint_color=\"8\"", "paint_color=\"FFFFFFFFFFFFFFFF3\""));
+
+    ScopedTemporaryDir backup_dir("orca_paint_dst");
+    Model              model;
+    REQUIRE(load_project(temp.string(), model, backup_dir));
+    REQUIRE(model.objects.size() == 1);
+    const ModelVolume& volume = *model.objects.front()->volumes.front();
+    const auto&        data   = volume.mmu_segmentation_facets.get_data();
+    REQUIRE_FALSE(data.used_states[size_t(EnforcerBlockerType::Extruder2)]);
+    REQUIRE(data.used_states[size_t(EnforcerBlockerType::Extruder3)]);
+
+    TriangleSelector selector(volume.mesh());
+    REQUIRE_NOTHROW(selector.deserialize(data));
+    REQUIRE(selector.num_facets(EnforcerBlockerType::Extruder2) == 0);
+    REQUIRE(selector.num_facets(EnforcerBlockerType::Extruder3) == 1);
+}
+
 // The recipe lives only in the BBS-native backend, because that is the only one that runs:
 // store_bbs_3mf is the sole exporter the app calls, and 3mf.cpp's load_3mf is reached only for
 // files fingerprinted as PrusaSlicer's, which never carry a recipe. This locks in both halves:
