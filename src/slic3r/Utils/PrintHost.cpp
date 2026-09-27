@@ -3,10 +3,13 @@
 #include <vector>
 #include <thread>
 #include <exception>
+#include <sstream>
 #include <boost/optional.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/filesystem.hpp>
 #include <nlohmann/json.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 #include <wx/string.h>
 #include <wx/app.h>
@@ -172,6 +175,20 @@ std::string moonraker_error_reason(const std::string &body)
 
 } // namespace
 
+int PrintHost::get_err_code_from_body(const std::string &body)
+{
+    boost::property_tree::ptree root;
+    std::istringstream iss(body);
+    try {
+        boost::property_tree::read_json(iss, root);
+    } catch (const std::exception &ex) {
+        BOOST_LOG_TRIVIAL(error) << "PrintHost: response is not valid JSON: " << ex.what();
+        return -1;
+    }
+
+    return root.get<int>("err", 0);
+}
+
 wxString PrintHost::format_error(const std::string &body, const std::string &error, unsigned status) const
 {
     if (status != 0) {
@@ -303,7 +320,12 @@ void PrintHostJobQueue::priv::bg_thread_main()
                 % job.cancelled;
 
             if (! job.cancelled) {
-                perform_job(std::move(job));
+                // A failing job must not stop the worker, or later jobs would stay queued forever.
+                try {
+                    perform_job(std::move(job));
+                } catch (const std::exception &e) {
+                    emit_error(e.what());
+                }
             }
 
             remove_source();

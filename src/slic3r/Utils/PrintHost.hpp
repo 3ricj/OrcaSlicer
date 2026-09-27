@@ -87,6 +87,8 @@ public:
 
     static PrintHost* get_print_host(DynamicPrintConfig *config);
     static std::string get_print_host_webui(DynamicPrintConfig *config);
+    // Reads the "err" field of a JSON reply, 0 when absent. Returns -1 when the body is not valid JSON.
+    static int get_err_code_from_body(const std::string &body);
 
     //Support for cloud webui login
     virtual bool is_cloud() const { return false; }
