@@ -152,3 +152,27 @@ TEST_CASE("resolve_cli_input_path leaves inputs that must not be completed uncha
         REQUIRE(resolve_cli_input_path("").empty());
     }
 }
+
+TEST_CASE("sanitize_file_basename keeps only a plain file name from an untrusted name", "[Utils]") {
+    const std::string unicode = "\xe6\xa8\xa1\xe5\x9e\x8b \xc3\xa9t\xc3\xa9.3mf"; // UTF-8 CJK and accented Latin
+    const auto [input, expected] = GENERATE_COPY(table<std::string, std::string>({
+        {"normal.3mf", "normal.3mf"},
+        {"../../x.3mf", "x.3mf"},
+        {"..\\..\\x.3mf", "x.3mf"},
+        {"C:\\x.3mf", "x.3mf"},
+        {"C:x.3mf", "C_x.3mf"},
+        {"/etc/x", "x"},
+        {"a/b\\c.gcode", "c.gcode"},
+        {unicode, unicode},
+    }));
+    CAPTURE(input);
+    const std::string name = sanitize_file_basename(input);
+    CHECK(name == expected);
+    CHECK(name.find_first_of("/\\:") == std::string::npos);
+}
+
+TEST_CASE("sanitize_file_basename rejects names that do not name a file", "[Utils]") {
+    const std::string input = GENERATE(as<std::string>{}, "", ".", "..", "../..", "dir/", "..\\", " ", ". .", "...");
+    CAPTURE(input);
+    CHECK(sanitize_file_basename(input).empty());
+}
