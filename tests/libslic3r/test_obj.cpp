@@ -20,8 +20,8 @@ struct LoadedObj
 };
 
 // A tetrahedron with a material and two texture coordinates, (0.25, 0.5) and (0.75, 1).
-// Only the first face is varied; the other three reference vt 1.
-LoadedObj load_textured_tetrahedron(const std::string &first_face)
+// Only the first face and the vt lines are varied; the other three faces reference vt 1.
+LoadedObj load_textured_tetrahedron(const std::string &first_face, const std::string &vts = "vt 0.25 0.5\nvt 0.75 1\n")
 {
     ScopedTemporaryFile obj(".obj");
     ScopedTemporaryFile mtl(".mtl");
@@ -33,7 +33,7 @@ LoadedObj load_textured_tetrahedron(const std::string &first_face)
         boost::nowide::ofstream out(obj.string());
         out << "mtllib " << mtl.path().filename().string() << "\n"
             << "v 0 0 0\nv 10 0 0\nv 0 10 0\nv 0 0 10\n"
-            << "vt 0.25 0.5\nvt 0.75 1\n"
+            << vts
             << "usemtl a\n"
             << first_face << "\n"
             << "f 1/1 2/1 4/1\nf 1/1 4/1 3/1\nf 2/1 3/1 4/1\n";
@@ -89,4 +89,34 @@ TEST_CASE("A negative texture index counts back from the last texture coordinate
     CHECK_THAT(uv[0].y(), WithinAbs(0.5, 1e-6));
     CHECK_THAT(uv[1].x(), WithinAbs(0.75, 1e-6));
     CHECK_THAT(uv[1].y(), WithinAbs(1., 1e-6));
+}
+
+TEST_CASE("Texture coordinates with a w component are kept", "[OBJ][Regression]")
+{
+    const LoadedObj loaded = load_textured_tetrahedron("f 1/1 3/2 2/2", "vt 0.25 0.5 0\nvt 0.75 1 0\n");
+
+    REQUIRE(loaded.ok);
+    CHECK(loaded.mesh.facets_count() == 4);
+    REQUIRE(loaded.info.uvs.size() == 4);
+    const std::array<Vec2f, 3> &uv = loaded.info.uvs.front();
+    CHECK_THAT(uv[0].x(), WithinAbs(0.25, 1e-6));
+    CHECK_THAT(uv[0].y(), WithinAbs(0.5, 1e-6));
+    CHECK_THAT(uv[1].x(), WithinAbs(0.75, 1e-6));
+    CHECK_THAT(uv[1].y(), WithinAbs(1., 1e-6));
+}
+
+TEST_CASE("A texture coordinate with w does not shift the indices of the ones after it", "[OBJ][Regression]")
+{
+    // The w on the first vt used to drop that line, so vt 2 resolved to the third coordinate.
+    const LoadedObj loaded = load_textured_tetrahedron("f 1/2 3/3 2/-1", "vt 0.1 0.2 0\nvt 0.25 0.5\nvt 0.75 1\n");
+
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.info.uvs.size() == 4);
+    const std::array<Vec2f, 3> &uv = loaded.info.uvs.front();
+    CHECK_THAT(uv[0].x(), WithinAbs(0.25, 1e-6));
+    CHECK_THAT(uv[0].y(), WithinAbs(0.5, 1e-6));
+    CHECK_THAT(uv[1].x(), WithinAbs(0.75, 1e-6));
+    CHECK_THAT(uv[1].y(), WithinAbs(1., 1e-6));
+    CHECK_THAT(uv[2].x(), WithinAbs(0.75, 1e-6));
+    CHECK_THAT(uv[2].y(), WithinAbs(1., 1e-6));
 }
