@@ -1807,8 +1807,7 @@ void PresetCollection::commit_user_preset(UserPresetLoad &&loaded, std::deque<Pr
 
     if (loaded.complete) {
         if (loaded.save_compatible_printers) {
-            // The preset loads with the derived printer whether or not its file
-            // can be rewritten.
+            // A filesystem error from the rewrite is counted, and the preset still loads.
             try {
                 if (!read_only)
                     preset.save(nullptr);
