@@ -15812,19 +15812,22 @@ void Plater::import_model_id(wxString download_info)
                         fs::fstream file(tmp_path, std::ios::out | std::ios::binary | std::ios::trunc);
                         file.write(body.c_str(), body.size());
                         file.close();
-                        // Another file may have taken the name while downloading.
-                        std::string unused_filename;
-                        if (!find_unused_filename(target_path.parent_path(), target_path.filename().string(), {}, unused_filename)) {
-                            boost::system::error_code ec;
-                            fs::remove(tmp_path, ec);
-                            msg = _L("Importing to Orca Slicer failed. Please download the file and manually import it.");
-                            cont = false;
-                            return;
-                        }
-                        target_path = target_path.parent_path() / unused_filename;
-                        fs::rename(tmp_path, target_path);
                         cont = false;
-                        download_ok = true;
+                        try {
+                            // Another file may have taken the name while downloading.
+                            std::string unused_filename;
+                            if (find_unused_filename(target_path.parent_path(), target_path.filename().string(), {}, unused_filename)) {
+                                target_path = target_path.parent_path() / unused_filename;
+                                fs::rename(tmp_path, target_path);
+                                download_ok = true;
+                                return;
+                            }
+                        } catch (const std::exception &e) {
+                            BOOST_LOG_TRIVIAL(error) << "import_model_id: failed to move the download into place: " << e.what();
+                        }
+                        boost::system::error_code ec;
+                        fs::remove(tmp_path, ec);
+                        msg = _L("Importing to Orca Slicer failed. Please download the file and manually import it.");
                 }).perform_sync();
 
                 // for break while
