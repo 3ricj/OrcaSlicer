@@ -260,6 +260,9 @@ extern bool is_json_file(const std::string& path);
 // Both '/' and '\\' are treated as separators on every platform, so an archive rejected on one OS
 // is rejected on all of them.
 extern bool is_path_within_root(const std::string &rel_path, const boost::filesystem::path &root);
+// True if a symlink stored at link_rel_path (relative to root) with this target stays inside root: the target
+// must be relative, and joined to the link's directory it must pass is_path_within_root.
+extern bool is_symlink_target_within_root(const std::string &link_rel_path, const std::string &target, const boost::filesystem::path &root);
 
 // Orca: custom protocal support utils
 inline bool is_orca_open(const std::string& url) { return boost::starts_with(url, "orcaslicer://open"); }

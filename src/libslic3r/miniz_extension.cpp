@@ -158,6 +158,10 @@ bool extract_archive_confined(const std::string &zip_path_utf8, const std::strin
                 BOOST_LOG_TRIVIAL(warning) << "Unzip: invalid size for file " << stat.m_filename;
                 continue;
             }
+            // Replace a symlink at the destination rather than writing through it.
+            const boost::filesystem::path dest_path(dest_file);
+            if (boost::filesystem::is_symlink(boost::filesystem::symlink_status(dest_path)))
+                boost::filesystem::remove(dest_path);
             if (!mz_zip_reader_extract_to_file(&archive, stat.m_file_index, dest_file.c_str(), 0)) {
                 BOOST_LOG_TRIVIAL(error) << "Unzip: extract file " << stat.m_filename << " to dest " << dest_file << " failed";
                 close_zip_reader(&archive);
