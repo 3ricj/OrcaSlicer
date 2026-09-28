@@ -266,6 +266,8 @@ extern bool is_symlink_target_within_root(const std::string &link_rel_path, cons
 // True if path names an entry strictly inside root: it must be spelled with root as its prefix,
 // and must still resolve inside root once symlinks are followed.
 extern bool is_absolute_path_within_root(const boost::filesystem::path &path, const boost::filesystem::path &root);
+// True if opening a file with this name through the desktop would run it as a program or script.
+extern bool is_executable_file_name(const std::string &file_name);
 
 // Orca: custom protocal support utils
 inline bool is_orca_open(const std::string& url) { return boost::starts_with(url, "orcaslicer://open"); }

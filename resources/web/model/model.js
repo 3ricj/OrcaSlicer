@@ -498,6 +498,12 @@ function IsHttpUrl( strUrl )
 	}
 }
 
+// Images load as soon as the page opens, so only https sources are kept: no plain-http requests to the local network.
+function IsHttpsUrl( strUrl )
+{
+	return IsHttpUrl(strUrl) && new URL(strUrl).protocol=='https:';
+}
+
 // Embedded YouTube players become a plain link to the video.
 function GetYouTubeEmbedUrl( pNode )
 {
@@ -546,7 +552,7 @@ function CopyDescNodes( pSrc, pDst )
 			pElem.setAttribute('href',pNode.getAttribute('href'));
 		else if( sTag=='IMG' )
 		{
-			if( !IsHttpUrl(pNode.getAttribute('src')) )
+			if( !IsHttpsUrl(pNode.getAttribute('src')) )
 				continue;
 			pElem.setAttribute('src',pNode.getAttribute('src'));
 		}

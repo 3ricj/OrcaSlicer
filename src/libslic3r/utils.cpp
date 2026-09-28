@@ -70,6 +70,7 @@
 #include <boost/shared_ptr.hpp>
 
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/nowide/fstream.hpp>
@@ -1131,6 +1132,28 @@ bool is_absolute_path_within_root(const boost::filesystem::path &path, const boo
 {
     const boost::filesystem::path rel = path.lexically_relative(root);
     return !rel.empty() && rel != "." && is_path_within_root(rel.string(), root);
+}
+
+bool is_executable_file_name(const std::string &file_name)
+{
+    static const std::vector<std::string> executable_extensions = {
+        // Windows
+        "exe", "com", "bat", "cmd", "scr", "pif", "msi", "msp", "msc", "cpl", "lnk", "url", "hta", "js", "jse", "vbs",
+        "vbe", "wsf", "wsh", "ps1", "psm1", "reg", "jar", "appref-ms", "scf", "inf", "py", "pyw",
+        // macOS
+        "app", "command", "pkg", "terminal", "workflow",
+        // Linux
+        "sh", "bash", "run", "desktop", "appimage"};
+    // Windows ignores trailing dots and spaces, so "setup.exe." still runs as an .exe.
+    const size_t end = file_name.find_last_not_of(". ");
+    if (end == std::string::npos)
+        return false;
+    const std::string name = file_name.substr(0, end + 1);
+    const size_t      dot  = name.find_last_of('.');
+    if (dot == std::string::npos || name.find_first_of("/\\", dot) != std::string::npos)
+        return false;
+    const std::string extension = boost::algorithm::to_lower_copy(name.substr(dot + 1));
+    return std::find(executable_extensions.begin(), executable_extensions.end(), extension) != executable_extensions.end();
 }
 
 bool is_img_file(const std::string &path)
