@@ -213,6 +213,20 @@ void FileGet::priv::get_perform()
 					} catch (const boost::filesystem::filesystem_error&) {
 						unused.clear();
 					}
+					const boost::filesystem::path tmp_path = unused.empty() ? m_tmp_path : download_marker_path(m_dest_folder, unused);
+					if (tmp_path != m_tmp_path) {
+						// Move the marker to the adopted name so that other downloads see the name as taken.
+						// Only before anything is written, so that no downloaded data has to be carried over.
+						FILE* tmp_file = m_written == 0 ? fopen(wxString(tmp_path.wstring()).c_str(), "wb") : nullptr;
+						if (tmp_file != nullptr) {
+							fclose(file);
+							boost::system::error_code ec;
+							boost::filesystem::remove(m_tmp_path, ec);
+							file = tmp_file;
+							m_tmp_path = tmp_path;
+						} else
+							unused.clear();
+					}
 					if (!unused.empty())
 						m_filename = unused;
 					dest_path = m_dest_folder / m_filename;
@@ -320,6 +334,18 @@ void FileGet::priv::get_perform()
                     m_evt_handler->QueueEvent(evt);
                 }
 				fclose(file);
+				// Another file may have taken the name while downloading.
+				if (!dest_path.empty() && boost::filesystem::exists(dest_path)) {
+					std::string unused;
+					if (!find_unused_filename(m_dest_folder, m_filename, m_tmp_path, unused))
+						throw std::runtime_error("No unused file name.");
+					m_filename = unused;
+					dest_path = m_dest_folder / m_filename;
+					wxCommandEvent* evt = new wxCommandEvent(EVT_DWNLDR_FILE_NAME_CHANGE);
+					evt->SetString(boost::nowide::widen(m_filename));
+					evt->SetInt(m_id);
+					m_evt_handler->QueueEvent(evt);
+				}
 				boost::filesystem::rename(m_tmp_path, dest_path);
 			}
 			catch (const std::exception& /*e*/)
