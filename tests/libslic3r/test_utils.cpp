@@ -163,16 +163,83 @@ TEST_CASE("sanitize_file_basename keeps only a plain file name from an untrusted
         {"C:x.3mf", "C_x.3mf"},
         {"/etc/x", "x"},
         {"a/b\\c.gcode", "c.gcode"},
+        {"x:stream", "x_stream"}, // no NTFS alternate data stream
+        {"x.", "x."},
+        {".3mf", ".3mf"},
         {unicode, unicode},
     }));
     CAPTURE(input);
-    const std::string name = sanitize_file_basename(input);
-    CHECK(name == expected);
-    CHECK(name.find_first_of("/\\:") == std::string::npos);
+    CHECK(sanitize_file_basename(input) == expected);
 }
 
 TEST_CASE("sanitize_file_basename rejects names that do not name a file", "[Utils]") {
     const std::string input = GENERATE(as<std::string>{}, "", ".", "..", "../..", "dir/", "..\\", " ", ". .", "...");
     CAPTURE(input);
     CHECK(sanitize_file_basename(input).empty());
+}
+
+namespace {
+void touch(const boost::filesystem::path &path) { std::ofstream(path.string()) << "existing"; }
+std::string file_contents(const boost::filesystem::path &path)
+{
+    std::ifstream file(path.string());
+    return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+}
+} // namespace
+
+TEST_CASE("find_unused_filename keeps a name nothing uses", "[Utils]") {
+    ScopedTemporaryDir dir;
+    std::string name;
+    REQUIRE(find_unused_filename(dir.path(), "model.3mf", {}, name));
+    CHECK(name == "model.3mf");
+}
+
+TEST_CASE("find_unused_filename versions a name an existing file uses", "[Utils]") {
+    ScopedTemporaryDir dir;
+    touch(dir.path() / "model.3mf");
+    std::string name;
+    REQUIRE(find_unused_filename(dir.path(), "model.3mf", {}, name));
+    CHECK(name == "model(1).3mf");
+}
+
+TEST_CASE("find_unused_filename versions a name that maps onto an existing file once sanitized", "[Utils]") {
+    ScopedTemporaryDir dir;
+    touch(dir.path() / "my_model.3mf");
+    const std::string input = GENERATE(as<std::string>{}, "my?model.3mf", "my:model.3mf", "my*model.3mf");
+    CAPTURE(input);
+    std::string name;
+    REQUIRE(find_unused_filename(dir.path(), input, {}, name));
+    CHECK(name == "my_model(1).3mf");
+    CHECK(file_contents(dir.path() / "my_model.3mf") == "existing");
+}
+
+TEST_CASE("find_unused_filename treats the marker of another download as used", "[Utils]") {
+    ScopedTemporaryDir dir;
+    touch(download_marker_path(dir.path(), "model.3mf"));
+    std::string name;
+    REQUIRE(find_unused_filename(dir.path(), "model.3mf", {}, name));
+    CHECK(name == "model(1).3mf");
+}
+
+TEST_CASE("find_unused_filename ignores the marker of the download asking", "[Utils]") {
+    ScopedTemporaryDir dir;
+    const boost::filesystem::path own_marker = download_marker_path(dir.path(), "model.3mf");
+    touch(own_marker);
+    std::string name;
+    REQUIRE(find_unused_filename(dir.path(), "model.3mf", own_marker, name));
+    CHECK(name == "model.3mf");
+}
+
+TEST_CASE("find_unused_filename gives up after 999 versions", "[Utils]") {
+    ScopedTemporaryDir dir;
+    touch(dir.path() / "model.3mf");
+    for (int version = 1; version < 999; ++version)
+        touch(dir.path() / ("model(" + std::to_string(version) + ").3mf"));
+    std::string name;
+    REQUIRE(find_unused_filename(dir.path(), "model.3mf", {}, name));
+    CHECK(name == "model(999).3mf");
+
+    touch(dir.path() / name);
+    REQUIRE_FALSE(find_unused_filename(dir.path(), "model.3mf", {}, name));
+    CHECK(name == "model(999).3mf");
 }
