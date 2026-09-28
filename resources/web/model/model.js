@@ -281,16 +281,15 @@ function ShowModelInfo( pModel )
 	
     if(TotalPreview>0)
 	{
-		let htmlPreview='';
+		$('#ModelPreviewList').empty();
 		for(let pn=0;pn<TotalPreview;pn++)			
 		{	
 			//let FTmpPath=decodeURIComponent(ModelPreviewList[pn]);
 			let FTmpPath=ModelPreviewList[pn]['filepath'];
 			
-			htmlPreview+='<div class="swiper-slide"><img class="Model_PrevImg" src="'+FTmpPath+'" /></div>';
+			$('#ModelPreviewList').append( $('<div class="swiper-slide"></div>').append( $('<img class="Model_PrevImg" />').attr('src',FTmpPath) ) );
 		}
 			
-	    $('#ModelPreviewList').html(htmlPreview);
 		$('#Model_Preview_Image').viewer({
 			title: false,
 		    fullsreen: false,
@@ -462,7 +461,7 @@ function ConstructFileHtml( ID, pItem )
 		
 		let pFileItem=$('<div class="FileItem"></div>');
 		pFileItem.append( $('<div></div>').addClass(strClass).append(pIconImg) );
-		pFileItem.append( $('<div class="FileText"></div>').append( $('<div class="FileName"></div>').text(tName) ) );
+		pFileItem.append( $('<div class="FileText"></div>').append( $('<div class="FileName"></div>').text(tName).attr('title',tName) ) );
 		pFileItem.append( pMenu );
 		pBoard.append( pFileItem );
 	}
@@ -474,15 +473,39 @@ function ConstructFileHtml( ID, pItem )
 
 // Descriptions are untrusted 3MF metadata that may carry rich-text HTML (e.g. from MakerWorld).
 // Rebuild them from an inert parse, keeping only plain formatting tags and http(s) links and images.
-var DescAllowedTags=['P','BR','B','STRONG','I','EM','U','S','STRIKE','SUB','SUP','SMALL','MARK',
-	'H1','H2','H3','H4','H5','H6','UL','OL','LI','BLOCKQUOTE','PRE','CODE','HR','SPAN','DIV',
-	'TABLE','THEAD','TBODY','TFOOT','TR','TH','TD','A','IMG'];
+var DescAllowedTags=['P','BR','B','STRONG','I','EM','U','S','STRIKE','DEL','INS','SUB','SUP','SMALL','MARK',
+	'Q','ABBR','KBD','WBR','H1','H2','H3','H4','H5','H6','UL','OL','LI','DL','DT','DD','BLOCKQUOTE','PRE','CODE',
+	'HR','SPAN','DIV','FIGURE','FIGCAPTION','TABLE','CAPTION','THEAD','TBODY','TFOOT','TR','TH','TD','A','IMG'];
+// Plain attributes kept per tag; the numeric ones must be plain non-negative integers.
+var DescAllowedAttrs={'IMG':['alt','title','width','height'],'TD':['colspan','rowspan'],'TH':['colspan','rowspan'],'OL':['start']};
+var DescNumericAttrs=['width','height','colspan','rowspan','start'];
 // Dropped together with their content; any other unknown tag is unwrapped to its children.
 var DescDroppedTags=['SCRIPT','STYLE','TEMPLATE','NOSCRIPT','TEXTAREA','TITLE','IFRAME','FRAME','OBJECT','EMBED','SVG','MATH'];
 
 function IsHttpUrl( strUrl )
 {
-	return /^\s*https?:\/\//i.test(strUrl||'');
+	// The scheme must be written as is, so nothing the URL parser would strip can precede or split it.
+	if( typeof strUrl!='string' || !/^https?:/i.test(strUrl) )
+		return false;
+	try
+	{
+		let sProtocol=new URL(strUrl).protocol;
+		return sProtocol=='http:' || sProtocol=='https:';
+	}
+	catch(e)
+	{
+		return false;
+	}
+}
+
+// Embedded YouTube players become a plain link to the video.
+function GetYouTubeEmbedUrl( pNode )
+{
+	let sSrc=pNode.getAttribute('src');
+	if( !IsHttpUrl(sSrc) )
+		return null;
+	let pUrl=new URL(sSrc);
+	return ( pUrl.origin=='https://www.youtube.com' && pUrl.pathname.indexOf('/embed/')==0 ) ? pUrl.href : null;
 }
 
 function CopyDescNodes( pSrc, pDst )
@@ -498,6 +521,18 @@ function CopyDescNodes( pSrc, pDst )
 			continue;
 		
 		let sTag=pNode.nodeName.toUpperCase();
+		if( sTag=='IFRAME' )
+		{
+			let sVideoUrl=GetYouTubeEmbedUrl(pNode);
+			if( sVideoUrl!=null )
+			{
+				let pLink=document.createElement('A');
+				pLink.setAttribute('href',sVideoUrl);
+				pLink.textContent=sVideoUrl;
+				pDst.appendChild(pLink);
+			}
+			continue;
+		}
 		if( $.inArray(sTag,DescDroppedTags)>=0 )
 			continue;
 		if( $.inArray(sTag,DescAllowedTags)<0 )
@@ -515,6 +550,11 @@ function CopyDescNodes( pSrc, pDst )
 				continue;
 			pElem.setAttribute('src',pNode.getAttribute('src'));
 		}
+		$.each( DescAllowedAttrs[sTag]||[], function(i,sAttr){
+			let sValue=pNode.getAttribute(sAttr);
+			if( sValue!=null && ( $.inArray(sAttr,DescNumericAttrs)<0 || /^\d+$/.test(sValue) ) )
+				pElem.setAttribute(sAttr,sValue);
+		});
 		CopyDescNodes(pNode,pElem);
 		pDst.appendChild(pElem);
 	}
@@ -553,15 +593,14 @@ function ShowProfilelInfo( pProfile )
 	
     if(TotalPreview>0)
 	{
-		let htmlPreview='';
+		$('#ProfilePreviewList').empty();
 		for(let pn=0;pn<TotalPreview;pn++)			
 		{	
 			let FTmpPath=ProfilePreviewList[pn]['filepath'];
 			
-			htmlPreview+='<div class="swiper-slide"><img class="Model_PrevImg" src="'+FTmpPath+'" /></div>';
+			$('#ProfilePreviewList').append( $('<div class="swiper-slide"></div>').append( $('<img class="Model_PrevImg" />').attr('src',FTmpPath) ) );
 		}
 			
-		$('#ProfilePreviewList').html(htmlPreview);
 		$('#Profile_Preview_Image').viewer({
 			title: false,
 		    fullsreen: false,
