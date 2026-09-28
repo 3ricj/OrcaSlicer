@@ -54,6 +54,11 @@ TEST_CASE("A file URL of a Windows path has a drive letter and forward slashes",
           "file:///D:/%23OneDrive/OrcaSlicer/resources/web/guide/0/index.html" },
         { L"D:\\100%\\OrcaSlicer\\resources\\web\\homepage\\index.html",
           "file:///D:/100%25/OrcaSlicer/resources/web/homepage/index.html" },
+        // Callers join the resources directory with a forward-slash relative path.
+        { L"D:\\#OneDrive\\OrcaSlicer\\resources/web/homepage/index.html",
+          "file:///D:/%23OneDrive/OrcaSlicer/resources/web/homepage/index.html" },
+        { L"\\\\server\\share\\OrcaSlicer\\resources\\web\\homepage\\index.html",
+          "file://server/share/OrcaSlicer/resources/web/homepage/index.html" },
     }));
     CHECK(file_url_from_path(boost::filesystem::path(path)).utf8_string() == url);
 }
