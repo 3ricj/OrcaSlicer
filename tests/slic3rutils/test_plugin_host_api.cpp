@@ -16,6 +16,8 @@
 
 #include <string>
 
+#include <wx/uri.h>
+
 namespace py = pybind11;
 
 namespace {
@@ -210,17 +212,16 @@ TEST_CASE("A reloaded plugin page is recognised by its base URL, fragment aside"
 {
     using namespace Slic3r::GUI::web_hosting;
 
-    // A resources path holding a space, which the web view reports escaped.
+    // A resources path holding a space, which the web view may report escaped differently.
     const Slic3r::ScopedResourcesDir resources("web content check");
 
     // The swapped-in page, then after an in-page anchor and a reload.
     CHECK(is_content_url(content_base_url()));
     CHECK(is_content_url(content_base_url() + "#tab2"));
-    wxString escaped = content_base_url();
-    escaped.Replace(" ", "%20");
-    REQUIRE(escaped != content_base_url());
-    CHECK(is_content_url(escaped));
-    CHECK(is_content_url(escaped + "#tab2"));
+    const wxString unescaped = wxURI::Unescape(content_base_url());
+    REQUIRE(unescaped != content_base_url());
+    CHECK(is_content_url(unescaped));
+    CHECK(is_content_url(unescaped + "#tab2"));
     // A page the plugin linked to keeps its own URL and must be left alone.
     CHECK_FALSE(is_content_url(content_base_url() + "guide.html"));
     CHECK_FALSE(is_content_url("https://example.com/"));
