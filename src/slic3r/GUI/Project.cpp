@@ -27,7 +27,6 @@
 #include "GUI_App.hpp"
 #include "GUI_ObjectList.hpp"
 #include "MainFrame.hpp"
-#include "MsgDialog.hpp"
 #include <slic3r/GUI/Widgets/WebView.hpp>
 
 namespace Slic3r { namespace GUI {
@@ -294,25 +293,8 @@ void ProjectPanel::OnScriptMessage(wxWebViewEvent& evt)
             if (!accessory_path.empty()) {
                 std::string decode_path = wxGetApp().url_decode(accessory_path.ToStdString());
                 fs::path path(decode_path);
-                // Only open the project's own extracted auxiliary files, with the root built as in Reload().
-                fs::path aux_root(encode_path(wxGetApp().plater()->model().get_auxiliary_file_temp_path().c_str()));
-
-                if (is_absolute_path_within_root(path, aux_root) && fs::is_regular_file(path)) {
-                    // Attachments come with the project, so ask before running one that is a program or script.
-                    bool open = true;
-                    if (is_executable_file_name(path.filename().string())) {
-                        MessageDialog dlg(this,
-                                          wxString::Format(_L("\"%s\" is a program or script. Opening it will run it on this computer.\n\n"
-                                                              "Only open attachments from projects you trust. Open it anyway?"),
-                                                           from_path(path.filename())),
-                                          _L("Open attachment"), wxICON_WARNING | wxYES_NO);
-                        open = dlg.ShowModal() == wxID_YES;
-                    }
-                    if (open)
-                        wxLaunchDefaultApplication(path.wstring(), 0);
-                } else {
-                    BOOST_LOG_TRIVIAL(warning) << "open_3mf_accessory: ignoring path outside the project auxiliary directory: " << decode_path;
-                }
+                if (!desktop_open_project_attachment(this, path))
+                    BOOST_LOG_TRIVIAL(warning) << "open_3mf_accessory: not opening " << decode_path;
             }
         }
         else if (strCmd == "request_3mf_info") {

@@ -368,19 +368,22 @@ TEST_CASE("is_absolute_path_within_root accepts only entries inside the root", "
 #endif
 }
 
-TEST_CASE("is_executable_file_name flags attachments that would run as programs", "[utils]") {
-    const std::string executable = GENERATE(as<std::string>{},
-        "setup.exe", "SETUP.EXE", "Manual.pdf.exe", "run.bat", "start.cmd", "shortcut.lnk", "site.url", "script.ps1",
-        "macro.vbs", "tool.jar", "script.py", "Install.command", "Tool.app", "installer.pkg", "install.sh",
-        "launcher.desktop", "Printer.AppImage", "setup.exe.", "setup.exe ", "setup.exe. .", ".exe");
-    INFO(executable);
-    CHECK(is_executable_file_name(executable));
+TEST_CASE("is_safe_to_open_file_name accepts plain documents, images and models", "[utils]") {
+    const std::string safe = GENERATE(as<std::string>{},
+        "Manual.pdf", "BOM.xlsx", "BOM.csv", "guide.docx", "notes.txt", "README.md", "photo.JPG", "render.png",
+        "assembly.step", "part.stl", "project.3mf", "drawing.dxf", "build.mp4", "setup.exe.pdf", ".pdf");
+    INFO(safe);
+    CHECK(is_safe_to_open_file_name(safe));
 }
 
-TEST_CASE("is_executable_file_name leaves documents and models alone", "[utils]") {
-    const std::string document = GENERATE(as<std::string>{},
-        "Manual.pdf", "BOM.xlsx", "notes.txt", "photo.JPG", "assembly.step", "part.stl", "project.3mf", "readme",
-        "exe", "setup.exe.pdf", "", "...", "dir.exe/readme");
-    INFO(document);
-    CHECK_FALSE(is_executable_file_name(document));
+TEST_CASE("is_safe_to_open_file_name rejects programs and anything it does not know", "[utils]") {
+    const std::string unsafe = GENERATE(as<std::string>{},
+        "setup.exe", "SETUP.EXE", "Manual.pdf.exe", "run.bat", "shortcut.lnk", "site.url", "script.ps1", "help.chm",
+        "tool.jar", "script.py", "Install.command", "install.sh", "launcher.desktop", "Printer.AppImage",
+        // Documents that can carry macros or scripts.
+        "BOM.xls", "BOM.xlsm", "guide.doc", "guide.docm", "sheet.ods", "page.html", "logo.svg", "bundle.zip",
+        // No extension, an unknown one, or a name the desktop would read differently.
+        "readme", "pdf", "data.xyz", "", "...", "Manual.pdf.", "Manual.pdf ", "setup.exe:note.txt", "dir.pdf/readme");
+    INFO(unsafe);
+    CHECK_FALSE(is_safe_to_open_file_name(unsafe));
 }

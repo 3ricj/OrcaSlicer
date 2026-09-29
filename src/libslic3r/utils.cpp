@@ -1134,26 +1134,20 @@ bool is_absolute_path_within_root(const boost::filesystem::path &path, const boo
     return !rel.empty() && rel != "." && is_path_within_root(rel.string(), root);
 }
 
-bool is_executable_file_name(const std::string &file_name)
+bool is_safe_to_open_file_name(const std::string &file_name)
 {
-    static const std::vector<std::string> executable_extensions = {
-        // Windows
-        "exe", "com", "bat", "cmd", "scr", "pif", "msi", "msp", "msc", "cpl", "lnk", "url", "hta", "js", "jse", "vbs",
-        "vbe", "wsf", "wsh", "ps1", "psm1", "reg", "jar", "appref-ms", "scf", "inf", "py", "pyw",
-        // macOS
-        "app", "command", "pkg", "terminal", "workflow",
-        // Linux
-        "sh", "bash", "run", "desktop", "appimage"};
-    // Windows ignores trailing dots and spaces, so "setup.exe." still runs as an .exe.
-    const size_t end = file_name.find_last_not_of(". ");
-    if (end == std::string::npos)
+    // Formats that cannot carry macros or scripts. Legacy and OpenDocument office files, HTML and SVG are left out on purpose.
+    static const std::vector<std::string> safe_extensions = {
+        "jpg", "jpeg", "jfif", "pjpeg", "pjp", "png", "gif", "bmp", "webp", "tif", "tiff",
+        "pdf", "txt", "md", "csv", "docx", "xlsx", "pptx",
+        "stl", "obj", "3mf", "amf", "ply", "step", "stp", "iges", "igs", "dxf",
+        "mp4", "mov", "webm"};
+    // The name must end in the extension itself: Windows drops trailing dots and spaces and reads ':' as a stream separator.
+    const size_t dot = file_name.find_last_of('.');
+    if (dot == std::string::npos || file_name.find_first_of("/\\:") != std::string::npos)
         return false;
-    const std::string name = file_name.substr(0, end + 1);
-    const size_t      dot  = name.find_last_of('.');
-    if (dot == std::string::npos || name.find_first_of("/\\", dot) != std::string::npos)
-        return false;
-    const std::string extension = boost::algorithm::to_lower_copy(name.substr(dot + 1));
-    return std::find(executable_extensions.begin(), executable_extensions.end(), extension) != executable_extensions.end();
+    const std::string extension = boost::algorithm::to_lower_copy(file_name.substr(dot + 1));
+    return std::find(safe_extensions.begin(), safe_extensions.end(), extension) != safe_extensions.end();
 }
 
 bool is_img_file(const std::string &path)
