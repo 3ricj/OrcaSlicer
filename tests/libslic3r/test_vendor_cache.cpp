@@ -797,7 +797,7 @@ TEST_CASE("a key misplaced into a vendor preset is reported and removed", "[Vend
 {
     InstallDirs dirs;
     write_process_vendor(dirs.system, "Acme", {
-        { "Acme template", R"({"type":"process","name":"Acme template","from":"system","instantiation":"false","wall_loops":"5"})" },
+        { "Acme template", R"({"type":"process","name":"Acme template","from":"system","instantiation":"false","wall_loops":"5","filament_density":"1.2"})" },
         { "Acme base", R"({"type":"process","name":"Acme base","from":"system","instantiation":"false","filament_cost":"5"})" },
         { "0.20mm Standard @Acme", process_json("0.20mm Standard @Acme",
             R"("instantiation":"true","inherits":"Acme base","include":["Acme template"],"nozzle_temperature":["210"],)") } });
@@ -805,10 +805,11 @@ TEST_CASE("a key misplaced into a vendor preset is reported and removed", "[Vend
     bundle.load_vendor_configs_from_json(dirs.system.string(), "Acme", PresetBundle::LoadSystem,
                                          ForwardCompatibilitySubstitutionRule::EnableSilent);
 
-    CHECK(bundle.error_count() == 2);
+    CHECK(bundle.error_count() == 3);
     const Preset* preset = bundle.prints.find_preset("0.20mm Standard @Acme", false);
     REQUIRE(preset != nullptr);
     CHECK_FALSE(preset->config.has("filament_cost"));
+    CHECK_FALSE(preset->config.has("filament_density"));
     CHECK_FALSE(preset->config.has("nozzle_temperature"));
     CHECK(preset->config.opt_int("wall_loops") == 5);
 }
