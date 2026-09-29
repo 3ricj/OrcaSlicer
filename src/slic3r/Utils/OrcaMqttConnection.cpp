@@ -554,7 +554,6 @@ void OrcaMqttConnection::connect_and_read() {
 
         ws_handshake(*connection, current_config, endpoint);
 
-        expires_never(*connection);
         // Auth precedence: a bearer_provider authenticates the WebSocket upgrade, so the
         // CONNECT username/password fields are omitted entirely (the cloud form).
         const bool use_bearer = static_cast<bool>(current_config.bearer_provider);
@@ -569,6 +568,8 @@ void OrcaMqttConnection::connect_and_read() {
         ws_read(*connection, buffer, connack_error);
         if (connack_error)
             throw boost::system::system_error(connack_error, "read Orca MQTT CONNACK");
+
+        expires_never(*connection);
         const std::string connack = boost::beast::buffers_to_string(buffer.data());
         // rc: 0 accepted, 1..5 refusal, -1 malformed/not a CONNACK.
         const int rc = (connack.size() == 4 && static_cast<uint8_t>(connack[0]) == 0x20)
