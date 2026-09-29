@@ -228,6 +228,17 @@ TEST_CASE("A reloaded plugin page is recognised by its base URL, fragment aside"
     CHECK_FALSE(is_content_url(""));
 }
 
+TEST_CASE("A reloaded plugin page is recognised when the resources path holds a '#'", "[PluginHost]")
+{
+    using namespace Slic3r::GUI::web_hosting;
+
+    const Slic3r::ScopedResourcesDir resources("web#content check");
+
+    CHECK(is_content_url(content_base_url()));
+    CHECK(is_content_url(content_base_url() + "#tab2"));
+    CHECK_FALSE(is_content_url(content_base_url() + "guide.html"));
+}
+
 TEST_CASE("Plugin host API exposes model geometry and structure to Python", "[PluginHost][Python]")
 {
     using Catch::Matchers::WithinAbs;
