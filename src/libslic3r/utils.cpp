@@ -1093,6 +1093,9 @@ bool is_path_within_root(const std::string &rel_path, const boost::filesystem::p
     auto is_separator = [](char c) { return c == '/' || c == '\\'; };
     if (rel_path.empty() || is_separator(rel_path.front()) || (rel_path.size() > 1 && rel_path[1] == ':'))
         return false;
+    // The filesystem calls stop at a NUL, so they would act on a shorter path than the one checked here.
+    if (rel_path.find('\0') != std::string::npos)
+        return false;
     for (size_t start = 0; start <= rel_path.size();) {
         size_t end = start;
         while (end < rel_path.size() && !is_separator(rel_path[end]))

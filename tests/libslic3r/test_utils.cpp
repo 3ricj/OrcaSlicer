@@ -270,6 +270,15 @@ TEST_CASE("is_path_within_root treats Windows-specific name forms the same on ev
     }
 }
 
+TEST_CASE("is_path_within_root rejects a name with an embedded NUL", "[utils]") {
+    ScopedTemporaryDir tmp;
+    // The filesystem calls stop at the NUL, so they would act on a different path than the one checked.
+    const std::string name = GENERATE(std::string("..\0", 3), std::string("..\0x/file.json", 14), std::string("sub/..\0x", 8),
+                                      std::string("file.json\0", 10), std::string("\0file.json", 10));
+    CAPTURE(name.size());
+    CHECK_FALSE(is_path_within_root(name, tmp.path()));
+}
+
 TEST_CASE("is_symlink_target_within_root accepts relative targets that stay inside the root", "[utils]") {
     ScopedTemporaryDir tmp;
     const auto [link, target] = GENERATE(std::make_pair(std::string("Versions/Current"), std::string("A")),
@@ -293,7 +302,9 @@ TEST_CASE("is_symlink_target_within_root rejects absolute targets and targets th
                                               std::make_pair(std::string("link"), std::string("../outside")),
                                               std::make_pair(std::string("sub/link"), std::string("../../outside")),
                                               std::make_pair(std::string("sub/link"), std::string("x/../../../outside")),
-                                              std::make_pair(std::string("sub/link"), std::string("..\\..\\outside")));
+                                              std::make_pair(std::string("sub/link"), std::string("..\\..\\outside")),
+                                              // symlink() stops at the NUL, so this target would be created as "..".
+                                              std::make_pair(std::string("link"), std::string("..\0", 3)));
     CAPTURE(link, target);
     CHECK_FALSE(is_symlink_target_within_root(link, target, tmp.path()));
 }
