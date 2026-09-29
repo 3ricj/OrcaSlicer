@@ -152,6 +152,10 @@ public:
     void enqueue(PrintHostJob job);
     void cancel(size_t id);
 
+    // Uploads the job, firing UploadStarted and a matching UploadFinished. An exception thrown by
+    // the upload is reported through error_fn and makes the upload fail.
+    static bool upload_job(PrintHostJob &job, PrintHost::ProgressFn progress_fn, PrintHost::ErrorFn error_fn, PrintHost::InfoFn info_fn);
+
 private:
     struct priv;
     std::shared_ptr<priv> p;

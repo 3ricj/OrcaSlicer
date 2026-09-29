@@ -1,10 +1,13 @@
 #include <catch2/catch_all.hpp>
 
+#include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 #include <nlohmann/json.hpp>
 
+#include "libslic3r/LifecycleEvents.hpp"
 #include "slic3r/Utils/PrintHost.hpp"
 #include "slic3r/Utils/Flashforge.hpp"
 
@@ -26,6 +29,41 @@ public:
     bool can_test() const override { return false; }
     PrintHostPostUploadActions get_post_upload_actions() const override { return {}; }
     std::string get_host() const override { return {}; }
+};
+
+class ThrowingPrintHost : public TestPrintHost
+{
+public:
+    bool upload(PrintHostUpload, ProgressFn, ErrorFn, InfoFn) const override { throw std::runtime_error("reply could not be read"); }
+};
+
+struct UploadEvents
+{
+    std::vector<LifecycleEvent>   events;
+    std::vector<LifecycleEvtCode> codes;
+    std::vector<std::string>      errors;
+    bool                          uploaded{false};
+
+    explicit UploadEvents(std::unique_ptr<PrintHost> host)
+    {
+        set_lifecycle_hook_fn([this](LifecycleEvent event, const LifecycleEventContext& ctx) {
+            events.push_back(event);
+            codes.push_back(ctx.code);
+        });
+
+        PrintHostJob job;
+        job.printhost               = std::move(host);
+        job.upload_data.source_path = "plate.gcode";
+        try {
+            uploaded = PrintHostJobQueue::upload_job(job, [](Http::Progress, bool&) {},
+                                                     [this](wxString error) { errors.push_back(error.ToStdString()); },
+                                                     [](wxString, wxString) {});
+        } catch (...) {
+            set_lifecycle_hook_fn(nullptr);
+            throw;
+        }
+        set_lifecycle_hook_fn(nullptr);
+    }
 };
 
 std::string format_error(const std::string& body, const std::string& error, unsigned status)
@@ -313,4 +351,24 @@ TEST_CASE("Flashforge material slots reject a reply that is not JSON", "[PrintHo
     REQUIRE_NOTHROW(ok = Flashforge::parse_material_slots(body, slots, nullptr));
     CHECK_FALSE(ok);
     CHECK(slots.empty());
+}
+
+TEST_CASE("An upload that throws still finishes with an error", "[PrintHost][LifecycleEvents]")
+{
+    UploadEvents run(std::make_unique<ThrowingPrintHost>());
+
+    CHECK_FALSE(run.uploaded);
+    CHECK(run.errors == std::vector<std::string>{"reply could not be read"});
+    CHECK(run.events == std::vector<LifecycleEvent>{LifecycleEvent::UploadStarted, LifecycleEvent::UploadFinished});
+    CHECK(run.codes == std::vector<LifecycleEvtCode>{LifecycleEvtCode::Ok, LifecycleEvtCode::Error});
+}
+
+TEST_CASE("A successful upload finishes without an error", "[PrintHost][LifecycleEvents]")
+{
+    UploadEvents run(std::make_unique<TestPrintHost>());
+
+    CHECK(run.uploaded);
+    CHECK(run.errors.empty());
+    CHECK(run.events == std::vector<LifecycleEvent>{LifecycleEvent::UploadStarted, LifecycleEvent::UploadFinished});
+    CHECK(run.codes == std::vector<LifecycleEvtCode>{LifecycleEvtCode::Ok, LifecycleEvtCode::Ok});
 }

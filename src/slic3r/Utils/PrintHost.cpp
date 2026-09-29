@@ -320,12 +320,7 @@ void PrintHostJobQueue::priv::bg_thread_main()
                 % job.cancelled;
 
             if (! job.cancelled) {
-                // A failing job must not stop the worker, or later jobs would stay queued forever.
-                try {
-                    perform_job(std::move(job));
-                } catch (const std::exception &e) {
-                    emit_error(e.what());
-                }
+                perform_job(std::move(job));
             }
 
             remove_source();
@@ -437,12 +432,10 @@ void PrintHostJobQueue::priv::remove_source()
     source_to_remove.clear();
 }
 
-void PrintHostJobQueue::priv::perform_job(PrintHostJob the_job)
+bool PrintHostJobQueue::upload_job(PrintHostJob &job, PrintHost::ProgressFn progress_fn, PrintHost::ErrorFn error_fn, PrintHost::InfoFn info_fn)
 {
-    emit_progress(0);   // Indicate the upload is starting
-
     // Captured before upload_data is moved into upload() below.
-    const std::string upload_filename = the_job.upload_data.source_path.filename().string();
+    const std::string upload_filename = job.upload_data.source_path.filename().string();
 
     {
         LifecycleEventContext ctx;
@@ -451,18 +444,36 @@ void PrintHostJobQueue::priv::perform_job(PrintHostJob the_job)
         fire_lifecycle_event(LifecycleEvent::UploadStarted, ctx);
     }
 
-    bool success = the_job.printhost->upload(std::move(the_job.upload_data),
-        [this](Http::Progress progress, bool &cancel)   { this->progress_fn(std::move(progress), cancel); },
-        [this](wxString error)                          { this->error_fn(std::move(error)); },
-        [this](wxString tag, wxString host)             { this->info_fn(std::move(tag), std::move(host)); }
-    );
+    bool success = false;
+    std::string error;
+    // A throwing upload must not stop the worker, or later jobs would stay queued forever.
+    try {
+        success = job.printhost->upload(std::move(job.upload_data), std::move(progress_fn), error_fn, std::move(info_fn));
+    } catch (const std::exception &e) {
+        error = e.what();
+        error_fn(error);
+    }
 
     {
         LifecycleEventContext ctx;
         ctx.name  = upload_filename;
         ctx.code  = success ? LifecycleEvtCode::Ok : LifecycleEvtCode::Error;
+        ctx.msg   = error;
         fire_lifecycle_event(LifecycleEvent::UploadFinished, ctx);
     }
+
+    return success;
+}
+
+void PrintHostJobQueue::priv::perform_job(PrintHostJob the_job)
+{
+    emit_progress(0);   // Indicate the upload is starting
+
+    bool success = PrintHostJobQueue::upload_job(the_job,
+        [this](Http::Progress progress, bool &cancel)   { this->progress_fn(std::move(progress), cancel); },
+        [this](wxString error)                          { this->error_fn(std::move(error)); },
+        [this](wxString tag, wxString host)             { this->info_fn(std::move(tag), std::move(host)); }
+    );
 
     if (success) {
         emit_progress(100);
