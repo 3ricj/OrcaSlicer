@@ -1,0 +1,98 @@
+{
+	"type": "filament",
+	"name": "FibreSeek PET GF @FibreSeeker3 SK3",
+	"inherits": "fdm_filament_common",
+	"from": "system",
+	"setting_id": "K5xFhY52Y8eY5NkA",
+	"filament_id": "OFZPouD5",
+	"instantiation": "true",
+	"filament_type": [
+		"PET-GF"
+	],
+	"filament_vendor": [
+		"FibreSeek"
+	],
+	"nozzle_temperature": [
+		"300"
+	],
+	"nozzle_temperature_initial_layer": [
+		"300"
+	],
+	"nozzle_temperature_range_low": [
+		"280"
+	],
+	"nozzle_temperature_range_high": [
+		"320"
+	],
+	"cool_plate_temp": [
+		"75"
+	],
+	"eng_plate_temp": [
+		"75"
+	],
+	"hot_plate_temp": [
+		"75"
+	],
+	"textured_plate_temp": [
+		"75"
+	],
+	"supertack_plate_temp": [
+		"75"
+	],
+	"cool_plate_temp_initial_layer": [
+		"75"
+	],
+	"eng_plate_temp_initial_layer": [
+		"75"
+	],
+	"hot_plate_temp_initial_layer": [
+		"75"
+	],
+	"textured_plate_temp_initial_layer": [
+		"75"
+	],
+	"supertack_plate_temp_initial_layer": [
+		"75"
+	],
+	"filament_max_volumetric_speed": [
+		"25"
+	],
+	"filament_flow_ratio": [
+		"1"
+	],
+	"filament_density": [
+		"1.43"
+	],
+	"filament_cost": [
+		"24"
+	],
+	"fan_min_speed": [
+		"40"
+	],
+	"fan_max_speed": [
+		"60"
+	],
+	"close_fan_the_first_x_layers": [
+		"3"
+	],
+	"slow_down_layer_time": [
+		"5"
+	],
+	"slow_down_min_speed": [
+		"10"
+	],
+	"filament_retraction_length": [
+		"0.5"
+	],
+	"filament_retraction_speed": [
+		"20"
+	],
+	"filament_retraction_minimum_travel": [
+		"0"
+	],
+	"filament_notes": "FibreSeek PET GF (glass-fibre reinforced PET), 1.75 mm. 300 C nozzle, 75 C bed, 25 mm3/s max flow. Use a hardened steel nozzle. All bed-plate variants pinned equal: SK3 has a single heated bed.",
+	"compatible_printers": [
+		"FibreSeeker3 SK3 CF nozzle",
+		"FibreSeeker3 SK3 FFF nozzle"
+	]
+}

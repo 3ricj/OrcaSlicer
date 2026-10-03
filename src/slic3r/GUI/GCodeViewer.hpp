@@ -237,6 +237,8 @@ private:
 
     float m_legend_height;
     PrintEstimatedStatistics m_print_statistics;
+    // ORCA: continuous fiber telemetry copied from the processor result (U/V axes inside M1001 windows)
+    GCodeProcessorResult::FiberUsage m_fiber_usage;
     std::array<float, 2> m_detected_point_sizes = { 0.0f, 0.0f };
     GCodeProcessorResult::SettingsIds m_settings_ids;
 
@@ -265,6 +267,8 @@ public:
         const std::vector<std::string>& str_color_print_colors, const BuildVolume& build_volume,
         const std::vector<BoundingBoxf3>& exclude_bounding_box, ConfigOptionMode mode, bool only_gcode = false);
     void load_as_preview(libvgcode::GCodeInputData&& data);
+    // ORCA: apply the user-configured color for the continuous fiber role (preference "preview_fiber_color").
+    void update_fiber_color_from_config();
     void update_shells_color_by_extruder(const DynamicPrintConfig* config);
     void set_shell_transparency(float alpha = 0.15f);
 

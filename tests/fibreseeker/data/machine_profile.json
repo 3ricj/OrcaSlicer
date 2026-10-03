@@ -1,0 +1,6 @@
+{
+    "note": "FibreSeeker3 / SK3 machine profile for the validator. Travel limits and calibration constants come from the P0 contract; tail/restart values are operator-calibratable (unknowns U04), default = measured convention.",
+    "travel_mm": {"x_min": -45.0, "x_max": 325.0, "y_min": -4.2, "y_max": 339.0},
+    "tail_length_mm": 54.8,
+    "restart_feed_mm": 55.0
+}

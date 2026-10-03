@@ -1,0 +1,65 @@
+{
+	"type": "filament",
+	"name": "FibreSeek ABS @FibreSeeker3 SK3",
+	"inherits": "fdm_filament_common",
+	"from": "system",
+	"setting_id": "YCVHyTQOVx9M2VTy",
+	"filament_id": "OF2wuj4f",
+	"instantiation": "true",
+	"filament_type": [
+		"ABS"
+	],
+	"filament_vendor": [
+		"FibreSeek"
+	],
+	"nozzle_temperature": [
+		"250"
+	],
+	"nozzle_temperature_initial_layer": [
+		"250"
+	],
+	"cool_plate_temp": [
+		"100"
+	],
+	"eng_plate_temp": [
+		"100"
+	],
+	"hot_plate_temp": [
+		"100"
+	],
+	"textured_plate_temp": [
+		"100"
+	],
+	"supertack_plate_temp": [
+		"100"
+	],
+	"cool_plate_temp_initial_layer": [
+		"100"
+	],
+	"eng_plate_temp_initial_layer": [
+		"100"
+	],
+	"hot_plate_temp_initial_layer": [
+		"100"
+	],
+	"textured_plate_temp_initial_layer": [
+		"100"
+	],
+	"supertack_plate_temp_initial_layer": [
+		"100"
+	],
+	"filament_density": [
+		"1.04"
+	],
+	"fan_max_speed": [
+		"0"
+	],
+	"fan_min_speed": [
+		"0"
+	],
+	"filament_notes": "FibreSeek ABS, 1.75 mm. 240 C extrusion, density 1.04. Dry before printing. All bed-plate variants pinned equal: SK3 has a single heated bed.",
+	"compatible_printers": [
+		"FibreSeeker3 SK3 CF nozzle",
+		"FibreSeeker3 SK3 FFF nozzle"
+	]
+}

@@ -1,0 +1,142 @@
+{
+	"name": "FibreSeeker3",
+	"version": "01.00.14.04",
+	"force_update": "0",
+	"description": "FibreSeeker3 SK3 continuous-fiber machine profiles",
+	"machine_model_list": [
+		{
+			"name": "FibreSeeker3 SK3",
+			"sub_path": "machine/FibreSeeker3 SK3.json"
+		}
+	],
+	"process_list": [
+		{
+			"name": "fdm_process_common",
+			"sub_path": "process/fdm_process_common.json"
+		},
+		{
+			"name": "0.12mm Standard @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Standard @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "0.12mm CF Heavy @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm CF Heavy @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "0.12mm CF Light @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm CF Light @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "0.12mm CF Standard @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm CF Standard @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "0.12mm Fortified @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Fortified @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "0.12mm Reinforced L1 @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Reinforced L1 @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "0.12mm Reinforced L2 @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Reinforced L2 @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "0.12mm Reinforced L3 @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Reinforced L3 @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "0.12mm Reinforced L4 @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Reinforced L4 @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "0.12mm Reinforced L5 @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Reinforced L5 @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "0.12mm Speedy @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Speedy @FibreSeeker3 SK3.json"
+		}
+	],
+	"filament_list": [
+		{
+			"name": "fdm_filament_common",
+			"sub_path": "filament/fdm_filament_common.json"
+		},
+		{
+			"name": "FibreSeek ABS @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek ABS @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "FibreSeek PA @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek PA @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "FibreSeek PA CF @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek PA CF @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "FibreSeek PC @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek PC @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "FibreSeek PET GF @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek PET GF @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "FibreSeek PETG @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek PETG @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "FibreSeek PLA @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek PLA @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "FibreSeek PLA CF @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek PLA CF @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "FibreSeek PLA HT @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek PLA HT @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "FibreSeek PPS @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek PPS @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "FibreSeek PPS CF @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek PPS CF @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "FibreSeek TPU @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek TPU @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "FibreSeek X-CCF @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek X-CCF @FibreSeeker3 SK3.json"
+		},
+		{
+			"name": "FibreSeek X-CGF @FibreSeeker3 SK3",
+			"sub_path": "filament/FibreSeek X-CGF @FibreSeeker3 SK3.json"
+		}
+	],
+	"machine_list": [
+		{
+			"name": "fdm_machine_common",
+			"sub_path": "machine/fdm_machine_common.json"
+		},
+		{
+			"name": "fdm_klipper_common",
+			"sub_path": "machine/fdm_klipper_common.json"
+		},
+		{
+			"name": "FibreSeeker3 SK3 CF nozzle",
+			"sub_path": "machine/FibreSeeker3 SK3 CF nozzle.json"
+		},
+		{
+			"name": "FibreSeeker3 SK3 FFF nozzle",
+			"sub_path": "machine/FibreSeeker3 SK3 FFF nozzle.json"
+		}
+	]
+}

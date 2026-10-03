@@ -1,0 +1,59 @@
+{
+	"type": "filament",
+	"name": "FibreSeek PA @FibreSeeker3 SK3",
+	"inherits": "fdm_filament_common",
+	"from": "system",
+	"setting_id": "oq9gNDMhaCHvdfYb",
+	"filament_id": "OFzNHyPX",
+	"instantiation": "true",
+	"filament_type": [
+		"PA"
+	],
+	"filament_vendor": [
+		"FibreSeek"
+	],
+	"nozzle_temperature": [
+		"250"
+	],
+	"nozzle_temperature_initial_layer": [
+		"250"
+	],
+	"cool_plate_temp": [
+		"80"
+	],
+	"eng_plate_temp": [
+		"80"
+	],
+	"hot_plate_temp": [
+		"80"
+	],
+	"textured_plate_temp": [
+		"80"
+	],
+	"supertack_plate_temp": [
+		"80"
+	],
+	"cool_plate_temp_initial_layer": [
+		"80"
+	],
+	"eng_plate_temp_initial_layer": [
+		"80"
+	],
+	"hot_plate_temp_initial_layer": [
+		"80"
+	],
+	"textured_plate_temp_initial_layer": [
+		"80"
+	],
+	"supertack_plate_temp_initial_layer": [
+		"80"
+	],
+	"filament_density": [
+		"1.14"
+	],
+	"filament_notes": "FibreSeek PA, 1.75 mm. 250 C extrusion, density 1.14. Bed 80 C. Dry before printing. All bed-plate variants pinned equal: SK3 has a single heated bed.",
+	"compatible_printers": [
+		"FibreSeeker3 SK3 CF nozzle",
+		"FibreSeeker3 SK3 FFF nozzle"
+	]
+}

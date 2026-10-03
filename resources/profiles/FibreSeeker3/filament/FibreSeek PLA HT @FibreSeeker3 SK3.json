@@ -1,0 +1,59 @@
+{
+	"type": "filament",
+	"name": "FibreSeek PLA HT @FibreSeeker3 SK3",
+	"inherits": "fdm_filament_common",
+	"from": "system",
+	"setting_id": "o6q1iV56OMc2X52Y",
+	"filament_id": "OFjpAzsj",
+	"instantiation": "true",
+	"filament_type": [
+		"PLA"
+	],
+	"filament_vendor": [
+		"FibreSeek"
+	],
+	"nozzle_temperature": [
+		"210"
+	],
+	"nozzle_temperature_initial_layer": [
+		"210"
+	],
+	"cool_plate_temp": [
+		"55"
+	],
+	"eng_plate_temp": [
+		"55"
+	],
+	"hot_plate_temp": [
+		"55"
+	],
+	"textured_plate_temp": [
+		"55"
+	],
+	"supertack_plate_temp": [
+		"55"
+	],
+	"cool_plate_temp_initial_layer": [
+		"55"
+	],
+	"eng_plate_temp_initial_layer": [
+		"55"
+	],
+	"hot_plate_temp_initial_layer": [
+		"55"
+	],
+	"textured_plate_temp_initial_layer": [
+		"55"
+	],
+	"supertack_plate_temp_initial_layer": [
+		"55"
+	],
+	"filament_density": [
+		"1.24"
+	],
+	"filament_notes": "FibreSeek PLA HT, 1.75 mm. All bed-plate variants pinned equal: SK3 has a single heated bed.",
+	"compatible_printers": [
+		"FibreSeeker3 SK3 CF nozzle",
+		"FibreSeeker3 SK3 FFF nozzle"
+	]
+}

@@ -318,6 +318,20 @@ class Print;
         // widely, so this is typically populated (stTimelapse) on most slices.
         std::unordered_map<SkipType, float> skippable_part_time;
 
+        // ORCA: continuous-fiber telemetry, collected during g-code analysis from the fiber protocol
+        // (U/V axis deposits inside an M1001..M1002 window; M2800 cut commands). Zero-filled when the
+        // plate contains no fiber runs. Analysis-path only: no effect on emitted g-code.
+        struct FiberUsage
+        {
+            double roving_mm = 0.0;   // sum of positive U displacements (roving fed, mm)
+            double matrix_mm = 0.0;   // sum of positive V displacements (matrix wire consumed, mm)
+            unsigned int windows = 0; // count of M1001 window openings
+            unsigned int cuts = 0;    // count of M2800 cut commands
+            bool any() const { return windows > 0 || cuts > 0 || roving_mm > 0.0 || matrix_mm > 0.0; }
+            void reset() { roving_mm = 0.0; matrix_mm = 0.0; windows = 0; cuts = 0; }
+        };
+        FiberUsage fiber_usage;
+
         BedType bed_type = BedType::btCount;
         void reset();
 
@@ -366,6 +380,8 @@ class Print;
             filament_change_count_map = other.filament_change_count_map;
             // Keep the SKIPPABLE per-type time on a copied result.
             skippable_part_time = other.skippable_part_time;
+            // Keep the continuous-fiber telemetry on a copied result.
+            fiber_usage = other.fiber_usage;
             initial_layer_time = other.initial_layer_time;
 #if ENABLE_GCODE_VIEWER_STATISTICS
             time = other.time;
@@ -1154,6 +1170,13 @@ class Print;
 // ORCA: Add Pressure Advance visualization support
         float m_pressure_advance;
         ExtrusionRole m_extrusion_role;
+        // ORCA: continuous-fiber state, driven by the M1001/M1002/M2800 handlers and the raw U/V
+        // scan in the process_G1 wrapper. m_fiber_window_active: inside an M1001..M1002 window.
+        // m_fiber_deposit: the current G1 is a fiber deposit move (positive U with XY motion); the
+        // axes overload renders it with role erFiber and preview width m_fiber_preview_width.
+        bool m_fiber_window_active = false;
+        bool m_fiber_deposit = false;
+        float m_fiber_preview_width = 0.7f; // mm
         std::vector<int> m_filament_maps;
         std::vector<unsigned char> m_last_filament_id;
         std::vector<unsigned char> m_filament_id;
@@ -1443,6 +1466,12 @@ class Print;
         // T variant carrying the H<nozzle> logical-nozzle id parsed off the command line. -1 = absent.
         void process_T(const std::string_view command, int nozzle_id);
         void process_M1020(const GCodeReader::GCodeLine &line);
+
+        // ORCA: continuous-fiber protocol markers. Analysis-path only: they update fiber telemetry
+        // and the preview deposit role, never the emitted g-code nor the time model.
+        void process_M1001(const GCodeReader::GCodeLine &line);
+        void process_M1002(const GCodeReader::GCodeLine &line);
+        void process_M2800(const GCodeReader::GCodeLine &line);
 
         void process_M622(const GCodeReader::GCodeLine &line);
         void process_M623(const GCodeReader::GCodeLine &line);

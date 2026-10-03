@@ -1,0 +1,61 @@
+{
+	"type": "filament",
+	"name": "FibreSeek X-CCF @FibreSeeker3 SK3",
+	"inherits": "fdm_filament_common",
+	"from": "system",
+	"setting_id": "1OHjL4gUDsTduiYt",
+	"filament_id": "OF8RDX7I",
+	"instantiation": "true",
+	"filament_type": [
+		"X-CCF"
+	],
+	"filament_vendor": [
+		"FibreSeek"
+	],
+	"nozzle_temperature": [
+		"240"
+	],
+	"nozzle_temperature_initial_layer": [
+		"240"
+	],
+	"cool_plate_temp": [
+		"75"
+	],
+	"eng_plate_temp": [
+		"75"
+	],
+	"hot_plate_temp": [
+		"75"
+	],
+	"textured_plate_temp": [
+		"75"
+	],
+	"supertack_plate_temp": [
+		"75"
+	],
+	"cool_plate_temp_initial_layer": [
+		"75"
+	],
+	"eng_plate_temp_initial_layer": [
+		"75"
+	],
+	"hot_plate_temp_initial_layer": [
+		"75"
+	],
+	"textured_plate_temp_initial_layer": [
+		"75"
+	],
+	"supertack_plate_temp_initial_layer": [
+		"75"
+	],
+	"filament_density": [
+		"1.35"
+	],
+	"filament_cost": [
+		"180"
+	],
+	"filament_notes": "FibreSeek X-CCF continuous carbon fibre tow. Declarative: the fibre head is macro-driven (T0) and its temperature is owned by the printer macros, so these settings document the material for selection and cost only. Pair with a matrix plastic. All bed-plate variants pinned equal: SK3 has a single heated bed.",
+	"compatible_printers": [
+		"FibreSeeker3 SK3 CF nozzle"
+	]
+}

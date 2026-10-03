@@ -117,6 +117,18 @@ set(lisbslic3r_sources
     ElephantFootCompensation.hpp
     Emboss.cpp
     Emboss.hpp
+    Fiber/FiberEmitter.cpp
+    Fiber/FiberEmitter.hpp
+    Fiber/FiberReserve.cpp
+    Fiber/FiberReserve.hpp
+    Fiber/FiberRun.cpp
+    Fiber/FiberRun.hpp
+    Fiber/FiberModePlan.cpp
+    Fiber/FiberModePlan.hpp
+    Fiber/FiberStrand.cpp
+    Fiber/FiberStrand.hpp
+    Fiber/FiberStrandPlanner.cpp
+    Fiber/FiberStrandPlanner.hpp
     EmbossShape.hpp
     enum_bitmask.hpp
     Execution/Execution.hpp

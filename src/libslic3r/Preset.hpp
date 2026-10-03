@@ -989,6 +989,11 @@ private:
     int m_errors = 0;
 };
 
+// User-facing name for a printer_variant token. FibreSeeker capability tokens
+// (0.4FFF / 0.4CF) map to "Plastic" / "Plastic+CF"; every other token is returned
+// unchanged. Preset files keep the original token.
+std::string printer_variant_display_name(const std::string &printer_model, const std::string &printer_variant);
+
 // Printer supports the FFF and SLA technologies, with different set of configuration values,
 // therefore this PresetCollection needs to handle two defaults.
 class PrinterPresetCollection : public PresetCollection

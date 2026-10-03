@@ -267,9 +267,16 @@ PrinterPicker::PrinterPicker(wxWindow *parent, const VendorProfile &vendor, wxSt
         for (size_t i = 0; i < model.variants.size(); i++) {
             const auto &variant = model.variants[i];
 
-            const auto label = model.technology == ptFFF
-                ? from_u8((boost::format("%1% %2% %3%") % variant.name % _utf8(L("mm")) % _utf8(L("nozzle"))).str())
-                : from_u8(model.name);
+            const std::string shown = printer_variant_display_name(model.name, variant.name);
+            wxString label;
+            if (model.technology != ptFFF)
+                label = from_u8(model.name);
+            else if (shown == "Plastic")
+                label = _L("Plastic");
+            else if (shown == "Plastic+CF")
+                label = _L("Plastic+CF");
+            else
+                label = from_u8((boost::format("%1% %2% %3%") % variant.name % _utf8(L("mm")) % _utf8(L("nozzle"))).str());
 
             if (i == 1) {
                 auto *alt_label = new wxStaticText(variants_panel, wxID_ANY, _L("Alternate nozzles:"));

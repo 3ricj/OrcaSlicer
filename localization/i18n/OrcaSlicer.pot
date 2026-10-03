@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-22 17:02+0800\n"
+"POT-Creation-Date: 2026-10-02 20:05-0700\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -247,6 +247,9 @@ msgid "Standard"
 msgstr ""
 
 msgid "TPU High Flow"
+msgstr ""
+
+msgid "E3D High Flow"
 msgstr ""
 
 msgid "Unknown"
@@ -2451,6 +2454,9 @@ msgstr ""
 msgid "Add Support Enforcer"
 msgstr ""
 
+msgid "Add Precise Seam"
+msgstr ""
+
 msgid "Add text"
 msgstr ""
 
@@ -2565,6 +2571,9 @@ msgid "Support Blocker"
 msgstr ""
 
 msgid "Support Enforcer"
+msgstr ""
+
+msgid "Precise Seam"
 msgstr ""
 
 msgid "Change part type"
@@ -2707,6 +2716,30 @@ msgid "Mirror along the Z Axis"
 msgstr ""
 
 msgid "Mirror object"
+msgstr ""
+
+msgid "Precise Seam Type"
+msgstr ""
+
+msgid "Seam Center"
+msgstr ""
+
+msgid "Seam Left"
+msgstr ""
+
+msgid "Seam Right"
+msgstr ""
+
+msgid "Seam Enforced"
+msgstr ""
+
+msgid "Seam Blocked"
+msgstr ""
+
+msgid "Seam Neutral"
+msgstr ""
+
+msgid "Choose precise seam subtype"
 msgstr ""
 
 msgid "Edit text"
@@ -5185,6 +5218,9 @@ msgstr ""
 msgid "Mixed"
 msgstr ""
 
+msgid "Continuous fiber"
+msgstr ""
+
 msgid "Height: "
 msgstr ""
 
@@ -5240,6 +5276,12 @@ msgid "Speed: "
 msgstr ""
 
 msgid "Actual speed profile"
+msgstr ""
+
+msgid "Automatic"
+msgstr ""
+
+msgid "Last used"
 msgstr ""
 
 msgid "Statistics of All Plates"
@@ -5369,6 +5411,9 @@ msgid "Options"
 msgstr ""
 
 msgid "Cost"
+msgstr ""
+
+msgid "cuts"
 msgstr ""
 
 msgid "Filament change times"
@@ -5674,7 +5719,7 @@ msgstr ""
 msgid "Size:"
 msgstr ""
 
-#, possible-boost-format
+#, possible-c-format, possible-boost-format
 msgid "Conflicts of G-code paths have been found at layer %d, Z = %.2lfmm. Please separate the conflicted objects farther (%s <-> %s)."
 msgstr ""
 
@@ -7778,6 +7823,9 @@ msgstr ""
 msgid "Click to edit preset"
 msgstr ""
 
+msgid "Variant"
+msgstr ""
+
 msgid "Nozzle"
 msgstr ""
 
@@ -8238,6 +8286,9 @@ msgstr ""
 msgid "Download failed; unknown file format."
 msgstr ""
 
+msgid "Importing to Orca Slicer failed. Please download the file and manually import it."
+msgstr ""
+
 msgid "Downloading project..."
 msgstr ""
 
@@ -8246,9 +8297,6 @@ msgstr ""
 
 #, possible-c-format, possible-boost-format
 msgid "Project downloaded %d%%"
-msgstr ""
-
-msgid "Importing to Orca Slicer failed. Please download the file and manually import it."
 msgstr ""
 
 msgid "INFO:"
@@ -9004,6 +9052,14 @@ msgstr ""
 msgid "Uses Phong shading inside realistic view."
 msgstr ""
 
+msgid "Enable in Preview"
+msgstr ""
+
+msgid ""
+"Also applies realistic view to the Preview canvas, not just Prepare.\n"
+"Preview draws the full toolpath geometry, so shadows and SSAO cost considerably more there than on a plain model."
+msgstr ""
+
 msgid "SSAO ambient occlusion"
 msgstr ""
 
@@ -9095,6 +9151,17 @@ msgstr ""
 msgid "G-code Preview"
 msgstr ""
 
+msgid "Default view type"
+msgstr ""
+
+msgid ""
+"The color scheme the sliced preview opens with.\n"
+"Automatic: Filament for multi material prints, Line Type for single material ones.\n"
+"Last used: the view type you selected last.\n"
+"Any other value always opens that view type.\n"
+"You can still switch the view type in the preview afterwards."
+msgstr ""
+
 msgid "Dim lower layers"
 msgstr ""
 
@@ -9107,6 +9174,14 @@ msgstr ""
 msgid ""
 "How brightly the dimmed layers are rendered when \"Dim lower layers\" is enabled.\n"
 "99% is barely darkened, 0% renders them black. Capped at 99% because 100% would be the same as disabling the option."
+msgstr ""
+
+msgid ""
+"Color of the continuous fiber paths in the G-code preview.\n"
+"Fiber deposits are rendered in this color when the view type is \"Line type\"."
+msgstr ""
+
+msgid "Continuous fiber color"
 msgstr ""
 
 msgid "Login region"
@@ -9622,10 +9697,6 @@ msgstr ""
 msgid "Search actions"
 msgstr ""
 
-#, possible-c-format, possible-boost-format
-msgid "Search %s actions"
-msgstr ""
-
 msgid "Recent"
 msgstr ""
 
@@ -9646,7 +9717,7 @@ msgid "No tabs"
 msgstr ""
 
 #, possible-c-format, possible-boost-format
-msgid "Showing %s of %s actions"
+msgid "Showing %s actions"
 msgstr ""
 
 #, possible-c-format, possible-boost-format
@@ -10473,6 +10544,9 @@ msgid "Walls"
 msgstr ""
 
 msgid "Top/bottom shells"
+msgstr ""
+
+msgid "Continuous Fiber"
 msgstr ""
 
 msgid "First layer speed"
@@ -11433,7 +11507,10 @@ msgstr ""
 msgid "Available anywhere in the window, even while typing in a text field."
 msgstr ""
 
-msgid "Run a speed dial favorite while the dial is open"
+msgid "Run favorite 1 to 10"
+msgstr ""
+
+msgid "Pin or unpin the selected action"
 msgstr ""
 
 msgctxt "Keyboard Shortcut"
@@ -11545,8 +11622,11 @@ msgid ""
 "\"%s\""
 msgstr ""
 
+msgid "The system uses this shortcut, so it cannot be assigned."
+msgstr ""
+
 #, possible-c-format, possible-boost-format
-msgid "Already used as a step of %s."
+msgid "Shift and Ctrl with this key belong to %s and cannot be assigned."
 msgstr ""
 
 #, possible-c-format, possible-boost-format
@@ -11797,6 +11877,10 @@ msgstr ""
 msgid "Generating G-code: layer %1%"
 msgstr ""
 
+#, possible-boost-format
+msgid "Continuous fiber enforcement failed: %1%. Disable Enforce continuous fiber to print this model without guaranteed fiber coverage."
+msgstr ""
+
 msgid "Flush volumes matrix do not match to the correct size!"
 msgstr ""
 
@@ -11820,6 +11904,21 @@ msgid "Grouping error: %1% cannot be placed in the right nozzle"
 msgstr ""
 
 msgid "Group error in manual mode. Please check nozzle count or regroup."
+msgstr ""
+
+msgid "multiple intersections with a perimeter detected"
+msgstr ""
+
+msgid "modifier fully crosses the printable perimeter"
+msgstr ""
+
+msgid "modifier shape is not solid (has holes inside) and was ignored"
+msgstr ""
+
+msgid "perimeter is fully contained inside modifier and was ignored"
+msgstr ""
+
+msgid "Seam placement may differ from expected."
 msgstr ""
 
 msgid "Internal Bridge"
@@ -12304,6 +12403,18 @@ msgid "Ignore HTTPS certificate revocation checks"
 msgstr ""
 
 msgid "Ignore HTTPS certificate revocation checks in the case of missing or offline distribution points. One may want to enable this option for self signed certificates if connection fails."
+msgstr ""
+
+msgid "Skip the printer's pre-print checks"
+msgstr ""
+
+msgid "Ask the printer to start the job without running its pre-print checks. This skips the camera checks of the build plate and print head, the filament sensors, and the match between the filament this file was sliced for and the spools the printer reports as loaded. Only Moonraker hosts that implement these checks are affected; others ignore it."
+msgstr ""
+
+msgid "Skip the printer's AI object detection"
+msgstr ""
+
+msgid "Ask the printer to start the job without the camera-based build plate and foreign object detection, while still running its other pre-print checks. Only Moonraker hosts that implement these checks are affected; others ignore it."
 msgstr ""
 
 msgid "Names of presets related to the physical printer."
@@ -14406,6 +14517,366 @@ msgstr ""
 msgid "Enable this if printer support cooling filter"
 msgstr ""
 
+msgid "Continuous fiber capability"
+msgstr ""
+
+msgid "Enable native continuous-fiber deposition for this machine. When off, output is unchanged FFF."
+msgstr ""
+
+msgid "Enforce continuous fiber"
+msgstr ""
+
+msgid "Fail the slice when a fiber-capable layer cannot receive a complete fiber window instead of silently printing it without fiber. Requires Continuous fiber capability."
+msgstr ""
+
+msgid "Fiber restart feed"
+msgstr ""
+
+msgid "Forward-only fiber feed (axis U) emitted above the layer at the start of each fiber run, mm. This is the length of fresh fiber pulled through the cutter-to-nozzle path so the next strand starts on virgin tow. It is a machine calibration, not a process choice: the reference machine feeds exactly 55 mm on every strand."
+msgstr ""
+
+msgid "Fiber cut tail"
+msgstr ""
+
+msgid "Length of the cut-fiber tail the nozzle keeps depositing (matrix only, no new fiber) after the cutter fires, mm. Also the value written into the CUT DISTANCE comment. This is a machine calibration matching the cutter-to-nozzle path: the reference machine's CutCode comments 54.8 and its deposited tails land within about a millimetre of that. The ExtruderCs CutDistance preset key of 58 does not appear in the G-code."
+msgstr ""
+
+msgid "Fiber restart Z hop"
+msgstr ""
+
+msgid "Height above the layer at which the fiber restart feed is performed, mm."
+msgstr ""
+
+msgid "Matrix prime at fiber run start"
+msgstr ""
+
+msgid "Matrix (axis V) prime extrusion before the first joint deposit of a fiber run, mm."
+msgstr ""
+
+msgid "Matrix retract at fiber run end"
+msgstr ""
+
+msgid "Matrix (axis V) retract after the final wipe of a fiber run, mm. Fiber axis U is never retracted."
+msgstr ""
+
+msgid "Fiber feed rate per path length"
+msgstr ""
+
+msgid "Fiber (axis U) millimeters fed per millimeter of deposit path. Sets how much fiber goes down: higher means a denser fiber line. Reference machine full impregnation is about 1.0 mm/mm."
+msgstr ""
+
+msgid "mm/mm"
+msgstr ""
+
+msgid "Matrix to fiber ratio P"
+msgstr ""
+
+msgid "Matrix:fiber ratio of joint deposits; matrix feed V equals U times P. Higher means more plastic bound per unit of fiber. Reference machine constant is 0.034."
+msgstr ""
+
+msgid "Fiber deposit feedrate"
+msgstr ""
+
+msgid "Feedrate of joint fiber+matrix deposit moves, mm/min."
+msgstr ""
+
+msgid "mm/min"
+msgstr ""
+
+msgid "Rectilinear fiber stripes"
+msgstr ""
+
+msgid "Emit parallel fiber stripes clipped against each layer's contours, in addition to contour reinforcement. Requires Continuous fiber capability."
+msgstr ""
+
+msgid "Fiber stripe angle"
+msgstr ""
+
+msgid "Direction of the rectilinear fiber stripes, degrees counter-clockwise from +X."
+msgstr ""
+
+msgid "°"
+msgstr ""
+
+msgid "Fiber stripe spacing"
+msgstr ""
+
+msgid "Pitch between adjacent rectilinear fiber stripes, mm. Smaller means stronger reinforcement."
+msgstr ""
+
+msgid "Fiber stripe minimum segment"
+msgstr ""
+
+msgid "Stripe fragments shorter than this are skipped, mm."
+msgstr ""
+
+msgid "Fiber stripe maximum segment"
+msgstr ""
+
+msgid "Stripe paths longer than this are split into waypoints of at most this length, mm."
+msgstr ""
+
+msgid "Fiber fill minimum wall width"
+msgstr ""
+
+msgid "Interior fiber fill is admitted only where the layer is at least this wide (morphological opening diameter, mm). Bands thinner than this belong to the contour trace alone. Must be larger than the fiber spacing."
+msgstr ""
+
+msgid "Fiber fill minimum island area"
+msgstr ""
+
+msgid "Islands smaller than this area never receive interior fiber fill, mm^2."
+msgstr ""
+
+msgid "mm^2"
+msgstr ""
+
+msgid "Tool-wrap fiber windows"
+msgstr ""
+
+msgid "Wrap emitted fiber windows in T0/T1 tool changes around the reference machine macro dialect. Requires the machine macros to own tool offsets and dock motion."
+msgstr ""
+
+msgid "Fiber nozzle diameter"
+msgstr ""
+
+msgid "Diameter of the continuous-fiber nozzle. On the three-head reference machine the matrix and fiber heads are 0.7 mm and the plastic head is 0.4 mm; the regular Nozzle diameters field above only describes the plastic head."
+msgstr ""
+
+msgid "Fiber window packaging (audit probe)"
+msgstr ""
+
+msgid "Diagnostic probe for comparing window structure against reference output. Per run: one full fiber lifecycle window per deposit run (standard behavior). Per layer: package a layer's fiber runs into a single window with one restart, prime, cut and close between travels. Audit instrumentation only; leave at Per run for normal printing."
+msgstr ""
+
+msgid "Per run"
+msgstr ""
+
+msgid "Per layer (audit probe)"
+msgstr ""
+
+msgid "Fiber layer schedule"
+msgstr ""
+
+msgid "Which layers receive fiber. Every layer: every capable layer gets a fiber window (default behavior). Z band: only layers inside the Z band below, on macro layer boundaries - matching the reference machine pattern of reinforcing the stress zone instead of every layer. Macro layer: fiber over the whole height, but only once per macro layer, because the composite bead is taller than a plastic layer. Requires Continuous fiber capability."
+msgstr ""
+
+msgid "Every layer"
+msgstr ""
+
+msgid "Z band (stress zone)"
+msgstr ""
+
+msgid "Once per macro layer"
+msgstr ""
+
+msgid "Fiber band bottom"
+msgstr ""
+
+msgid "Lowest print-Z (mm from the print bottom) that receives fiber when the fiber layer schedule is Z band."
+msgstr ""
+
+msgid "Fiber band top"
+msgstr ""
+
+msgid "Highest print-Z (mm from the print bottom) that receives fiber when the fiber layer schedule is Z band."
+msgstr ""
+
+msgid "Fiber macro layer height"
+msgstr ""
+
+msgid "Height of one fiber macro layer, mm: how tall the deposited composite bead is, and therefore how far apart consecutive fiber layers sit. The plastic layer height should divide it exactly, so that a whole number of plastic layers fills each macro layer - the reference machine pairs 0.12 mm plastic layers into a 0.24 mm macro layer. Used by the Z band and macro layer schedules."
+msgstr ""
+
+msgid "Fiber concentric wall loops"
+msgstr ""
+
+msgid "Fill narrow walls with concentric fiber loops hugging the part shape instead of a single contour trace. Applies to islands too thin for the interior fill admission gate; thick areas keep the serpentine fill."
+msgstr ""
+
+msgid "Fiber wall loop pitch"
+msgstr ""
+
+msgid "Spacing between concentric fiber wall loops, mm. The wall loops continue inward at this pitch until the wall thickness is exhausted."
+msgstr ""
+
+msgid "Tail matrix payout factor"
+msgstr ""
+
+msgid "Matrix (V) payout of the post-cut tail moves as a fraction of the body deposit rate (fiber rate x matrix ratio). 1 keeps the tail matrix flow identical to the joint fiber+matrix deposits before the cut."
+msgstr ""
+
+msgid "Composite nozzle temperature"
+msgstr ""
+
+msgid "Nozzle temperature (degrees) the slicer heats and waits for on the composite (T0) extruder before the first fiber window, and shuts down at the end of the plate. 0 disables the emitted T0 heating and shutdown commands (machine start/end gcode is then responsible)."
+msgstr ""
+
+msgid "Fiber reservation mode"
+msgstr ""
+
+msgid "Reserve geometry for the composite bead on fiber layers. Off performs no reservation (an export must not be reported as reservation-passed). Outer wall only is a diagnostic experiment that removes the outer plastic wall on fiber layers. Composite band subtracts an exclusion band around the planned fiber paths from the plastic walls and infill, keeping the exterior surface by shifting beads inward instead of deleting the wall."
+msgstr ""
+
+msgid "Outer wall only (diagnostic)"
+msgstr ""
+
+msgid "Composite band"
+msgstr ""
+
+msgid "Fiber bonding overlap"
+msgstr ""
+
+msgid "Intended bonding overlap (mm) between the composite bead and the adjacent plastic. The exclusion distance around a fiber path is (composite bead width + plastic bead width) / 2 minus this overlap, so the plastic is kept clear of the fiber body but still touches it enough to bond."
+msgstr ""
+
+msgid "Fiber mode"
+msgstr ""
+
+msgid "Selects the continuous-fiber pattern used when the fiber channel is enabled. Off keeps the legacy behavior (fiber follows the external perimeter on scheduled layers). Speedy disables fiber entirely and prints plastic only. Reinforced deposits interior-only fiber chords at the selected coverage, leaving the outer skin to the plastic head. Fortified fills the interior completely with fiber inside the outer plastic shell."
+msgstr ""
+
+msgid "Speedy (plastic only)"
+msgstr ""
+
+msgid "Reinforced"
+msgstr ""
+
+msgid "Fortified"
+msgstr ""
+
+msgid "Fiber coverage"
+msgstr ""
+
+msgid "Interior fiber coverage for the Reinforced mode, as a percentage of full density. The fiber line spacing is derived from the fiber bead width and this percentage; the exact law depends on the fiber infill pattern. 0 percent disables the interior fiber and leaves the fiber perimeter alone."
+msgstr ""
+
+msgid "Plastic walls outside fiber"
+msgstr ""
+
+msgid "Number of plastic walls printed outboard of the fiber perimeter in Reinforced and Fortified modes. The fiber lane is pushed inward by this many wall spacings plus half of each bead width, so the fiber is buried behind plastic instead of riding on the outer wall. 0 puts the fiber directly behind the outer wall surface."
+msgstr ""
+
+msgid "Plastic walls inside fiber"
+msgstr ""
+
+msgid "Number of plastic walls printed inboard of the fiber perimeter in Reinforced and Fortified modes, between the fiber perimeter and the interior fill."
+msgstr ""
+
+msgid "Fiber infill pattern"
+msgstr ""
+
+msgid "Pattern used for the interior fiber in Reinforced and Fortified modes. Rectilinear is the legacy single-pass serpentine. Isogrid lays three rib families 60 degrees apart, each rib a pair of passes one bead apart, at the rib spacing the coverage percentage asks for. Solid lays adjacent passes one bead apart, cycling through the fiber fill angle list."
+msgstr ""
+
+msgid "Isogrid"
+msgstr ""
+
+msgid "Solid"
+msgstr ""
+
+msgid "Fiber bead width"
+msgstr ""
+
+msgid "Width of the deposited composite bead, which is normally wider than the fiber nozzle diameter. The fiber line spacing and the distance the fiber lane is held inboard of the plastic walls are both derived from it. 0 uses the fiber nozzle diameter instead."
+msgstr ""
+
+msgid "Fiber minimum turn radius"
+msgstr ""
+
+msgid "Smallest turn radius (mm) the fiber can be laid around. Corners tighter than this are handled according to the tight turn policy. 0 disables the check."
+msgstr ""
+
+msgid "Fiber tight turn policy"
+msgstr ""
+
+msgid "What to do where a planned fiber path turns tighter than the minimum turn radius. Keep strand deposits the path as planned and only reports the tight turns, so continuous reinforcement is never broken. Split strand cuts the fiber at the tight turn and restarts after it, so no fiber is bent past the limit, at the cost of an extra cut and tail. Has no effect while the minimum turn radius is 0."
+msgstr ""
+
+msgid "Keep strand"
+msgstr ""
+
+msgid "Split strand at the turn"
+msgstr ""
+
+msgid "Fiber seam position"
+msgstr ""
+
+msgid "Where the seam of a closed fiber loop goes. The seam carries the cut, the restart and the tail overlap, so it is the weakest point of the loop. Aligned keeps every loop starting at the same place, which is predictable but stacks the seams into a column up the part. Scattered spreads the seam around each loop, so no two layers break at the same spot. Longest straight run puts the seam in the middle of the loop's longest straight section, away from corners. All three are deterministic: the same model and settings always give the same seams."
+msgstr ""
+
+msgid "Aligned"
+msgstr ""
+
+msgid "Scattered"
+msgstr ""
+
+msgid "Longest straight run"
+msgstr ""
+
+msgid "Chain fiber loops into fill"
+msgstr ""
+
+msgid "Lay an island's boundary fiber loop and its interior fill as one continuous strand wherever the connector between them stays inside the part. Saves a cut, a restart purge and a tail for every island that has both. Off by default so existing projects keep their cut count; Reinforced and Fortified turn it on."
+msgstr ""
+
+msgid "Fiber verbose comments"
+msgstr ""
+
+msgid "Emit the reference machine's entity comments (; Inset XF start, ; Fiber infill start, ; SEAM Fiber at ..., ; MACROLAYER:) alongside each fiber strand. Off by default: the comments are for tooling and preview parity, not for the printer, and leaving them out keeps the G-code smaller."
+msgstr ""
+
+msgid "Fiber start speed"
+msgstr ""
+
+msgid "Deposition speed for the beginning of each fiber strand, where the fiber still has to be anchored to the part. 0 keeps the normal fiber speed for the whole strand."
+msgstr ""
+
+msgid "Fiber start length"
+msgstr ""
+
+msgid "How far into each fiber strand the start speed applies, measured along the deposited path."
+msgstr ""
+
+msgid "Fiber normal speed"
+msgstr ""
+
+msgid "Deposition speed for the body of each fiber strand, between the start and finish zones. 0 uses the fiber feedrate the strand was planned with."
+msgstr ""
+
+msgid "Fiber finish speed"
+msgstr ""
+
+msgid "Deposition speed for the end of each fiber strand, where the cut tail is laid into the part. 0 keeps the normal fiber speed to the end of the strand."
+msgstr ""
+
+msgid "Fiber finish length"
+msgstr ""
+
+msgid "How much of the end of each fiber strand the finish speed applies to, measured along the deposited path."
+msgstr ""
+
+msgid "Fiber maximum segment length"
+msgstr ""
+
+msgid "Longest move a fiber strand is split into (mm). Longer stretches are divided at points on the same path, so the deposited shape is unchanged but the fiber and matrix feeds are commanded at a finer resolution, as the reference machine does. 0 emits the path as planned."
+msgstr ""
+
+msgid "Fiber fill inset"
+msgstr ""
+
+msgid "Distance (mm) by which the fiber fill region is eroded away from the boundary between the fiber area and the outer plastic shell, so fiber chords never touch the outer FFF skin."
+msgstr ""
+
+msgid "Fiber fill angles"
+msgstr ""
+
+msgid "Slash-separated list of fiber chord angles (degrees, relative to the X axis) cycled per fiber layer in Reinforced and Fortified modes, e.g. 0/90/0 alternates 0 and 90 degrees on successive fiber layers."
+msgstr ""
+
+msgid "deg"
+msgstr ""
+
 msgid "G-code flavor"
 msgstr ""
 
@@ -15474,6 +15945,9 @@ msgstr ""
 msgid "Hybrid"
 msgstr ""
 
+msgid "Extra High Flow"
+msgstr ""
+
 msgid "Enable filament dynamic map"
 msgstr ""
 
@@ -15538,9 +16012,6 @@ msgid "This is the starting position for each part of the outer wall."
 msgstr ""
 
 msgid "Nearest"
-msgstr ""
-
-msgid "Aligned"
 msgstr ""
 
 msgid "Aligned back"
@@ -15911,6 +16382,17 @@ msgid "No sparse layers (beta)"
 msgstr ""
 
 msgid "If enabled, the wipe tower will not be printed on layers with no tool changes. On layers with a tool change, extruder will travel downward to print the wipe tower, so the tower ends up below the model and the toolhead has to reach down to it. Layouts where that would collide with an already printed object are rejected. Has no effect with smooth timelapse or clumping detection, which need a tower on every layer."
+msgstr ""
+
+msgid "Combine sparse layers"
+msgstr ""
+
+msgid ""
+"If enabled, consecutive layers on which the prime tower has no filament change are printed as a single thicker tower layer instead of one thin layer each, the same way infill combination merges sparse infill. The merged layer is printed at the top of the run, at the height of everything it covers.\n"
+"\n"
+"Only whole layers are merged, and never past the maximum layer height of the nozzle printing the tower (three quarters of the nozzle diameter when that is left at 0). Two or more layers therefore have to fit under that limit before anything changes at all: at a 0.2 mm layer height under a 0.3 mm maximum nothing is merged, while at 0.1 mm three layers become one.\n"
+"\n"
+"Unlike \"No sparse layers\" the tower keeps following the model, so the toolhead never has to reach down to it. Has no effect with \"No sparse layers\", smooth timelapse or clumping detection, which need a tower on every layer."
 msgstr ""
 
 msgid "Prime all printing extruders"
@@ -17071,6 +17553,12 @@ msgid "Allow rotation when arranging"
 msgstr ""
 
 msgid "If enabled, Arrange will allow rotation when placing objects."
+msgstr ""
+
+msgid "Align to Y axis when arranging"
+msgstr ""
+
+msgid "If enabled, Arrange will turn each object so its long side runs along the Y axis before placing it. When not given, it is on for i3 printers and off for the others, as in the GUI."
 msgstr ""
 
 msgid "Avoid extrusion calibrate region when arranging"
@@ -18960,6 +19448,9 @@ msgstr ""
 msgid "Discovered Printers"
 msgstr ""
 
+msgid "Select a Moonraker printer"
+msgstr ""
+
 msgid "Could not get a valid Printer Host reference"
 msgstr ""
 
@@ -19208,6 +19699,15 @@ msgstr ""
 msgid "Could not connect to MKS"
 msgstr ""
 
+msgid "No local network interface with an IPv4 address was found."
+msgstr ""
+
+msgid "Could not open a socket to search the local network."
+msgstr ""
+
+msgid "No Moonraker printers were discovered on the local network."
+msgstr ""
+
 msgid "Connection to Moonraker is working correctly."
 msgstr ""
 
@@ -19219,6 +19719,15 @@ msgstr ""
 
 #, possible-c-format, possible-boost-format
 msgid "Could not parse Moonraker server response: %s"
+msgstr ""
+
+msgid "The printer reports different filament loaded than this file was sliced for. Load the matching material, or turn on \"Skip the printer's pre-print checks\" for this printer to print anyway."
+msgstr ""
+
+msgid "The printer's filament sensors report an empty channel. Load filament into every channel this print uses, or turn on \"Skip the printer's pre-print checks\" for this printer to print anyway."
+msgstr ""
+
+msgid "The printer's camera check refused the job. Clear the build plate and make sure it is seated, or turn on \"Skip the printer's AI object detection\" for this printer to print anyway."
 msgstr ""
 
 msgid "Connection to OctoPrint is working correctly."
@@ -22678,13 +23187,13 @@ msgstr ""
 msgid "Collapse/Expand the sidebar"
 msgstr ""
 
-msgid "Open the speed dial"
-msgstr ""
-
 msgid "Reload the device page"
 msgstr ""
 
 msgid "Show keyboard shortcuts list"
+msgstr ""
+
+msgid "Open the Speed Dial"
 msgstr ""
 
 msgid "Slicing and printing"
@@ -22706,6 +23215,9 @@ msgid "Painting tools"
 msgstr ""
 
 msgid "Application"
+msgstr ""
+
+msgid "Speed Dial"
 msgstr ""
 
 #: resources/data/hints.ini: [hint:Precise wall]

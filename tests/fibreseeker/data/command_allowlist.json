@@ -1,0 +1,49 @@
+{
+ "commands": [
+  "CLEAN_NOZZLE",
+  "G0",
+  "G1",
+  "G21",
+  "G28",
+  "G4",
+  "G90",
+  "G91",
+  "G92",
+  "M104",
+  "M105",
+  "M106",
+  "M107",
+  "M109",
+  "M140",
+  "M141",
+  "M190",
+  "M191",
+  "M2000",
+  "M204",
+  "M220",
+  "M221",
+  "M280",
+  "M2800",
+  "M400",
+  "M82",
+  "M83",
+  "MOVE_OUT_BRUSH_STATION",
+  "MOVE_TO_BRUSH_STATION",
+  "PAUSE",
+  "RESUME",
+  "SET_KINEMATIC_POSITION",
+  "SET_PRESSURE_ADVANCE",
+  "SET_PRINT_STATS_INFO",
+  "SET_VELOCITY_LIMIT",
+  "T0",
+  "T1",
+  "TENSION_SENSOR_START"
+ ],
+ "tolerated_unknown": [
+  "M1001",
+  "M1002"
+ ],
+ "sources": {
+  "note": "Hand-written list of commands this slicer and its fixtures emit. Not a census of printer firmware."
+ }
+}

@@ -43,6 +43,16 @@ add_executable(${_TEST_NAME}_tests
     test_marchingsquares.cpp
     test_lay_on_face.cpp
     test_model.cpp
+    test_fiber_run.cpp
+    # Fiber strand model: early cut, tail deposited on-path.
+    test_fiber_strand.cpp
+    test_fiber_strand_planner.cpp
+    # Fiber mode selector -> strand planner parameters.
+    test_fiber_mode_plan.cpp
+    # fs_* printer options survive BBS-3MF project save/load; legacy files default to FFF.
+    test_fiber_3mf_roundtrip.cpp
+    # Plastic reservation around final strand paths (body + tail).
+    test_fiber_reserve.cpp
     test_utils.cpp
     test_miniz_extension.cpp
     test_timeutils.cpp

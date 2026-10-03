@@ -2909,6 +2909,39 @@ void TabPrint::build()
         optgroup->append_single_option_line("detect_narrow_internal_solid_infill", "strength_settings_advanced#detect-narrow-internal-solid-infill");
         optgroup->append_single_option_line("ensure_vertical_shell_thickness", "strength_settings_advanced#ensure-vertical-shell-thickness");
 
+        // ORCA: FibreSeeker3 continuous fiber strength bundle (comExpert): how much fiber to
+        // put down and where, chosen per process. Capability (fs_fiber_enabled) and the
+        // lifecycle calibration constants stay machine-side only. The fiber mode
+        // controls (mode, coverage, pattern, wall counts, bead width, fill inset and angles,
+        // feasibility limits) drive the FiberModePlan resolver and are process-side so
+        // presets can ship per-mode profiles.
+        optgroup = page->new_optgroup(L("Continuous Fiber"), L"param_continuous_fiber");
+        optgroup->append_single_option_line("fs_fiber_mode");
+        optgroup->append_single_option_line("fs_fiber_coverage_percent");
+        optgroup->append_single_option_line("fs_fiber_infill_pattern");
+        optgroup->append_single_option_line("fs_fiber_plastic_walls_outer");
+        optgroup->append_single_option_line("fs_fiber_bead_width");
+        optgroup->append_single_option_line("fs_fiber_fill_inset");
+        optgroup->append_single_option_line("fs_fiber_fill_angles");
+        optgroup->append_single_option_line("fs_fiber_min_radius");
+        optgroup->append_single_option_line("fs_fiber_tight_turn_policy");
+        optgroup->append_single_option_line("fs_fiber_seam_position");
+        optgroup->append_single_option_line("fs_fiber_chain_loops");
+        optgroup->append_single_option_line("fs_fiber_verbose_comments");
+        optgroup->append_single_option_line("fs_fiber_speed_start");
+        optgroup->append_single_option_line("fs_fiber_speed_start_length");
+        optgroup->append_single_option_line("fs_fiber_speed_normal");
+        optgroup->append_single_option_line("fs_fiber_speed_finish");
+        optgroup->append_single_option_line("fs_fiber_speed_finish_length");
+        optgroup->append_single_option_line("fs_fiber_max_arc_seg");
+        optgroup->append_single_option_line("fs_fiber_enforce");
+        optgroup->append_single_option_line("fs_rectify_enabled");
+        optgroup->append_single_option_line("fs_rectify_angle");
+        optgroup->append_single_option_line("fs_rectify_spacing");
+        optgroup->append_single_option_line("fs_rectify_min_seg");
+        optgroup->append_single_option_line("fs_fiber_rate");
+        optgroup->append_single_option_line("fs_matrix_ratio");
+
     page = add_options_page(L("Speed"), "custom-gcode_speed"); // ORCA: icon only visible on placeholders
         optgroup = page->new_optgroup(L("First layer speed"), L"param_speed_first", 15);
         optgroup->append_single_option_line("initial_layer_speed", "speed_settings_initial_layer_speed#initial-layer", 0);
@@ -5212,6 +5245,23 @@ void TabPrinter::build_fff()
         optgroup->append_single_option_line("support_chamber_temp_control", "printer_basic_information_accessory#support-controlling-chamber-temperature");
         optgroup->append_single_option_line("support_air_filtration", "printer_basic_information_accessory#support-air-filtration");
         optgroup->append_single_option_line("cooling_filter_enabled");
+
+        // ORCA: FibreSeeker3 continuous fiber. Printer-owned keys only. Process-owned
+        // keys (mode, coverage, rectify enable/angle/spacing/min_seg, rate, matrix)
+        // live on the Strength page; binding them here after they were removed from
+        // s_Preset_printer_options nullptr-derefs in get_config_value on first open.
+        optgroup = page->new_optgroup(L("Continuous Fiber"), "param_continuous_fiber");
+        optgroup->append_single_option_line("fs_fiber_enabled");
+        optgroup->append_single_option_line("fs_fiber_nozzle_diameter");
+        optgroup->append_single_option_line("fs_t0_wrap");
+        optgroup->append_single_option_line("fs_deposit_feed");
+        optgroup->append_single_option_line("fs_restart_feed");
+        optgroup->append_single_option_line("fs_tail_length");
+        optgroup->append_single_option_line("fs_restart_z_hop");
+        optgroup->append_single_option_line("fs_prime_v");
+        optgroup->append_single_option_line("fs_retract_v");
+        optgroup->append_single_option_line("fs_fiber_reserve");
+        optgroup->append_single_option_line("fs_fiber_bond_overlap");
 
         auto edit_custom_gcode_fn = [this](const t_config_option_key& opt_key) { edit_custom_gcode(opt_key); };
 

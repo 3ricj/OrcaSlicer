@@ -1,0 +1,187 @@
+// License: GNU AGPLv3 or higher
+
+#include "FiberEmitter.hpp"
+
+#include <cmath>
+#include <cstdio>
+#include <algorithm>
+
+namespace Slic3r {
+namespace Fiber {
+
+namespace {
+
+// All emitted material values go through the run's printed precision so the
+// g-code itself remains the single source of truth for window accounting.
+std::string fmt(const char* f, double v)
+{
+    char buf[64];
+    std::snprintf(buf, sizeof(buf), f, v);
+    return std::string(buf);
+}
+
+} // namespace
+
+double zone_feed_mm_min(const FiberEmitParams& params, double dist_mm, double total_mm, double fallback_f)
+{
+    const double start  = params.start_speed_mm_s;
+    const double finish = params.finish_speed_mm_s;
+    // The start zone wins where the two overlap on a strand shorter than both:
+    // a freshly restarted strand has to be anchored before anything else.
+    if (start > 0.0 && params.start_length_mm > 0.0 && dist_mm < params.start_length_mm)
+        return start * 60.0;
+    if (finish > 0.0 && params.finish_length_mm > 0.0 && dist_mm >= total_mm - params.finish_length_mm)
+        return finish * 60.0;
+    return params.normal_speed_mm_s > 0.0 ? params.normal_speed_mm_s * 60.0 : fallback_f;
+}
+
+bool emit_strand(const FiberStrand& strand, const FiberEmitParams& params, std::string& out, std::string* error)
+{
+    auto fail = [error, &out](const char* msg) {
+        if (error) {
+            *error = msg;
+        }
+        out.clear();
+        return false;
+    };
+
+    if (!strand.finalized) {
+        return fail("emit_strand: strand must be finalized before emission");
+    }
+    if (strand.body_pts.empty() || strand.body_pts.size() != strand.body_u.size()) {
+        return fail("emit_strand: finalized body move list is empty or inconsistent");
+    }
+    if (strand.tail_pts.empty() || strand.tail_pts.size() != strand.tail_v.size()) {
+        return fail("emit_strand: finalized tail move list is empty or inconsistent");
+    }
+    if (!(strand.feed_mm_min > 0.0) || !(strand.tail_length_mm > 0.0)) {
+        return fail("emit_strand: strand feed and calibrated tail must be > 0");
+    }
+    if (!(params.restart_feed_mm > 0.0) || !(params.prime_v_mm >= 0.0) ||
+        !(params.retract_v_mm >= 0.0) || !(params.restart_z_mm >= 0.0) || !(params.lift_z_mm >= 0.0)) {
+        return fail("emit_strand: invalid FiberEmitParams (feeds/lengths must be finite and non-negative as applicable)");
+    }
+
+    const double restart = FiberRun::round3(params.restart_feed_mm);
+    const double p_r     = FiberRun::round3(strand.ratio_p);
+    const double z_hi    = strand.z + std::max(params.restart_z_mm, params.lift_z_mm);
+
+    std::string s;
+    if (params.emit_layer_marker) {
+        s += "; LAYER:" + std::to_string(strand.layer_id) + " [" + fmt("%.2f", strand.z) + "]\n";
+    }
+
+    const FiberPoint& p0 = strand.pts.front();
+    // Optional vendor-shaped entity comments (fs_fiber_verbose_comments). A closed
+    // loop is an Inset XF; an open path is Fiber infill. The seam comment names
+    // the restart XY the cutter and the tail will share.
+    if (params.verbose_comments) {
+        const FiberPoint& pe = strand.pts.back();
+        const bool closed = std::hypot(pe.x - p0.x, pe.y - p0.y) < 0.05;
+        s += closed ? "; Inset XF start\n" : "; Fiber infill start\n";
+        s += "; SEAM Fiber at X" + fmt("%.3f", p0.x) + " Y" + fmt("%.3f", p0.y) +
+             " Z" + fmt("%.3f", strand.z) + "\n";
+    }
+
+    // 1. Open the window. Budget counts commanded forward U only: the tail
+    // suffix carries no U (the blade is upstream of everything that could drive
+    // it), so it never enters L.
+    s += "M1001 L" + std::to_string(strand.budget_L(params.restart_feed_mm)) + "\n";
+
+    // 2. Above-layer restart feed at the strand start (contract s8.2), then
+    // 3. V-only matrix prime. Identical to the per-run lifecycle so downstream
+    // pause/rewind handling sees one dialect.
+    s += "G1 F" + fmt("%.0f", params.lift_f) + " Z" + fmt("%.2f", z_hi) + "\n";
+    s += "G1 X" + fmt("%.2f", p0.x) + " Y" + fmt("%.2f", p0.y) + " F" + fmt("%.0f", params.lift_f) + "\n";
+    s += "G1 F" + fmt("%.0f", params.restart_feed_f) + " U" + fmt("%.3f", restart) + " ; Extrude restart\n";
+    s += "G1 F" + fmt("%.0f", params.lift_f) + " Z" + fmt("%.2f", strand.z) + "\n";
+    // Stationary V is two accounted quantities: recover the previous run's
+    // retract, then any extra configured as an anchor prime. When they sum to
+    // the same millimetres as the old single V4 they are still one physical
+    // start, but the G-code names the two purposes instead of burying recover
+    // inside the prime.
+    {
+        const double recover = FiberRun::round3(params.retract_v_mm);
+        const double extra   = FiberRun::round3(std::max(0.0, params.prime_v_mm - params.retract_v_mm));
+        if (recover > 0.0)
+            s += "G1 F" + fmt("%.0f", params.prime_f) + " V" + fmt("%.3f", recover) + " ; Recover matrix retract\n";
+        if (extra > 0.0)
+            s += "G1 F" + fmt("%.0f", params.prime_f) + " V" + fmt("%.3f", extra) + " ; Matrix prime\n";
+        if (recover <= 0.0 && extra <= 0.0)
+            s += "G1 F" + fmt("%.0f", params.prime_f) + " V" + fmt("%.3f", FiberRun::round3(params.prime_v_mm)) + " ; Matrix prime\n";
+    }
+
+    // 4. Body joint deposits up to the scheduled cut position. V is derived
+    // from the PRINTED U so V == U * P holds at emitted precision (R11).
+    // Deposit moves carry NO Z word: the fiber is attached between M1001 and
+    // M1002, so Z stays constant for the whole window (operator ruling; the
+    // vendor reference files are flat-Z inside windows too).
+    // Distance along the deposited path, carried through the cut into the tail
+    // so the three-zone ramp measures one continuous strand.
+    double        dist   = 0.0;
+    FiberPoint    prev   = p0;
+    const double  total  = strand.total_path;
+    for (size_t i = 0; i < strand.body_u.size(); ++i) {
+        const double u = strand.body_u[i];
+        const double v = FiberRun::round3(u * p_r);
+        const FiberPoint& pe = strand.body_pts[i];
+        s += "G1 X" + fmt("%.2f", pe.x) + " Y" + fmt("%.2f", pe.y);
+        s += " V" + fmt("%.3f", v) + " U" + fmt("%.3f", u) +
+             " P" + fmt("%.3f", p_r) +
+             " F" + fmt("%.0f", zone_feed_mm_min(params, dist, total, strand.feed_mm_min)) + "\n";
+        dist += std::hypot(pe.x - prev.x, pe.y - prev.y);
+        prev  = pe;
+    }
+
+    // 5. Cut INSIDE the deposition path (operator ruling 2026-10-01): the blade
+    // fires at path length (total - calibrated tail) so the severed tail
+    // becomes the strand's final deposited section. M2800 is cutter-only
+    // (fibre_servo.cfg: no feed, no motion) so an early position is legal; the
+    // dwelled pulse is always followed by M400 (contract s6).
+    s += "; Start to cut\n";
+    s += "M2800\n";
+    s += "M400\n";
+    s += ";CUT DISTANCE " + fmt("%.1f", FiberStrand::round3(strand.tail_length_mm)) + "\n";
+
+    // 6. Tail deposition: V-bearing, U-free moves along the remaining path to
+    // the strand endpoint. The matrix extruder, downstream of the blade, pays
+    // the severed tail out under drag (contract s8.7 / U17); it is deliberately
+    // deposited into the planned structure - NO separation move here.
+    for (size_t i = 0; i < strand.tail_v.size(); ++i) {
+        const FiberPoint& pe = strand.tail_pts[i];
+        s += "G1 X" + fmt("%.2f", pe.x) + " Y" + fmt("%.2f", pe.y) + " V" + fmt("%.3f", strand.tail_v[i]) +
+             " F" + fmt("%.0f", zone_feed_mm_min(params, dist, total, strand.feed_mm_min)) + "\n";
+        dist += std::hypot(pe.x - prev.x, pe.y - prev.y);
+        prev  = pe;
+    }
+
+    // 7. Deferred-pause cut-boundary handshake after the tail is consumed
+    // (matches the vendor position: last material move -> handshake -> retract).
+    s += "; Cutting completed.\n";
+
+    // 8. Release at the strand ENDPOINT: V-only retract, Z lift, close window.
+    s += "G1 F" + fmt("%.0f", params.retract_f) + " V-" + fmt("%.3f", FiberRun::round3(params.retract_v_mm)) + " ; Retract\n";
+    s += "G1 F" + fmt("%.0f", params.lift_f) + " Z" + fmt("%.2f", strand.z + params.lift_z_mm) + "\n";
+    s += "M1002\n";
+
+    out = s;
+    return true;
+}
+
+std::string fiber_enforce_violation(size_t layer_id, size_t num_rings, size_t num_runs, size_t num_skipped)
+{
+    // Skipped candidate paths mean the layer would print partially reinforced.
+    if (num_skipped > 0) {
+        return "layer " + std::to_string(layer_id) + ": " + std::to_string(num_skipped) +
+               " fiber path(s) could not be reconstructed into a complete window";
+    }
+    // External-perimeter rings present but nothing finalized: the layer is
+    // fiber-capable yet would print with no fiber at all.
+    if (num_rings > 0 && num_runs == 0) {
+        return "layer " + std::to_string(layer_id) + ": no fiber window could be formed on any external perimeter";
+    }
+    return std::string();
+}
+
+} // namespace Fiber
+} // namespace Slic3r
