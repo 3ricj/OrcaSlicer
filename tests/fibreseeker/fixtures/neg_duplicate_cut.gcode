@@ -1,0 +1,18 @@
+; neg_duplicate_cut.gcode - two M2800 in one window (R09D). First cut is well-formed.
+# EXPECT: ERROR R09D
+# EXPECT: WARN R01U
+G21
+G90
+M83
+T0
+; LAYER:1 [0.2]
+M1001 L57
+G1 F1200 U55
+G1 F600 V4
+G1 X110.000 V0.04200 U2.00000 P0.021 F300
+M2800
+M400
+M2800
+M400
+G1 F600 V-1
+M1002

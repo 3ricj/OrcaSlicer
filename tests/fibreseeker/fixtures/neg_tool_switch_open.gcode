@@ -1,0 +1,16 @@
+; neg_tool_switch_open.gcode - T1 requested with fiber window still open (R06T, then R09/R06X at EOF).
+# EXPECT: ERROR R06T
+# EXPECT: ERROR R09
+# EXPECT: ERROR R06X
+# EXPECT: WARN R01U
+G21
+G90
+M83
+T0
+; LAYER:1 [0.2]
+M1001 L57
+G1 F1200 U55
+G1 F600 V4
+G1 X110.000 V0.04200 U2.00000 P0.021 F300
+T1
+G0 X150.000 F6000

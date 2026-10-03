@@ -10,7 +10,12 @@
 #include "Exception.hpp"
 #include "LifecycleEvents.hpp"
 #include "ExtrusionEntity.hpp"
+#include "ExtrusionEntityCollection.hpp"
 #include "EdgeGrid.hpp"
+#include "Fiber/FiberEmitter.hpp"
+#include "Fiber/FiberModePlan.hpp"
+#include "Fiber/FiberReserve.hpp"
+#include "Fiber/FiberStrandPlanner.hpp"
 #include "Geometry/ConvexHull.hpp"
 #include "GCode/PrintExtents.hpp"
 #include "GCode/Thumbnails.hpp"
@@ -3747,6 +3752,13 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
 
     // Write the custom start G-code
     file.writeln(machine_start_gcode);
+    // T0 (composite) preheat (G-code review finding #3): after the start sequence so the
+    // composite hotend soaks while the plate preamble runs; the M109 wait is emitted once,
+    // immediately before the first T0 selection. Emitted only when fs_t0_temp is configured.
+    if (m_config.fs_fiber_enabled.value && m_config.fs_t0_temp.value > 0) {
+        file.write_format("M104 S%d T0\n", m_config.fs_t0_temp.value);
+        m_fs_t0_hot = false;
+    }
     // Mark the end of the machine start g-code so the GCodeProcessor usage-block builder knows where user
     // g-code ends and can start attributing filament/extruder usage. Gated on enable_pre_heating: only the
     // injector fleet (H2D/X2D/H2D-Pro/H2C) emits it; the byte-frozen fleet (X1/P1/A1/H2S, flag false) never
@@ -4142,6 +4154,10 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
                 file.writeln(this->placeholder_parser_process("filament_end_gcode", end_gcode, extruder_id, &config));
             }
         }
+        // T0 shutdown (G-code review finding #3): the emitted preheat/heat commands set T0
+        // hot; switch it off before the machine end gcode (whose own M104 S0 only covers T1).
+        if (m_config.fs_fiber_enabled.value && m_config.fs_t0_temp.value > 0)
+            file.writeln("M104 S0 T0");
         file.writeln(this->placeholder_parser_process("machine_end_gcode", print.config().machine_end_gcode, m_writer.filament()->id(), &config));
     }
     file.write(m_writer.update_progress(m_layer_count, m_layer_count, true)); // 100%
@@ -5933,6 +5949,272 @@ LayerResult GCode::process_layer(
     std::map<std::pair<const SupportLayer *, ExtrusionRole>, unsigned int> support_filaments;
     std::vector<std::unique_ptr<ExtrusionEntityCollection>> split_perimeter_storage;
     bool is_anything_overridden = const_cast<LayerTools&>(layer_tools).wiping_extrusions().is_anything_overridden();
+
+    // ---- Continuous fiber: plan + reserve BEFORE export (R2.1) ----
+    // The export grouping below stores POINTERS into layerm->perimeters /
+    // layerm->fills, so mutating those collections here (not at emission time)
+    // makes the export order, cooling buffer, material and time accounting all
+    // describe the reserved program (operator requirement R2.1-6/7). The
+    // reserve pass removes plastic from the exclusion band around the FINAL
+    // accepted strand geometry (body + post-cut tail) per FiberReserve.hpp.
+    bool                     fs_do_fiber        = false;
+    bool                     fs_reserve_applied = false;
+    size_t                   fs_reserve_removed = 0;
+    std::string              fs_reserve_note;
+    std::string              fs_macro_note;
+    Fiber::StrandLayerParams fs_slp;
+    Fiber::StrandLayerResult fs_slres;
+    size_t fs_emit_failed = 0;
+    // Reservation mutates the sliced collections for this export only. Restore
+    // afterwards so a second export of the same slice does not double-cut plastic.
+    struct FiberReserveGuard {
+        std::vector<std::pair<ExtrusionEntityCollection *, ExtrusionEntityCollection>> saved;
+        void keep(ExtrusionEntityCollection &c) { saved.emplace_back(&c, c); }
+        ~FiberReserveGuard() {
+            for (auto &p : saved)
+                *p.first = std::move(p.second);
+        }
+    };
+    FiberReserveGuard fs_reserve_guard;
+    // fs_fiber_mode: off follows the perimeter; plastic_only suppresses fiber
+    // even when the capability flag is on; walls/solid drive interior fill.
+    const bool fs_mode_wants_fiber = m_config.fs_fiber_mode.value != FiberMode::fmPlasticOnly;
+    if (object_layer != nullptr && m_config.fs_fiber_enabled.value && fs_mode_wants_fiber) {
+        // Fiber layer schedule (fs_fiber_schedule): every_layer (default) reproduces previous output
+        // byte-for-byte; band confines fiber to layers inside [fs_fiber_band_z_min, fs_fiber_band_z_max]
+        // measured from the object bottom, landing on fs_fiber_z_step boundaries (the reference machine
+        // reinforces a stress zone instead of every layer). Unscheduled layers emit no fiber and
+        // enforcement is inert there - a scheduled-out layer is not a coverage failure.
+        // macro_layer additionally recognises that the composite bead is TALLER
+        // than a plastic layer (vendor MacroLayerHeight 0.24 against 0.12 mm
+        // plastic layers): plastic layers are grouped into macro layers one bead
+        // tall and only the layer that closes a macro layer carries fiber, so
+        // consecutive fiber beads do not have to share the same Z gap.
+        bool fs_scheduled = true;
+        const FiberSchedule fs_sched = m_config.fs_fiber_schedule.value;
+        const double        fs_macro_h = m_config.fs_fiber_z_step.value;
+        if (fs_sched == FiberSchedule::fsBand) {
+            const double z_bottom = object_layer->object()->get_layer(0)->print_z;
+            const double rel      = print_z - z_bottom;
+            const double tol      = 0.5 * object_layer->height + EPSILON;
+            const bool   in_band  = rel >= m_config.fs_fiber_band_z_min.value - tol &&
+                                    rel <= m_config.fs_fiber_band_z_max.value + tol;
+            const bool   on_step  = std::fabs(rel - std::lround(rel / fs_macro_h) * fs_macro_h) <= tol;
+            fs_scheduled          = in_band && on_step;
+        }
+        else if (fs_sched == FiberSchedule::fsMacroLayer) {
+            // Counted in plastic layers rather than matched on Z: a macro layer
+            // is however many plastic layers fill one composite bead, and only
+            // the layer that closes it carries fiber. Counting keeps the choice
+            // deterministic and exactly periodic, which a Z-proximity test is
+            // not when the bead height is not a multiple of the layer height.
+            const double h = object_layer->height;
+            const size_t n = h > 0.0 ? size_t(std::max(1.0, std::round(fs_macro_h / h))) : 1;
+            fs_scheduled   = object_layer->id() % n == 0;
+            // The operator has to SEE a bead height that no whole number of
+            // plastic layers fills, rather than infer it from the layer count:
+            // the reference machine pairs 0.12 mm layers into a 0.24 mm macro
+            // layer, and at a layer height that does not divide the bead the
+            // fiber beads cannot sit flush.
+            if (fs_scheduled && h > 0.0 && std::fabs(double(n) * h - fs_macro_h) > EPSILON)
+                fs_macro_note = "; FIBER MACRO LAYER: bead " + float_to_string_decimal_point(fs_macro_h, 3) +
+                    " mm is not a whole number of " + float_to_string_decimal_point(h, 3) +
+                    " mm plastic layers; using " + std::to_string(n) + " layers = " +
+                    float_to_string_decimal_point(double(n) * h, 3) + " mm\n";
+        }
+        // Walls (Reinforced) and Off: a plastic-only first layer and last
+        // layer so the bed and the top skin stay FFF. Solid (Fortified) is
+        // allowed to put fiber on those layers.
+        if (fs_scheduled && m_config.fs_fiber_mode.value != FiberMode::fmSolid) {
+            if (object_layer->id() == 0)
+                fs_scheduled = false;
+            else if (object_layer->upper_layer == nullptr)
+                fs_scheduled = false;
+        }
+        fs_do_fiber = fs_scheduled;
+        if (fs_scheduled) {
+            // Bed offset of THIS layer's object instance. m_origin is NOT usable here: the
+            // per-instance set_origin() calls happen later in the export loop, so at this
+            // hoist point it still holds the previous layer's (or the initial zero) origin,
+            // which displaced the whole fiber deposit to the wrong bed position (caught by
+            // the fibreseeker export test's printable-area check). Resolve the instance shift
+            // the export loop will set: sequential print -> the single scheduled instance,
+            // otherwise the first instance of the object (parallel multi-instance fibers ride
+            // the first instance, matching the single emission site below).
+            Vec2d fs_bed_shift = m_origin;
+            {
+                const PrintObject*    fs_po    = object_layer->object();
+                const PrintInstances& fs_insts = fs_po->instances();
+                if (! fs_insts.empty()) {
+                    size_t fs_iid = 0;
+                    if (single_object_instance_idx != size_t(-1) && single_object_instance_idx < fs_insts.size())
+                        fs_iid = single_object_instance_idx;
+                    fs_bed_shift = unscale(fs_insts[fs_iid].shift);
+                }
+            }
+            std::vector<std::vector<Fiber::FiberPoint>> rings;
+            for (const LayerRegion* layerm : object_layer->regions()) {
+                // layerm->perimeters is a collection of role-grouped collections; inspect leaves.
+                for (const ExtrusionEntity* ee : layerm->perimeters.entities) {
+                    if (!ee->is_collection())
+                        continue;
+                    for (const ExtrusionEntity* e : static_cast<const ExtrusionEntityCollection*>(ee)->entities) {
+                        if (!e->is_loop() || e->role() != erExternalPerimeter)
+                            continue;
+                        // Polygon::points is already the ring without a duplicated closing vertex;
+                        // transformed to bed mm (tool offsets are macro-owned on this machine,
+                        // contract s12.3).
+                        Points pts = to_points(static_cast<const ExtrusionLoop*>(e)->polygon());
+                        std::vector<Fiber::FiberPoint> ring;
+                        ring.reserve(pts.size());
+                        for (const Point& p : pts) {
+                            const Vec2d bed = unscale(p) + fs_bed_shift;
+                            ring.push_back({bed.x(), bed.y()});
+                        }
+                        if (ring.size() >= 3)
+                            rings.emplace_back(std::move(ring));
+                    }
+                }
+            }
+            fs_slp.layer_id       = object_layer->id() + 1;
+            fs_slp.z              = print_z;
+            fs_slp.ratio_p        = m_config.fs_matrix_ratio.value;
+            fs_slp.fiber_rate     = m_config.fs_fiber_rate.value;
+            fs_slp.feed_mm_min    = m_config.fs_deposit_feed.value;
+            fs_slp.tail_length_mm = m_config.fs_tail_length.value;
+            // Tail matrix payout as a fraction of the body deposit rate (fs_tail_v_factor).
+            // Default 1.0 keeps the post-cut V/XY ratio identical to the joint U/V deposits
+            // (G-code review finding #1: tail V must not revert to ~1.0 per mm of path).
+            fs_slp.tail_v_factor  = m_config.fs_tail_v_factor.value;
+            fs_slp.pitch_mm       = m_config.fs_rectify_spacing.value;
+            fs_slp.fill_enabled   = m_config.fs_rectify_enabled.value;
+            // Alternating laydown angle (operator ruling): base angle from the profile, +90 degrees
+            // on odd layers so consecutive layers cross at right angles.
+            fs_slp.fill_angle_deg = m_config.fs_rectify_angle.value + (object_layer->id() % 2) * 90.0;
+            fs_slp.fill_min_seg_mm = m_config.fs_rectify_min_seg.value;
+            // Fill admission gate (concert with trace): chords only inside material at least
+            // fs_fill_min_wall_width thick, islands at least fs_fill_min_area in area. Refused
+            // islands switch to concentric wall loops when the profile enables them.
+            fs_slp.fill_min_wall_width = m_config.fs_fill_min_wall_width.value;
+            fs_slp.fill_min_area_mm2   = m_config.fs_fill_min_area.value;
+            fs_slp.wall_loops_enabled  = m_config.fs_fiber_wall_loops.value;
+            fs_slp.wall_pitch_mm       = m_config.fs_fiber_wall_pitch.value;
+            fs_slp.chain_loops_into_fill = m_config.fs_fiber_chain_loops.value;
+            // Fiber feasibility limits (fs_fiber_min_radius / fs_fiber_max_arc_seg).
+            // Both default to 0 = off, so the legacy path is unaffected; where a
+            // profile sets them the planner refuses strands it cannot lay instead
+            // of straightening them.
+            fs_slp.min_turn_radius_mm = m_config.fs_fiber_min_radius.value;
+            fs_slp.tight_turn_policy  = m_config.fs_fiber_tight_turn_policy.value;
+            fs_slp.seam_position      = m_config.fs_fiber_seam_position.value;
+            fs_slp.max_arc_seg_mm     = m_config.fs_fiber_max_arc_seg.value;
+            // Fiber mode pattern mapping:
+            // under reinforced / fortified the mode's pattern parameters drive the
+            // planner instead of the legacy rectify wiring above. The spacing comes
+            // from the chosen fiber infill pattern and the coverage percent (100
+            // percent under fortified), the laydown angle cycles through the
+            // fs_fiber_fill_angles list over FIBER-EMITTED layers (band schedules
+            // still alternate), and the fill stops fs_fiber_fill_inset short of the
+            // walls (CF inside, FFF outer skin). fmOff (the default) never enters
+            // this branch: the wiring above stands byte-for-byte.
+            // Deposited composite bead width: every fiber spacing law, the fiber
+            // lane inset and the reservation band are expressed in bead widths,
+            // and the bead is wider than the orifice that lays it (reference
+            // machine: 0.8 mm bead from a 0.7 mm composite nozzle).
+            // fs_fiber_bead_width unset falls back to the nozzle diameter, which
+            // is the legacy value.
+            const double fs_fiber_w = m_config.fs_fiber_bead_width.value > 0.0 ?
+                m_config.fs_fiber_bead_width.value : m_config.fs_fiber_nozzle_diameter.value;
+            if (m_config.fs_fiber_mode.value != FiberMode::fmOff) {
+                const Fiber::FiberModeLayer fs_mpl = Fiber::resolve_fiber_mode_layer(
+                    m_config.fs_fiber_mode.value,
+                    m_config.fs_fiber_infill_pattern.value,
+                    Fiber::parse_fiber_angle_list(m_config.fs_fiber_fill_angles.value),
+                    m_config.fs_fiber_coverage_percent.value,
+                    fs_fiber_w,
+                    m_config.fs_fiber_fill_inset.value,
+                    m_fs_fiber_layer_idx);
+                fs_slp.pitch_mm         = fs_mpl.pitch_mm;
+                fs_slp.fill_enabled     = fs_mpl.fill_enabled;
+                fs_slp.fill_angle_deg   = fs_mpl.fill_angle_deg;
+                fs_slp.fill_outer_inset = fs_mpl.fill_outer_inset;
+                fs_slp.infill_pattern   = fs_mpl.pattern;
+                fs_slp.fiber_width_mm   = fs_fiber_w;
+                // The fiber perimeter is ONE loop per island per fiber layer under
+                // every mode: the reference machine emits exactly one fiber inset
+                // per fiber layer and expresses reinforcement density through the
+                // interior fill, not through stacked fiber loops. The wall-loop
+                // concert keys stay live on the legacy (fmOff) path.
+                fs_slp.wall_loops_enabled = false;
+                fs_slp.wall_outer_loops   = 1;
+                fs_slp.wall_inner_loops   = 0;
+                // The fiber lane: the harvested rings are the plastic outer-wall
+                // centerline, so the fiber has to move inboard past every plastic
+                // wall planned outside it plus half of each bead, less the intended
+                // bonding overlap. With no plastic wall outboard of the fiber the
+                // lane still shifts in by half the bead-width difference, so the
+                // wider roving does not protrude past the nominal surface.
+                const int    fs_walls_outer = std::max(0, m_config.fs_fiber_plastic_walls_outer.value);
+                double       fs_plastic_w   = 0.0;
+                double       fs_wall_pitch  = 0.0;
+                for (const LayerRegion* layerm : object_layer->regions()) {
+                    fs_plastic_w  = std::max(fs_plastic_w, double(layerm->flow(frExternalPerimeter).width()));
+                    fs_wall_pitch = std::max(fs_wall_pitch, double(layerm->flow(frPerimeter).spacing()));
+                }
+                const double fs_inset = fs_walls_outer > 0 ?
+                    double(fs_walls_outer) * fs_wall_pitch + 0.5 * (fs_plastic_w + fs_fiber_w) -
+                        m_config.fs_fiber_bond_overlap.value :
+                    0.5 * (fs_fiber_w - fs_plastic_w);
+                fs_slp.boundary_inset_mm = std::max(0.0, fs_inset);
+                ++ m_fs_fiber_layer_idx; // this layer emits fiber: advance the angle cycle
+            }
+            fs_slres = Fiber::build_layer_strands(rings, fs_slp);
+            // Plastic reservation (fs_fiber_reserve). band = the physical pass: subtract
+            // the exclusion band d(w) = composite/2 + w/2 - bond_overlap from the external
+            // perimeters, internal perimeters and all fills (gap fills included - they live
+            // inside layerm->fills) of every region of THIS object layer. outer_wall =
+            // diagnostic only (drops every external perimeter regardless of geometry; never
+            // a valid reservation). off (default) never reaches this code: zero regression.
+            const FiberReserveMode fs_rmode = m_config.fs_fiber_reserve.value;
+            if (fs_rmode != FiberReserveMode::frmOff && !fs_slres.strands.empty()) {
+                // The fiber geometry is harvested from this single object layer only; in a
+                // multi-instance batch (every layer carries more than one object instance)
+                // reserving only the first instance would hole the others' plastic. Skip
+                // reservation there rather than corrupt siblings.
+                const size_t fs_obj_layers = std::count_if(layers.begin(), layers.end(),
+                    [](const LayerToPrint& l) { return l.object_layer != nullptr; });
+                if (fs_obj_layers > 1)
+                    fs_reserve_note = " skipped: multi-instance batch";
+                else {
+                    Fiber::ReserveParams rp;
+                    // The band has to exclude plastic from the space the composite
+                    // actually occupies, which is the deposited bead - not the
+                    // orifice it came out of. Taking the orifice understated the
+                    // band by half the bead/orifice difference on each side (0.05 mm
+                    // per side on the reference machine), leaving plastic inside the
+                    // fiber lane that reservation was supposed to clear.
+                    rp.composite_width_mm = fs_fiber_w;
+                    rp.bond_overlap_mm    = m_config.fs_fiber_bond_overlap.value;
+                    // Same instance shift as the strand rings above: the reserve bands must
+                    // live in the same bed space as the strands, while the plastic geometry
+                    // below is unscaled + this same shift (FiberReserve applies the origin).
+                    rp.origin_offset_mm   = fs_bed_shift;
+                    for (LayerRegion* layerm : object_layer->regions()) {
+                        fs_reserve_guard.keep(layerm->perimeters);
+                        fs_reserve_guard.keep(layerm->fills);
+                        if (fs_rmode == FiberReserveMode::frmOuterWall)
+                            fs_reserve_removed += Fiber::drop_external_perimeters(layerm->perimeters);
+                        else {
+                            fs_reserve_removed += Fiber::subtract_reserve_bands(layerm->perimeters, fs_slres.strands, rp);
+                            fs_reserve_removed += Fiber::subtract_reserve_bands(layerm->fills, fs_slres.strands, rp);
+                        }
+                    }
+                    fs_reserve_applied = true;
+                }
+            }
+        }
+    }
+
     for (const LayerToPrint &layer_to_print : layers) {
         if (layer_to_print.support_layer != nullptr) {
             const SupportLayer &support_layer = *layer_to_print.support_layer;
@@ -7075,6 +7357,139 @@ LayerResult GCode::process_layer(
         gcode += insert_timelapse_gcode();
     }
 
+    // ---- FibreSeeker3 continuous fiber: profile-following strands + serpentine interior fill
+    // (operator rulings 2026-10-01) ----
+    // Additive end-of-layer fiber over this object layer, appended after all FFF content, so no
+    // finalized deposition is ever reordered relative to the rest of the layer. The planner turns
+    // this layer's external perimeters into a profile trace (closed loops through the real corners,
+    // one early-cut lifecycle each with the severed tail deposited inside the part) plus, when
+    // fs_rectify_enabled, a serpentine interior fill: parallel chords at fs_rectify_angle
+    // (alternated 90 degrees on odd layers) spaced fs_rectify_spacing, chained into continuous
+    // open strands and cut only where a turn cannot be taken inside material. With
+    // fs_rectify_enabled off the interior rides concentric erosion levels instead.
+    // fs_rectify_min_seg drops clipped chords too short to steer through. Everything stays
+    // behind fs_fiber_enabled (default false): with the option off this block does nothing and FFF
+    // output stays byte-identical. fs_t0_wrap brackets the whole fiber section with the
+    // machine-dialect tool switches (bare T0 = fiber head, bare T1 = plastic head) so a composite
+    // job validates as U/V-on-T0, E-on-T1 per machine contract s8.5; without the wrap the caller's
+    // tool context must already be fiber (developer-only key). The mode selectors fs_fiber_enabled
+    // / fs_fiber_enforce are comExpert.
+    // Fill admission (fs_fill_min_wall_width / fs_fill_min_area) keeps serpentine fill out of thin
+    // walls inside the planner: a band thinner than the opening diameter produces no chords at all.
+    // Trace and fill work in concert on one layer - large areas get chords; a chord-refused island
+    // with fs_fiber_wall_loops on (the operator's shape-hugging wall fill) is carried instead by
+    // concentric wall loops at fs_fiber_wall_pitch hugging the part shape, never a single trace line.
+    // With wall loops off, the refused island keeps level-0 trace only (default behavior).
+    // Schedule, ring harvest, strand build and the plastic reservation pass ran
+    // at the pre-export hoist above, so the plastic emitted below is already
+    // reserved around the FINAL accepted strand paths (body + post-cut tail,
+    // both composite and plastic bead widths accounted, walls / solid / sparse
+    // / gap fills included; operator requirements R2.1-1..4). The T0/T1 wrap
+    // and the strand emission below stay exactly where they were.
+    if (fs_do_fiber) {
+        // Honest reserve marker (R2.1-7): emitted only when a reservation pass
+        // actually ran. mode=off emits nothing and is never reported as
+        // reserved; mode=outer_wall is diagnostic (all walls dropped), not a
+        // band reservation.
+        if (fs_reserve_applied)
+            gcode += std::string("; FIBER RESERVE: mode=") +
+                     (m_config.fs_fiber_reserve.value == FiberReserveMode::frmOuterWall ? "outer_wall" : "band") +
+                     " strands=" + std::to_string(fs_slres.strands.size()) +
+                     " removed=" + std::to_string(fs_reserve_removed) + "\n";
+        else if (!fs_reserve_note.empty())
+            gcode += "; FIBER RESERVE:" + fs_reserve_note + "\n";
+        gcode += fs_macro_note;
+        if (!fs_slres.strands.empty()) {
+            // Emit bare T0/T1: on this firmware the R parameter is dead (T0/T1 are "traditional"
+            // commands, so extended params are not parsed and the macros read only RESTORE/
+            // NO_OFFSET/MOVE_Z), and any non-empty rawparams additionally suppresses the T0
+            // macro's _AUTO_LEFT_CLEAN hook. The trailing comment is machine-parsed by the
+            // firmware work_handler tool-change detection and must stay.
+            // T0 thermal lifecycle (G-code review finding #3): with fs_t0_temp set, the
+            // preheat M104 was emitted after the machine start gcode; wait for the
+            // composite nozzle to actually reach temperature before the first T0 selection.
+            // Safe outgoing-tool state comes FIRST (review correction): a toolchange
+            // retract of the plastic channel plus an immediate lift to clearance, while
+            // T1 is still selected, so a blocking M109 can never leave a hot plastic
+            // nozzle dwelling on freshly printed plastic at layer Z.
+            if (m_config.fs_t0_temp.value > 0 && !m_fs_t0_hot) {
+                gcode += this->retract(true, false, LiftType::NormalLift, true);
+                gcode += "M109 S" + std::to_string(m_config.fs_t0_temp.value) + " T0\n";
+                m_fs_t0_hot = true;
+            }
+            if (m_config.fs_t0_wrap.value)
+                gcode += "T0 ; switch extruder type to:FIBER\n";
+            Fiber::FiberEmitParams ep;
+            ep.restart_feed_mm = m_config.fs_restart_feed.value;
+            ep.tail_length_mm  = m_config.fs_tail_length.value; // ignored by emit_strand: the strand carries its own
+            ep.restart_z_mm    = m_config.fs_restart_z_hop.value;
+            ep.prime_v_mm      = m_config.fs_prime_v.value;
+            ep.retract_v_mm    = m_config.fs_retract_v.value;
+            // Three-zone deposition speed; all zero (the default) leaves every
+            // deposit at the strand's own planned feedrate.
+            ep.start_speed_mm_s  = m_config.fs_fiber_speed_start.value;
+            ep.start_length_mm   = m_config.fs_fiber_speed_start_length.value;
+            ep.normal_speed_mm_s = m_config.fs_fiber_speed_normal.value;
+            ep.finish_speed_mm_s = m_config.fs_fiber_speed_finish.value;
+            ep.finish_length_mm  = m_config.fs_fiber_speed_finish_length.value;
+            ep.verbose_comments  = m_config.fs_fiber_verbose_comments.value;
+            // Exactly one ; LAYER: marker covers every strand of this layer.
+            bool marker_done = false;
+            // Vendor-shaped macro-layer comment once per fiber layer when the
+            // verbose switch is on. Uses the same 1-based layer id the strands
+            // already carry, so tooling that keys off `; MACROLAYER:` sees us.
+            if (ep.verbose_comments && !fs_slres.strands.empty()) {
+                const Fiber::FiberStrand& s0 = fs_slres.strands.front();
+                gcode += "; MACROLAYER:" + std::to_string(s0.layer_id) + " [" +
+                         Slic3r::float_to_string_decimal_point(s0.z, 2) + "]\n";
+            }
+            for (const Fiber::FiberStrand& strand : fs_slres.strands) {
+                ep.emit_layer_marker = !marker_done;
+                std::string fs_gcode;
+                if (Fiber::emit_strand(strand, ep, fs_gcode)) {
+                    gcode += fs_gcode;
+                    marker_done = true;
+                } else {
+                    ++fs_emit_failed;
+                }
+            }
+            if (m_config.fs_t0_wrap.value)
+                gcode += "T1 ; switch extruder type to:PLASTIC\n";
+            // The fiber strands moved the tool outside the writer's knowledge; invalidate the
+            // cached position so the next extrusion starts from a fully specified travel.
+            m_last_pos_defined = false;
+        }
+        // fs_fiber_enforce: an enforced job must not silently downgrade a layer that received a
+        // REINFORCEABLE external perimeter (one long enough to carry body + calibrated tail) to
+        // no fiber. Loops shorter than the calibrated tail and sub-threshold dust islands are a
+        // plastic-only physical fallback, not a reinforcement failure, so they are deliberately
+        // kept out of the enforce inputs (viable rings only); rejected_other counts producer
+        // faults and does trip enforcement. Policy lives in Fiber::fiber_enforce_violation
+        // (unit-tested); support-only / bridge layers carry no rings and never trip it.
+        if (m_config.fs_fiber_enforce.value) {
+            const std::string fs_violation = Fiber::fiber_enforce_violation(fs_slp.layer_id, fs_slres.viable_rings,
+                fs_slres.strands.size() - fs_emit_failed, fs_slres.rejected_other + fs_emit_failed);
+            if (!fs_violation.empty())
+                throw Slic3r::SlicingError(Slic3r::format(_(L("Continuous fiber enforcement failed: %1%. Disable Enforce continuous fiber to print this model without guaranteed fiber coverage.")), fs_violation));
+        }
+        if (fs_slres.skipped_tiny + fs_slres.rejected_short + fs_slres.rejected_other > 0)
+            gcode += "; FIBER: plastic-only fallback for " + std::to_string(fs_slres.skipped_tiny + fs_slres.rejected_short) +
+                     " features shorter than the calibrated tail, " + std::to_string(fs_slres.rejected_other) + " rejected paths\n";
+        // Turn-radius report (fs_fiber_min_radius). Emitted under both policies so
+        // the cost of switching to split is visible before switching: keep shows
+        // how many corners exceed the machine limit, split how many cuts that cost.
+        if (fs_slres.tight_turns > 0)
+            gcode += "; FIBER TURNS: " + std::to_string(fs_slres.tight_turns) + " joints tighter than " +
+                     Slic3r::float_to_string_decimal_point(m_config.fs_fiber_min_radius.value, 2) + " mm, policy=" +
+                     (m_config.fs_fiber_tight_turn_policy.value == FiberTightTurnPolicy::fttSplit ? "split" : "keep") +
+                     ", splits=" + std::to_string(fs_slres.tight_turn_splits) + "\n";
+        // Cut economy: each chained loop is a cut, a restart purge and a tail
+        // the layer did not spend.
+        if (fs_slres.chained_loops > 0)
+            gcode += "; FIBER CHAIN: " + std::to_string(fs_slres.chained_loops) +
+                     " boundary loops continued into the interior fill\n";
+    }
+
     result.gcode = std::move(gcode);
     result.cooling_buffer_flush = object_layer || raft_layer || last_layer;
     return result;
@@ -7175,6 +7590,26 @@ void GCode::append_full_config(const Print &print, std::string &str)
         // banning it from the dump has no effect on the feature; the only H2C/H2D delta is the M9711/M971
         // snapshot reposition.
         "farthest_point_timelapse"sv,
+        // The fs_* FibreSeeker3 continuous-fiber keys are machine options read at slice time from
+        // m_config; banning them from the config block keeps the config-dump byte-identical for the
+        // whole shipping fleet (same precedent as farthest_point_timelapse above). The feature is
+        // gated by fs_fiber_enabled (default off), so the slicing body is unaffected regardless.
+        "fs_fiber_enabled"sv, "fs_fiber_enforce"sv, "fs_restart_feed"sv, "fs_tail_length"sv, "fs_restart_z_hop"sv, "fs_prime_v"sv,
+        "fs_retract_v"sv, "fs_fiber_rate"sv, "fs_matrix_ratio"sv, "fs_deposit_feed"sv,
+        "fs_rectify_enabled"sv, "fs_rectify_angle"sv, "fs_rectify_spacing"sv, "fs_rectify_min_seg"sv,
+        "fs_t0_wrap"sv, "fs_fiber_nozzle_diameter"sv,
+        "fs_fill_min_wall_width"sv, "fs_fill_min_area"sv, "fs_fiber_schedule"sv, "fs_fiber_band_z_min"sv,
+        "fs_fiber_band_z_max"sv, "fs_fiber_z_step"sv,
+        "fs_fiber_wall_loops"sv, "fs_fiber_wall_pitch"sv,
+        "fs_tail_v_factor"sv, "fs_t0_temp"sv,
+        "fs_fiber_reserve"sv, "fs_fiber_bond_overlap"sv,
+        "fs_fiber_mode"sv, "fs_fiber_coverage_percent"sv, "fs_fiber_plastic_walls_outer"sv,
+        "fs_fiber_fill_inset"sv, "fs_fiber_fill_angles"sv,
+        "fs_fiber_infill_pattern"sv, "fs_fiber_bead_width"sv, "fs_fiber_min_radius"sv,
+        "fs_fiber_tight_turn_policy"sv, "fs_fiber_seam_position"sv, "fs_fiber_chain_loops"sv,
+        "fs_fiber_verbose_comments"sv, "fs_fiber_max_arc_seg"sv,
+        "fs_fiber_speed_start"sv, "fs_fiber_speed_start_length"sv, "fs_fiber_speed_normal"sv,
+        "fs_fiber_speed_finish"sv, "fs_fiber_speed_finish_length"sv,
         "compatible_printers"sv,
         "compatible_prints"sv,
         "filament_colour_type"sv,

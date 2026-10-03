@@ -2901,7 +2901,10 @@ Sidebar::Sidebar(Plater *parent)
             // This box is the machine-variant selector, so it switches the printer preset directly
             // instead of feeding an extruder card's combo. Deferred, because switching preset
             // rebuilds this very combo.
-            const wxString diameter = p->combo_nozzle_dia->GetValue();
+            const int sel = p->combo_nozzle_dia->GetSelection();
+            wxString diameter = p->combo_nozzle_dia->GetItemAlias(sel);
+            if (diameter.empty())
+                diameter = p->combo_nozzle_dia->GetValue();
             p->combo_nozzle_dia->CallAfter([this, diameter]() {
                 p->is_switching_diameter = true;
                 p->switch_diameter_to(diameter);
@@ -3933,18 +3936,18 @@ void Sidebar::update_presets(Preset::Type preset_type)
             int select = -1;
             // ORCA get the actual nozzle diameter from printer config
             auto nozzle_dia = get_diameter_string(nozzle_diameter->values[extruder_index]);
-            // ORCA try to add nozzle diameter from config if list is empty. fixes blank nozzle combo box when preset has no alias
-            if(!diameters.empty() && diameters[0].empty() && !nozzle_dia.empty()){
-                diameters[0] = nozzle_dia;
-            }
-            // Orca: Check if the actual nozzle diameter exists in the list, if not add it as a custom option
-            if (std::find(diameters.begin(), diameters.end(), nozzle_dia) == diameters.end() && !nozzle_dia.empty()) {
-                diameters.push_back(nozzle_dia);
-            }
-            for (size_t i = 0; i < diameters.size(); ++i) {
-                if (diameters[i] == nozzle_dia)
+            // Do not mutate `diameters`: that vector feeds the machine-variant combo.
+            // Injecting the numeric orifice size there invented a ghost "0.4" next to
+            // FibreSeeker's 0.4CF / 0.4FFF capability tokens.
+            std::vector<std::string> options = diameters;
+            if (!options.empty() && options[0].empty() && !nozzle_dia.empty())
+                options[0] = nozzle_dia;
+            if (std::find(options.begin(), options.end(), nozzle_dia) == options.end() && !nozzle_dia.empty())
+                options.push_back(nozzle_dia);
+            for (size_t i = 0; i < options.size(); ++i) {
+                if (options[i] == nozzle_dia)
                     select = extruder.combo_diameter->GetCount();
-                extruder.combo_diameter->Append(diameters[i], {});
+                extruder.combo_diameter->Append(options[i], {});
             }
             extruder.combo_diameter->SetSelection(select);
             extruder.diameter = nozzle_dia;
@@ -3979,13 +3982,24 @@ void Sidebar::update_presets(Preset::Type preset_type)
                 update_extruder_diameter(1, *p->right_extruder);
             }
 
-            // ORCA sync unified nozzle combo box
+            // ORCA sync unified nozzle combo box. Show capability names for FibreSeeker
+            // (Plastic / Plastic+CF) while the item alias stays the printer_variant token.
             p->combo_nozzle_dia->Clear();
-            for (size_t i = 0; i < diameters.size(); ++i)
-                p->combo_nozzle_dia->Append(diameters[i], {});
+            auto variant_label = [&printer_model](const std::string &token) -> wxString {
+                const std::string shown = printer_variant_display_name(printer_model, token);
+                if (shown == "Plastic")
+                    return _L("Plastic");
+                if (shown == "Plastic+CF")
+                    return _L("Plastic+CF");
+                return from_u8(shown);
+            };
+            for (size_t i = 0; i < diameters.size(); ++i) {
+                const int idx = p->combo_nozzle_dia->Append(variant_label(diameters[i]), {});
+                p->combo_nozzle_dia->SetItemAlias(idx, from_u8(diameters[i]));
+            }
             // Prefer the variant the preset names: a mixed-nozzle machine reads "0.4+0.6", which is
             // no single extruder's diameter.
-            const int variant = p->combo_nozzle_dia->FindString(diameter);
+            const int variant = p->combo_nozzle_dia->FindString(variant_label(diameter));
             p->combo_nozzle_dia->SetSelection(variant != wxNOT_FOUND ? variant : (*p->single_extruder).combo_diameter->GetSelection());
             
             // ORCA update nozzle type

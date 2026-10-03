@@ -1,0 +1,65 @@
+{
+	"type": "filament",
+	"name": "FibreSeek TPU @FibreSeeker3 SK3",
+	"inherits": "fdm_filament_common",
+	"from": "system",
+	"setting_id": "xQzWWsvfL5aW8lJe",
+	"filament_id": "OFdo4per",
+	"instantiation": "true",
+	"filament_type": [
+		"TPU"
+	],
+	"filament_vendor": [
+		"FibreSeek"
+	],
+	"nozzle_temperature": [
+		"220"
+	],
+	"nozzle_temperature_initial_layer": [
+		"220"
+	],
+	"cool_plate_temp": [
+		"35"
+	],
+	"eng_plate_temp": [
+		"35"
+	],
+	"hot_plate_temp": [
+		"35"
+	],
+	"textured_plate_temp": [
+		"35"
+	],
+	"supertack_plate_temp": [
+		"35"
+	],
+	"cool_plate_temp_initial_layer": [
+		"35"
+	],
+	"eng_plate_temp_initial_layer": [
+		"35"
+	],
+	"hot_plate_temp_initial_layer": [
+		"35"
+	],
+	"textured_plate_temp_initial_layer": [
+		"35"
+	],
+	"supertack_plate_temp_initial_layer": [
+		"35"
+	],
+	"filament_density": [
+		"1.20"
+	],
+	"filament_max_volumetric_speed": [
+		"5"
+	],
+	"filament_retraction_length": [
+		"0.8"
+	],
+	"filament_notes": "FibreSeek TPU, 1.75 mm. All bed-plate variants pinned equal: SK3 has a single heated bed.",
+	"compatible_printers": [
+		"FibreSeeker3 SK3 CF nozzle",
+		"FibreSeeker3 SK3 FFF nozzle"
+	]
+}

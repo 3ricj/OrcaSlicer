@@ -55,3 +55,8 @@ __pycache__/
 /.test/
 docs/superpowers/
 ctest_results.xml
+
+# CTest working directory
+/Testing/
+# Local agent/tool sandboxes
+/sandboxes/

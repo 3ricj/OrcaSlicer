@@ -1,0 +1,15 @@
+; neg_cut_no_m400.gcode - cutter fired without immediately waiting for queue (R09M).
+# EXPECT: ERROR R09M
+# EXPECT: WARN R01U
+G21
+G90
+M83
+T0
+; LAYER:1 [0.2]
+M1001 L57
+G1 F1200 U55
+G1 F600 V4
+G1 X110.000 V0.04200 U2.00000 P0.021 F300
+M2800
+G1 F600 V-1
+M1002

@@ -1,0 +1,20 @@
+{
+	"type": "process",
+	"name": "0.12mm CF Heavy @FibreSeeker3 SK3",
+	"renamed_from": "0.20mm CF Heavy @FibreSeeker3 SK3;0.20mm CF Heavy FibreSeeker3 SK3;0.12mm CF Heavy FibreSeeker3 SK3",
+	"inherits": "0.12mm Standard @FibreSeeker3 SK3",
+	"from": "system",
+	"setting_id": "EWbzjcX4rAgTfCSi",
+	"instantiation": "true",
+	"compatible_printers": [
+		"FibreSeeker3 SK3 CF nozzle",
+		"FibreSeeker3 SK3 FFF nozzle"
+	],
+	"compatible_printers_condition": "",
+	"fs_fiber_enforce": "0",
+	"fs_fiber_rate": "0.98",
+	"fs_matrix_ratio": "0.034",
+	"fs_rectify_angle": "0",
+	"fs_rectify_enabled": "1",
+	"fs_rectify_spacing": "1"
+}

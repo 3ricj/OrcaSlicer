@@ -33,6 +33,7 @@
 #include "../Utils/ASCIIFolding.hpp"
 #include "../Utils/PrintHost.hpp"
 #include "../Utils/Flashforge.hpp"
+#include "../Utils/Moonraker.hpp"
 #include "../Utils/UndoRedo.hpp"
 #include "RemovableDriveManager.hpp"
 #include "BitmapCache.hpp"
@@ -193,6 +194,39 @@ void PhysicalPrinterDialog::build_printhost_settings(ConfigOptionsGroup* m_optgr
                         m_config->opt_string("print_host")                = printers[idx].ip_address;
                         m_config->opt_string("flashforge_serial_number") = printers[idx].serial_number;
                         update_printhost_buttons();
+                    }
+                }
+                return;
+            }
+
+            // Moonraker hosts are found with an SSDP scan instead of the fixed-service Bonjour
+            // browse, and their reply carries the API port, so the host field is filled in whole.
+            if (host_type == htMoonraker) {
+                wxBusyCursor                            wait;
+                std::vector<MoonrakerDiscoveredPrinter> printers;
+                wxString                                error_msg;
+                if (!Moonraker::discover_printers(printers, error_msg)) {
+                    show_error(this, error_msg);
+                    return;
+                }
+
+                wxArrayString choices;
+                for (const auto& printer : printers) {
+                    const std::string name = printer.machine_name.empty() ? std::string("Moonraker") : printer.machine_name;
+                    choices.Add(from_u8((boost::format("%1% (%2%:%3%)") % name % printer.ip_address % printer.port).str()));
+                }
+
+                wxSingleChoiceDialog dialog(this, _L("Select a Moonraker printer"), _L("Discovered Printers"), choices);
+                if (dialog.ShowModal() == wxID_OK) {
+                    const int idx = dialog.GetSelection();
+                    if (idx >= 0 && idx < static_cast<int>(printers.size())) {
+                        const std::string url   = (boost::format("http://%1%:%2%") % printers[idx].ip_address % printers[idx].port).str();
+                        const std::string webui = Moonraker::default_webui_url(url);
+                        m_optgroup->set_value("print_host", from_u8(url), true);
+                        m_optgroup->get_field("print_host")->field_changed();
+                        m_optgroup->set_value("print_host_webui", from_u8(webui), true);
+                        if (Field* webui_field = m_optgroup->get_field("print_host_webui"); webui_field)
+                            webui_field->field_changed();
                     }
                 }
                 return;
@@ -442,6 +476,14 @@ void PhysicalPrinterDialog::build_printhost_settings(ConfigOptionsGroup* m_optgr
     option.opt.width = Field::def_width_wider();
     m_optgroup->append_single_option_line(option);
 #endif
+
+    // Only a Moonraker host runs pre-print checks a job can ask to skip, so update() shows these
+    // two for that host type alone.
+    for (const std::string& opt_key : std::vector<std::string>{ "printhost_skip_precheck", "printhost_skip_foreign_detect" }) {
+        option = m_optgroup->get_option(opt_key);
+        option.opt.width = Field::def_width_wider();
+        m_optgroup->append_single_option_line(option);
+    }
 
     m_optgroup->activate();
 
@@ -778,6 +820,10 @@ void PhysicalPrinterDialog::update(bool printer_change)
     if (m_printhost_generate_creds_btn)
         m_printhost_generate_creds_btn->Show(tech == ptFFF && m_config->opt_enum<PrintHostType>("host_type") == htUltiMaker);
 
+    const bool is_moonraker = tech == ptFFF && m_config->opt_enum<PrintHostType>("host_type") == htMoonraker;
+    for (const std::string& opt_key : std::vector<std::string>{ "printhost_skip_precheck", "printhost_skip_foreign_detect" })
+        m_optgroup->show_field(opt_key, is_moonraker);
+
     m_optgroup->show_field("printhost_port", supports_multiple_printers);
     m_printhost_port_browse_btn->Show(supports_multiple_printers);
 
@@ -866,7 +912,12 @@ void PhysicalPrinterDialog::check_host_key_valid()
         auto it = m_config->option<ConfigOptionString>(key);
         if (!it) m_config->set_key_value(key, new ConfigOptionString(""));
     }
-    return;
+    // Bool host flags must not go through the string loop above: that would replace them with
+    // ConfigOptionString and the field activate path would then crash on opt_bool.
+    for (const std::string& key : std::vector<std::string>{ "printhost_skip_precheck", "printhost_skip_foreign_detect" }) {
+        if (!m_config->option<ConfigOptionBool>(key))
+            m_config->set_key_value(key, new ConfigOptionBool(false));
+    }
 }
 
 void PhysicalPrinterDialog::OnOK(wxEvent& event)

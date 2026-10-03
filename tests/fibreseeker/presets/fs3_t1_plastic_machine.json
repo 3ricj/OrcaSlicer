@@ -1,0 +1,13 @@
+{
+  "type": "machine",
+  "name": "FS3 T1 Plastic (P2 slice)",
+  "from": "User",
+  "gcode_flavor": "klipper",
+  "printable_area": ["0x0", "300x0", "300x300", "0x300"],
+  "printable_height": "245",
+  "nozzle_diameter": ["0.4"],
+  "extruder": ["1"],
+  "extruder_offset": ["0x0"],
+  "machine_start_gcode": "SET_VELOCITY_LIMIT SQUARE_CORNER_VELOCITY=10 ACCEL=10000\nSET_PRESSURE_ADVANCE EXTRUDER=extruder1 ADVANCE=0.04\nM104 S250 T1\nM140 S75\nM141 S0\nG21\nG90\nM83\nG92 E0\nG0 Z10 F900\nM190 S75\nM191 S0\nM400\nM109 S250 T1\nT1 ; switch extruder type to:PLASTIC\nMOVE_TO_BRUSH_STATION\nCLEAN_NOZZLE\nMOVE_OUT_BRUSH_STATION\nM106 P3 S0\nM106 P5 S0",
+  "machine_end_gcode": "M400\nM104 S0 T1\nM106 P1 S0\nM140 S0\nM141 S0\nM191 S0\nG90"
+}

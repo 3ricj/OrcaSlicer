@@ -1,0 +1,16 @@
+{
+	"type": "process",
+	"name": "0.12mm Speedy @FibreSeeker3 SK3",
+	"renamed_from": "0.20mm Speedy @FibreSeeker3 SK3;0.20mm Speedy FibreSeeker3 SK3;0.12mm Speedy FibreSeeker3 SK3",
+	"inherits": "0.12mm Standard @FibreSeeker3 SK3",
+	"from": "system",
+	"setting_id": "ZQ3JzRTHUX3s6wDd",
+	"instantiation": "true",
+	"compatible_printers": [
+		"FibreSeeker3 SK3 CF nozzle",
+		"FibreSeeker3 SK3 FFF nozzle"
+	],
+	"compatible_printers_condition": "",
+	"fs_fiber_mode": "plastic_only",
+	"sparse_infill_density": "15%"
+}

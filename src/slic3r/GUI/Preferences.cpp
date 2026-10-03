@@ -5,6 +5,8 @@
 #include "WebViewDialog.hpp"
 #include "Plater.hpp"
 #include "GLCanvas3D.hpp" // ORCA: for live preview refresh when toggling "Dim lower layers"
+#include "GCodeViewer.hpp" // ORCA: for live apply of the continuous fiber preview color
+#include <wx/clrpicker.h> // ORCA: color picker for the continuous fiber preview color
 #include "MsgDialog.hpp"
 #include "I18N.hpp"
 #include "libslic3r/AppConfig.hpp"
@@ -2072,6 +2074,32 @@ void PreferencesDialog::create_items()
         }
     );
     g_sizer->Add(item_dim_previous_layers_brightness);
+
+    // ORCA: color of continuous fiber paths in the G-code preview ("Continuous fiber" role)
+    {
+        auto tip = wxString(_L("Color of the continuous fiber paths in the G-code preview.\n"
+                               "Fiber deposits are rendered in this color when the view type is \"Line type\"."));
+        auto color_sizer = create_item_label(_L("Continuous fiber color"), tip, "");
+        auto color_picker = new wxColourPickerCtrl(m_parent, wxID_ANY,
+                                                  wxColour(from_u8(app_config->get("preview_fiber_color").empty() ? "#009688" : app_config->get("preview_fiber_color"))),
+                                                  wxDefaultPosition, wxDefaultSize, wxCLRP_DEFAULT_STYLE);
+        color_picker->SetToolTip(tip);
+        color_picker->SetName("preview_fiber_color"); // select_tab() finds the row by this name
+        color_sizer->Add(color_picker, 0, wxALIGN_CENTER);
+        color_picker->Bind(wxEVT_COLOURPICKER_CHANGED, [this, color_picker](wxColourPickerEvent& e) {
+            app_config->set("preview_fiber_color", color_picker->GetColour().GetAsString(wxC2S_HTML_SYNTAX).ToUTF8().data());
+            // ORCA: apply the new color immediately to the currently loaded preview
+            if (Plater* plater = wxGetApp().plater()) {
+                if (GLCanvas3D* canvas = plater->get_preview_canvas3D()) {
+                    canvas->get_gcode_viewer().update_fiber_color_from_config();
+                    canvas->set_as_dirty();
+                    canvas->request_extra_frame();
+                }
+            }
+            e.Skip();
+        });
+        g_sizer->Add(color_sizer);
+    }
 
     g_sizer->AddSpacer(FromDIP(10));
     sizer_page->Add(g_sizer, 0, wxEXPAND);

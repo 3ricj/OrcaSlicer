@@ -1,0 +1,11 @@
+{
+	"type": "machine_model",
+	"name": "FibreSeeker3 SK3",
+	"model_id": "FibreSeeker3 SK3",
+	"nozzle_diameter": "0.4CF;0.4FFF",
+	"machine_tech": "FFF",
+	"family": "FibreSeeker3",
+	"thumbnail": "FibreSeeker3 SK3_cover.png",
+	"hotend_model": "",
+	"default_materials": "FibreSeek PETG @FibreSeeker3 SK3;FibreSeek PLA @FibreSeeker3 SK3"
+}

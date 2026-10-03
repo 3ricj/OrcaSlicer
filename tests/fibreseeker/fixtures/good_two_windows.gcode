@@ -1,0 +1,28 @@
+; good_two_windows.gcode - two consecutive fiber windows inside one T0 visit.
+; Positive fixture: deposits after the layer marker, budgets exact.
+# EXPECT: WARN R01U
+G21
+G90
+M83
+T0
+M106 P2 S255
+; LAYER:1 [0.2]
+M1001 L57
+G1 F1200 U55
+G0 X107.500 Z0.200 F30000
+G1 F600 V4
+G1 X110.000 V0.04200 U2.00000 P0.021 F300
+M2800
+M400
+G1 F600 V-1
+M1002
+G0 X120.000 F600
+M1001 L57
+G1 F1200 U55
+G0 X120.000 Z0.200 F30000
+G1 F600 V4
+G1 X122.000 V0.04200 U2.00000 P0.021 F300
+M2800
+M400
+G1 F600 V-1
+M1002

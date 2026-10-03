@@ -2621,6 +2621,8 @@ void GCodeProcessorResult::reset() {
     printer_extruder_id.clear();
     // SKIPPABLE per-type accumulated time.
     skippable_part_time.clear();
+    // continuous-fiber telemetry (U/V usage, window/cut counters); repopulated by analysis.
+    fiber_usage.reset();
 
     //BBS: add mutex for protection of gcode result
     unlock();
@@ -2767,6 +2769,11 @@ void GCodeProcessor::register_commands()
         {"M566", [this](const GCodeReader::GCodeLine& line) { process_M566(line); }}, // Set allowable instantaneous speed change
         {"M702", [this](const GCodeReader::GCodeLine& line) { process_M702(line); }}, // Unload the current filament into the MK3 MMU2 unit at the end of print.
         {"M1020", [this](const GCodeReader::GCodeLine& line) { process_M1020(line); }}, // Select Tool
+
+        // ORCA: continuous-fiber protocol markers (fiber head lifecycle). Analysis-path only.
+        {"M1001", [this](const GCodeReader::GCodeLine& line) { process_M1001(line); }}, // Open fiber window
+        {"M1002", [this](const GCodeReader::GCodeLine& line) { process_M1002(line); }}, // Close fiber window
+        {"M2800", [this](const GCodeReader::GCodeLine& line) { process_M2800(line); }}, // Fiber cut
 
 // ORCA: Add Pressure Advance visualization support
         {"M900", [this](const GCodeReader::GCodeLine& line) { process_M900(line); }}, // Marlin: Set pressure advance
@@ -3014,6 +3021,11 @@ void GCodeProcessor::apply_config(const PrintConfig& config)
     m_enable_pre_heating                 = config.enable_pre_heating.value;
     if (const ConfigOptionBool* has_switcher = config.option<ConfigOptionBool>("has_filament_switcher"))
         m_has_filament_switcher = has_switcher->value;
+    // ORCA: preview width of fiber deposit paths mirrors the fiber head nozzle diameter when the
+    // printer defines it. Preview-only input: never feeds the time model or the emitted g-code.
+    if (const ConfigOptionFloat* fs_nozzle = config.option<ConfigOptionFloat>("fs_fiber_nozzle_diameter"))
+        if (fs_nozzle->value > 0.0)
+            m_fiber_preview_width = static_cast<float>(fs_nozzle->value);
     m_result.extruder_types.resize(config.extruder_type.values.size());
     for (size_t idx = 0; idx < config.extruder_type.values.size(); ++idx)
         m_result.extruder_types[idx] = static_cast<ExtruderType>(config.extruder_type.values[idx]);
@@ -3189,6 +3201,12 @@ void GCodeProcessor::apply_config(const DynamicPrintConfig& config)
     const ConfigOptionFloats* nozzle_diameter = config.option<ConfigOptionFloats>("nozzle_diameter");
     if (nozzle_diameter != nullptr)
         m_nozzle_diameter = nozzle_diameter->values;
+
+    // ORCA: fiber deposit preview width from the fiber head nozzle diameter (reprocess / g-code
+    // import path). Preview-only input; byte-inert.
+    if (const ConfigOptionFloat* fs_nozzle = config.option<ConfigOptionFloat>("fs_fiber_nozzle_diameter"))
+        if (fs_nozzle->value > 0.0)
+            m_fiber_preview_width = static_cast<float>(fs_nozzle->value);
 
     const ConfigOptionStrings* filament_type = config.option<ConfigOptionStrings>("filament_type");
     if (filament_type != nullptr) {
@@ -3577,6 +3595,11 @@ void GCodeProcessor::reset()
     m_z_offset = 0.0f;
 
     m_extrusion_role = erNone;
+
+    // clear the continuous-fiber analysis state between runs (window flag, deposit flag, preview width).
+    m_fiber_window_active = false;
+    m_fiber_deposit = false;
+    m_fiber_preview_width = 0.7f;
 
     m_filament_id = std::vector<unsigned char>(MAXIMUM_EXTRUDER_NUMBER, static_cast<unsigned char>(-1));
     m_last_filament_id = std::vector<unsigned char>(MAXIMUM_EXTRUDER_NUMBER, static_cast<unsigned char>(-1));
@@ -4921,6 +4944,25 @@ void GCodeProcessor::process_G0(const GCodeReader::GCodeLine& line)
 
 void GCodeProcessor::process_G1(const GCodeReader::GCodeLine& line, const std::optional<unsigned int>& remaining_internal_g1_lines)
 {
+    // ORCA: continuous-fiber telemetry. The axis pack below only carries X/Y/Z/E/F, so this raw
+    // scan of the command line is the single point where the fiber protocol's U/V displacements are
+    // visible. Inside an M1001..M1002 window: positive U adds to the roving meter, positive V to the
+    // matrix meter (V retracts are negative and excluded), and a move carrying positive U together
+    // with XY motion is a deposit -> flagged for the renderer (role erFiber). Analysis-only: neither
+    // the time model nor the emitted g-code is affected.
+    m_fiber_deposit = false;
+    if (m_fiber_window_active) {
+        float fiber_u = 0.f;
+        float fiber_v = 0.f;
+        const bool has_u = line.has_value('U', fiber_u);
+        const bool has_v = line.has_value('V', fiber_v);
+        if (has_u && fiber_u > 0.f)
+            m_result.fiber_usage.roving_mm += fiber_u;
+        if (has_v && fiber_v > 0.f)
+            m_result.fiber_usage.matrix_mm += fiber_v;
+        m_fiber_deposit = has_u && fiber_u > 0.f && line.has_x() && line.has_y();
+    }
+
     std::array<std::optional<double>, 4> g1_axes = { std::nullopt, std::nullopt, std::nullopt, std::nullopt };
     if (line.has_x()) g1_axes[X] = (double)line.x();
     if (line.has_y()) g1_axes[Y] = (double)line.y();
@@ -5358,7 +5400,28 @@ void GCodeProcessor::process_G1(const std::array<std::optional<double>, 4>& axes
     }
 
     // store move
-    store_move_vertex(type);
+    if (m_fiber_deposit && origin == G1DiscretizationOrigin::G1) {
+        // ORCA: render this fiber deposit as an extrusion of the dedicated erFiber role, so the 3D
+        // preview draws it as a colored tube with the Fiber role color and the FeatureType list
+        // exposes a Fiber row. Only the render fields of the vertex are overridden; the TimeBlock
+        // above was already pushed with the physical (Travel) classification, so time estimates,
+        // statistics and emitted g-code stay byte-identical.
+        const ExtrusionRole saved_role   = m_extrusion_role;
+        const float         saved_width  = m_width;
+        const float         saved_height = m_height;
+        const float         saved_mm3    = m_mm3_per_mm;
+        m_extrusion_role = erFiber;
+        m_width          = m_fiber_preview_width;
+        m_height         = m_fiber_preview_width;
+        m_mm3_per_mm     = 0.f;
+        store_move_vertex(EMoveType::Extrude);
+        m_extrusion_role = saved_role;
+        m_width          = saved_width;
+        m_height         = saved_height;
+        m_mm3_per_mm     = saved_mm3;
+    }
+    else
+        store_move_vertex(type);
 }
 
 void GCodeProcessor::process_VG1(const GCodeReader::GCodeLine& line)
@@ -6645,6 +6708,26 @@ void GCodeProcessor::process_M1020(const GCodeReader::GCodeLine &line)
             process_filament_change(eid, nozzle_id);
         }
     }
+}
+
+// ORCA: continuous-fiber protocol markers. M1001 opens a fiber window (its L<budget> operand is not
+// consumed here), M1002 closes it, M2800 records a cut. They only drive the telemetry counters and
+// the preview deposit classification; the emitted g-code and the time model are untouched.
+void GCodeProcessor::process_M1001(const GCodeReader::GCodeLine& /*line*/)
+{
+    m_fiber_window_active = true;
+    ++m_result.fiber_usage.windows;
+}
+
+void GCodeProcessor::process_M1002(const GCodeReader::GCodeLine& /*line*/)
+{
+    m_fiber_window_active = false;
+    m_fiber_deposit = false;
+}
+
+void GCodeProcessor::process_M2800(const GCodeReader::GCodeLine& /*line*/)
+{
+    ++m_result.fiber_usage.cuts;
 }
 
 void GCodeProcessor::process_T(const std::string_view command)

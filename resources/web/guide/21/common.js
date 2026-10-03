@@ -289,6 +289,16 @@ function CreateVendorBlock(vendorName)
 			'</div>';
 }
 
+function formatNozzleList(OneModel)
+{
+	const tokens = String(OneModel['nozzle_diameter'] || '').split(';').filter(Boolean);
+	const model = String(OneModel['model'] || OneModel['name'] || '');
+	const labels = model.startsWith('FibreSeeker')
+		? tokens.map(tok => tok.endsWith('FFF') ? 'Plastic' : tok.endsWith('CF') ? 'Plastic+CF' : tok)
+		: tokens;
+	return labels.join(' · ');
+}
+
 function CreatePrinterBlock(OneModel)
 {
 	let vendor = OneModel['vendor']
@@ -316,7 +326,7 @@ function CreatePrinterBlock(OneModel)
 			'	<div class="PrinterInfoMark">?</div>'+
 			'	<div class="PrinterInfo">'+
 			'		<div class="title trans">Nozzle</div>'+
-			'		<div class="value">' + OneModel['nozzle_diameter'].replaceAll(";", " · ") + '</div>'+
+			'		<div class="value">' + formatNozzleList(OneModel) + '</div>'+
 			'	</div>'+
 			'	<div style="display: flex;">'+
 			'		<div class="ModelCheckBox" vendor="' +vendor+ '" model="'+OneModel['model']+'"></div>'+
