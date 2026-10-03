@@ -1,0 +1,13 @@
+; neg_window_eof.gcode - window left open at end of file, never cut (R09 + R06X).
+# EXPECT: ERROR R09
+# EXPECT: ERROR R06X
+# EXPECT: WARN R01U
+G21
+G90
+M83
+T0
+; LAYER:1 [0.2]
+M1001 L57
+G1 F1200 U55
+G1 F600 V4
+G1 X110.000 V0.04200 U2.00000 P0.021 F300

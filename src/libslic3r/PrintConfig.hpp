@@ -493,6 +493,77 @@ enum RetractLiftEnforceType {
     rletTopAndBottom
 };
 
+// FibreSeeker3 fiber layer schedule (vendor-alignment P3). every_layer = fiber on
+// every capable layer (the shipping behavior, zero regression); band = fiber only
+// inside a Z band measured from the print bottom, on fs_fiber_z_step boundaries
+// (the vendor reference pattern: a contiguous reinforcement band in the stress zone).
+enum class FiberSchedule : unsigned char {
+    fsEveryLayer = 0,
+    fsBand,
+    // Fiber on macro-layer boundaries (vendor MacroLayerHeight): the composite
+    // bead is taller than a plastic layer, so the reference machine groups
+    // plastic layers into a macro layer one bead tall and lays fiber once per
+    // macro layer. fs_fiber_z_step is that height.
+    fsMacroLayer
+};
+
+// FibreSeeker3 composite-band geometry reservation (operator review 2026-10-02,
+// R2.1). off = no reservation performed (an export using this mode must never be
+// reported as having passed geometry reservation); outer_wall = diagnostic only
+// (deletes the outer plastic wall on fiber layers, proven insufficient to clear
+// the fiber path); band = subtract the composite exclusion band around the final
+// accepted fiber paths (body + post-cut tail) from the plastic collections.
+enum class FiberReserveMode : unsigned char {
+    frmOff = 0,
+    frmOuterWall,
+    frmBand
+};
+
+// Continuous-fiber mode. off = perimeter-following fiber on scheduled layers;
+// plastic_only = suppress fiber even when the capability flag is on;
+// walls = interior fiber at the coverage percentage, plastic keeps the outer skin;
+// solid = 100 percent interior fiber inside the outer plastic shell.
+enum class FiberMode : unsigned char {
+    fmOff = 0,
+    fmPlasticOnly,
+    fmWalls,
+    fmSolid
+};
+
+// FibreSeeker3 policy for a planned corner tighter than fs_fiber_min_radius
+// (operator ruling 2026-10-02: the machine's real behavior around a tight bend
+// is not yet characterised, so the operator chooses). keep = deposit the strand
+// as planned and only report the violation, which is the legacy behavior and
+// the default; split = cut the strand at the offending joint, so each piece is
+// laid and tailed on its own and no roving is bent past the limit.
+enum class FiberTightTurnPolicy : unsigned char {
+    fttKeep = 0,
+    fttSplit
+};
+
+// FibreSeeker3 placement of the seam on a closed fiber loop - the one point on
+// the ring that carries the cut, the restart and the tail overlap. aligned = the
+// ring's canonical start vertex, which is the legacy behavior and the default;
+// it is deterministic but the same XY on every layer, so the discontinuities
+// stack into a weak column. scattered spreads the seam around the ring by a
+// deterministic per-loop offset, longest_edge puts it at the midpoint of the
+// ring's longest straight run so it never lands on a corner.
+enum class FiberSeamPosition : unsigned char {
+    fspAligned = 0,
+    fspScattered,
+    fspLongestEdge
+};
+
+// FibreSeeker3 fiber infill pattern. rectilinear = single-pass serpentine at
+// pitch = bead / density (the default); isogrid = three rib families 60 degrees
+// apart at pitch = 3 * bead / density, each rib a twin pass one bead wide;
+// solid = adjacent passes one bead apart cycling through the laydown angles.
+enum class FiberInfillPattern : unsigned char {
+    fipRectilinear = 0,
+    fipIsogrid,
+    fipSolid
+};
+
 enum class GCodeThumbnailsFormat {
     PNG, JPG, QOI, BTT_TFT, ColPic
 };
@@ -709,6 +780,12 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PerimeterGeneratorType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ToolChangeOrderingType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PowerLossRecoveryMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SurfaceFillOrder)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(FiberSchedule)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(FiberReserveMode)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(FiberTightTurnPolicy)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(FiberSeamPosition)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(FiberMode)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(FiberInfillPattern)
 
 #undef CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS
 
@@ -1665,6 +1742,34 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool,                support_air_filtration))
     ((ConfigOptionBool,                support_cooling_filter))
     ((ConfigOptionBool,                cooling_filter_enabled))
+    // FibreSeeker3 continuous-fiber options (all banned from the config dump in
+    // GCode::append_full_config, so registering them keeps output byte-identical).
+    ((ConfigOptionBool,                fs_fiber_enabled))
+    ((ConfigOptionBool,                fs_fiber_enforce))
+    ((ConfigOptionFloat,               fs_restart_feed))
+    ((ConfigOptionFloat,               fs_tail_length))
+    ((ConfigOptionFloat,               fs_restart_z_hop))
+    ((ConfigOptionFloat,               fs_prime_v))
+    ((ConfigOptionFloat,               fs_retract_v))
+    ((ConfigOptionFloat,               fs_fiber_rate))
+    ((ConfigOptionFloat,               fs_matrix_ratio))
+    ((ConfigOptionFloat, fs_deposit_feed))
+    ((ConfigOptionBool, fs_rectify_enabled))
+    ((ConfigOptionFloat, fs_rectify_angle))
+    ((ConfigOptionFloat, fs_rectify_spacing))
+    ((ConfigOptionFloat, fs_rectify_min_seg))
+    ((ConfigOptionBool, fs_t0_wrap))
+    ((ConfigOptionFloat, fs_fiber_nozzle_diameter))
+    ((ConfigOptionFloat, fs_fill_min_wall_width))
+    ((ConfigOptionFloat, fs_fill_min_area))
+    ((ConfigOptionEnum<FiberSchedule>, fs_fiber_schedule))
+    ((ConfigOptionFloat, fs_fiber_band_z_min))
+    ((ConfigOptionFloat, fs_fiber_band_z_max))
+    ((ConfigOptionFloat, fs_fiber_z_step))
+    ((ConfigOptionBool, fs_fiber_wall_loops))
+    ((ConfigOptionFloat, fs_fiber_wall_pitch))
+    ((ConfigOptionFloat, fs_tail_v_factor))
+    ((ConfigOptionInt, fs_t0_temp))
     ((ConfigOptionEnum<PrinterStructure>,printer_structure))
     ((ConfigOptionBool,                support_chamber_temp_control))
     ((ConfigOptionEnumsGeneric,        extruder_type))
@@ -1959,7 +2064,31 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionPoint,               bed_mesh_probe_distance))
     ((ConfigOptionFloat,               adaptive_bed_mesh_margin))
 
-
+    // FibreSeeker3 R2.1 composite-band geometry reservation (declared here, in
+    // the process class, because the GCodeConfig sequence is at MSVC's macro
+    // nesting limit; key routing is by Preset option lists, not by C++ class).
+    ((ConfigOptionEnum<FiberReserveMode>, fs_fiber_reserve))
+    ((ConfigOptionFloat, fs_fiber_bond_overlap))
+    // FibreSeeker3 fiber mode keys (same C1009 constraint, same
+    // routing note as above).
+    ((ConfigOptionEnum<FiberMode>, fs_fiber_mode))
+    ((ConfigOptionFloat, fs_fiber_coverage_percent))
+    ((ConfigOptionInt, fs_fiber_plastic_walls_outer))
+    ((ConfigOptionFloat, fs_fiber_fill_inset))
+    ((ConfigOptionString, fs_fiber_fill_angles))
+    ((ConfigOptionEnum<FiberInfillPattern>, fs_fiber_infill_pattern))
+    ((ConfigOptionFloat, fs_fiber_bead_width))
+    ((ConfigOptionFloat, fs_fiber_min_radius))
+    ((ConfigOptionEnum<FiberTightTurnPolicy>, fs_fiber_tight_turn_policy))
+    ((ConfigOptionEnum<FiberSeamPosition>, fs_fiber_seam_position))
+    ((ConfigOptionBool, fs_fiber_chain_loops))
+    ((ConfigOptionBool, fs_fiber_verbose_comments))
+    ((ConfigOptionFloat, fs_fiber_speed_start))
+    ((ConfigOptionFloat, fs_fiber_speed_start_length))
+    ((ConfigOptionFloat, fs_fiber_speed_normal))
+    ((ConfigOptionFloat, fs_fiber_speed_finish))
+    ((ConfigOptionFloat, fs_fiber_speed_finish_length))
+    ((ConfigOptionFloat, fs_fiber_max_arc_seg))
 )
 
 // This object is mapped to Perl as Slic3r::Config::Full.

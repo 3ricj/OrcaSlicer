@@ -776,6 +776,13 @@ private:
     bool m_need_change_layer_lift_z = false;
     int m_start_gcode_filament = -1;
     std::string m_filament_instances_code;
+    // True once the T0 temperature wait (M109 S<fs_t0_temp> T0) has been emitted for the
+    // current plate; reset when the start-gcode preheat is written. Gates the single M109.
+    bool m_fs_t0_hot = false;
+    // Fiber mode mapping: counts layers that actually
+    // EMIT fiber (not skipped plastic layers) for the laydown angle cycle. The
+    // GCode object is constructed per print, so this resets with every export.
+    size_t m_fs_fiber_layer_idx = 0;
 
     // Object layer id of the layer being generated; keys the per-filament config-slot
     // resolvers. Distinct from m_layer_index (an export progress counter starting at -1).

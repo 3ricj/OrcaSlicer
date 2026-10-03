@@ -1,0 +1,86 @@
+solid fs_cube
+facet normal 0 0 -1
+ outer loop
+  vertex 130 150 0
+  vertex 130 130 0
+  vertex 150 130 0
+ endloop
+endfacet
+facet normal 0 0 -1
+ outer loop
+  vertex 130 150 0
+  vertex 150 130 0
+  vertex 150 150 0
+ endloop
+endfacet
+facet normal 0 0 1
+ outer loop
+  vertex 130 130 10
+  vertex 150 130 10
+  vertex 130 150 10
+ endloop
+endfacet
+facet normal 0 0 1
+ outer loop
+  vertex 130 150 10
+  vertex 150 130 10
+  vertex 150 150 10
+ endloop
+endfacet
+facet normal 0 -1 0
+ outer loop
+  vertex 130 130 0
+  vertex 150 130 0
+  vertex 130 130 10
+ endloop
+endfacet
+facet normal 0 -1 0
+ outer loop
+  vertex 150 130 0
+  vertex 150 130 10
+  vertex 130 130 10
+ endloop
+endfacet
+facet normal 0 1 0
+ outer loop
+  vertex 130 150 0
+  vertex 130 150 10
+  vertex 150 150 0
+ endloop
+endfacet
+facet normal 0 1 0
+ outer loop
+  vertex 150 150 0
+  vertex 130 150 10
+  vertex 150 150 10
+ endloop
+endfacet
+facet normal -1 0 0
+ outer loop
+  vertex 130 130 0
+  vertex 130 130 10
+  vertex 130 150 0
+ endloop
+endfacet
+facet normal -1 0 0
+ outer loop
+  vertex 130 150 0
+  vertex 130 130 10
+  vertex 130 150 10
+ endloop
+endfacet
+facet normal 1 0 0
+ outer loop
+  vertex 150 130 0
+  vertex 150 150 0
+  vertex 150 130 10
+ endloop
+endfacet
+facet normal 1 0 0
+ outer loop
+  vertex 150 150 0
+  vertex 150 150 10
+  vertex 150 130 10
+ endloop
+endfacet
+endsolid fs_cube

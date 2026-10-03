@@ -53,3 +53,8 @@ __pycache__/
 *.pyc
 *.opc
 docs/superpowers/
+
+# CTest working directory
+/Testing/
+# Local agent/tool sandboxes
+/sandboxes/

@@ -41,6 +41,7 @@
 #include <wx/progdlg.h>
 #include <wx/numformatter.h>
 #include <wx/utils.h>
+#include <wx/colour.h> // ORCA: continuous fiber preview color preference
 
 #include <array>
 #include <algorithm>
@@ -344,6 +345,7 @@ static std::string to_string(libvgcode::EGCodeExtrusionRole role)
     case libvgcode::EGCodeExtrusionRole::Brim:                     { return _u8L("Brim"); }
     case libvgcode::EGCodeExtrusionRole::SupportTransition:        { return _u8L("Support transition"); }
     case libvgcode::EGCodeExtrusionRole::Mixed:                    { return _u8L("Mixed"); }
+    case libvgcode::EGCodeExtrusionRole::Fiber:                    { return _u8L("Continuous fiber"); } // ORCA
     default:                                                       { return _u8L("Unknown"); }
     }
 }
@@ -1410,6 +1412,8 @@ void GCodeViewer::load_as_gcode(const GCodeProcessorResult& gcode_result, const 
 
     // send data to the viewer
     m_viewer.reset_default_extrusion_roles_colors();
+    // ORCA: override the continuous fiber role color with the user-configured one
+    update_fiber_color_from_config();
     m_viewer.load(std::move(data));
 
 // #if !VGCODE_ENABLE_COG_AND_TOOL_MARKERS
@@ -1440,7 +1444,8 @@ void GCodeViewer::load_as_gcode(const GCodeProcessorResult& gcode_result, const 
             libvgcode::EGCodeExtrusionRole::WipeTower,
             // ORCA
             libvgcode::EGCodeExtrusionRole::BottomSurface, libvgcode::EGCodeExtrusionRole::InternalBridgeInfill, libvgcode::EGCodeExtrusionRole::Brim,
-            libvgcode::EGCodeExtrusionRole::SupportTransition, libvgcode::EGCodeExtrusionRole::Mixed
+            libvgcode::EGCodeExtrusionRole::SupportTransition, libvgcode::EGCodeExtrusionRole::Mixed,
+            libvgcode::EGCodeExtrusionRole::Fiber
             });
     m_paths_bounding_box = BoundingBoxf3(libvgcode::convert(bbox[0]).cast<double>(), libvgcode::convert(bbox[1]).cast<double>());
     m_max_bounding_box = m_paths_bounding_box;
@@ -1577,6 +1582,7 @@ void GCodeViewer::load_as_gcode(const GCodeProcessorResult& gcode_result, const 
     }
 
     m_print_statistics = gcode_result.print_statistics;
+    m_fiber_usage = gcode_result.fiber_usage; // ORCA: continuous fiber usage for the Summary view
 
     PrintEstimatedStatistics::ETimeMode time_mode = convert(m_viewer.get_time_mode());
     if (m_viewer.get_time_mode() != libvgcode::ETimeMode::Normal) {
@@ -1641,11 +1647,24 @@ void GCodeViewer::load_as_preview(libvgcode::GCodeInputData&& data)
     m_viewer.set_extrusion_role_color(libvgcode::EGCodeExtrusionRole::InternalInfill,           { 255, 127, 127 });
     m_viewer.set_extrusion_role_color(libvgcode::EGCodeExtrusionRole::SolidInfill,              { 255, 127, 127 });
     m_viewer.set_extrusion_role_color(libvgcode::EGCodeExtrusionRole::WipeTower,                { 127, 255, 127 });
+    // ORCA: continuous fiber role color, after the fixed preview overrides above
+    update_fiber_color_from_config();
     m_viewer.load(std::move(data));
 
     const libvgcode::AABox bbox = m_viewer.get_extrusion_bounding_box();
     const BoundingBoxf3 paths_bounding_box(libvgcode::convert(bbox[0]).cast<double>(), libvgcode::convert(bbox[1]).cast<double>());
     m_contained_in_bed = wxGetApp().plater()->build_volume().all_paths_inside(GCodeProcessorResult(), paths_bounding_box);
+}
+
+// ORCA: apply the user-configured color for the continuous fiber role (Preview options preference
+// "preview_fiber_color", "#rrggbb"). Falls back to the libvgcode palette default when unset or invalid.
+void GCodeViewer::update_fiber_color_from_config()
+{
+    const std::string value = wxGetApp().app_config->get("preview_fiber_color");
+    const wxColour color(value.empty() ? wxString("#009688") : wxString::FromUTF8(value));
+    if (!color.IsOk())
+        return;
+    m_viewer.set_extrusion_role_color(libvgcode::EGCodeExtrusionRole::Fiber, { color.Red(), color.Green(), color.Blue() });
 }
 
 void GCodeViewer::update_shells_color_by_extruder(const DynamicPrintConfig *config)
@@ -4198,6 +4217,18 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
         imgui.text(_u8L("Total time") + ":");
         ImGui::SameLine();
         imgui.text(short_time(get_time_dhms(time_mode.time)));
+
+        // ORCA: continuous fiber usage, present only when the gcode contains fiber windows (M1001..M1002).
+        // Format: roving feed length / matrix wire length / number of cuts (M2800).
+        if (m_fiber_usage.any()) {
+            ImGui::Dummy({window_padding, window_padding});
+            ImGui::SameLine();
+            imgui.text(_u8L("Continuous fiber") + ":");
+            ImGui::SameLine();
+            imgui.text(format_distance(static_cast<float>(m_fiber_usage.roving_mm)) + " / " +
+                       format_distance(static_cast<float>(m_fiber_usage.matrix_mm)) + " / " +
+                       std::to_string(m_fiber_usage.cuts) + " " + _u8L("cuts"));
+        }
         break;
     }
     case libvgcode::EViewType::ColorPrint: {

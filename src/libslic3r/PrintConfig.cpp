@@ -649,6 +649,58 @@ static const t_config_enum_values s_keys_map_PrimeVolumeMode = {
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(PrimeVolumeMode)
 
 
+// FibreSeeker3 fiber layer schedule keys (vendor-alignment P3): every_layer keeps
+// today's behavior; band restricts fiber to a Z band on fs_fiber_z_step boundaries.
+static const t_config_enum_values s_keys_map_FiberSchedule = {
+    { "every_layer", int(FiberSchedule::fsEveryLayer) },
+    { "band",        int(FiberSchedule::fsBand) },
+    { "macro_layer", int(FiberSchedule::fsMacroLayer) }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(FiberSchedule)
+
+// FibreSeeker3 composite-band reservation modes (R2.1). Serialized keys are
+// stable; "off" must never be interpreted as "geometry reservation passed".
+static const t_config_enum_values s_keys_map_FiberReserveMode = {
+    { "off",        int(FiberReserveMode::frmOff) },
+    { "outer_wall", int(FiberReserveMode::frmOuterWall) },
+    { "band",       int(FiberReserveMode::frmBand) }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(FiberReserveMode)
+
+static const t_config_enum_values s_keys_map_FiberTightTurnPolicy = {
+    { "keep",  int(FiberTightTurnPolicy::fttKeep) },
+    { "split", int(FiberTightTurnPolicy::fttSplit) }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(FiberTightTurnPolicy)
+
+static const t_config_enum_values s_keys_map_FiberSeamPosition = {
+    { "aligned",      int(FiberSeamPosition::fspAligned) },
+    { "scattered",    int(FiberSeamPosition::fspScattered) },
+    { "longest_edge", int(FiberSeamPosition::fspLongestEdge) }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(FiberSeamPosition)
+
+// FibreSeeker3 fiber mode keys. Serialized string keys must stay
+// stable; they round-trip through .3mf and the process preset. "off" is the
+// legacy default and must keep producing byte-identical legacy output.
+static const t_config_enum_values s_keys_map_FiberMode = {
+    { "off",        int(FiberMode::fmOff) },
+    { "plastic_only", int(FiberMode::fmPlasticOnly) },
+    { "walls",       int(FiberMode::fmWalls) },
+    { "solid",       int(FiberMode::fmSolid) }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(FiberMode)
+
+// Continuous-fiber infill patterns. "rectilinear" is the
+// legacy default and must keep producing byte-identical legacy output.
+static const t_config_enum_values s_keys_map_FiberInfillPattern = {
+    { "rectilinear", int(FiberInfillPattern::fipRectilinear) },
+    { "isogrid",     int(FiberInfillPattern::fipIsogrid) },
+    { "solid",       int(FiberInfillPattern::fipSolid) }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(FiberInfillPattern)
+
+
 //BBS
 std::string get_extruder_variant_string(ExtruderType extruder_type, NozzleVolumeType nozzle_volume_type)
 {
@@ -1088,6 +1140,29 @@ void PrintConfigDef::init_common_params()
     def = this->add("printhost_ssl_ignore_revoke", coBool);
     def->label = L("Ignore HTTPS certificate revocation checks");
     def->tooltip = L("Ignore HTTPS certificate revocation checks in the case of missing or offline distribution points. One may want to enable this option for self signed certificates if connection fails.");
+    def->mode = comAdvanced;
+    def->cli = ConfigOptionDef::nocli;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    //ORCA: Klipper forks that run a pre-print check before accepting a job take these two flags in the
+    //      /printer/print/start body (see Moonraker::make_start_print_body). Both default to off, which
+    //      leaves them out of the request entirely, so the printer keeps applying its own settings and
+    //      hosts that know nothing about the flags see an unchanged request.
+    def = this->add("printhost_skip_precheck", coBool);
+    def->label = L("Skip the printer's pre-print checks");
+    def->tooltip = L("Ask the printer to start the job without running its pre-print checks. This skips the camera "
+        "checks of the build plate and print head, the filament sensors, and the match between the filament this "
+        "file was sliced for and the spools the printer reports as loaded. Only Moonraker hosts that implement "
+        "these checks are affected; others ignore it.");
+    def->mode = comAdvanced;
+    def->cli = ConfigOptionDef::nocli;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("printhost_skip_foreign_detect", coBool);
+    def->label = L("Skip the printer's AI object detection");
+    def->tooltip = L("Ask the printer to start the job without the camera-based build plate and foreign object "
+        "detection, while still running its other pre-print checks. Only Moonraker hosts that implement these "
+        "checks are affected; others ignore it.");
     def->mode = comAdvanced;
     def->cli = ConfigOptionDef::nocli;
     def->set_default_value(new ConfigOptionBool(false));
@@ -4324,6 +4399,460 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Enable this if printer support cooling filter");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(false));
+
+    // FibreSeeker3 continuous-fiber emission. All constants default to the observed
+    // reference dialect but are calibration-dependent machine geometry (path length
+    // cutter->nozzle etc.); pass them through from here, never hardcode downstream.
+    // The whole fs_* family is comExpert: the operator owns the machine and is expected to
+    // calibrate these against the live printer.cfg. Expert keeps them out of the default
+    // Advanced view, where 500+ stock keys would bury them and invite accidental edits.
+    def = this->add("fs_fiber_enabled", coBool);
+    def->label = L("Continuous fiber capability");
+    def->tooltip = L("Enable native continuous-fiber deposition for this machine. When off, output is unchanged FFF.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("fs_fiber_enforce", coBool);
+    def->label = L("Enforce continuous fiber");
+    def->tooltip = L("Fail the slice when a fiber-capable layer cannot receive a complete fiber window instead of silently printing it without fiber. Requires Continuous fiber capability.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("fs_restart_feed", coFloat);
+    def->label = L("Fiber restart feed");
+    def->tooltip = L("Forward-only fiber feed (axis U) emitted above the layer at the start of each fiber run, mm. This is the length of fresh fiber pulled through the cutter-to-nozzle path so the next strand starts on virgin tow. It is a machine calibration, not a process choice: the reference machine feeds exactly 55 mm on every strand.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(55));
+
+    def = this->add("fs_tail_length", coFloat);
+    def->label = L("Fiber cut tail");
+    def->tooltip = L("Length of the cut-fiber tail the nozzle keeps depositing (matrix only, no new fiber) after the cutter fires, mm. Also the value written into the CUT DISTANCE comment. This is a machine calibration matching the cutter-to-nozzle path: the reference machine's CutCode comments 54.8 and its deposited tails land within about a millimetre of that. The ExtruderCs CutDistance preset key of 58 does not appear in the G-code.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(54.8));
+
+    def = this->add("fs_restart_z_hop", coFloat);
+    def->label = L("Fiber restart Z hop");
+    def->tooltip = L("Height above the layer at which the fiber restart feed is performed, mm.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(1.2));
+
+    def = this->add("fs_prime_v", coFloat);
+    def->label = L("Matrix prime at fiber run start");
+    def->tooltip = L("Stationary matrix (axis V) extrusion at the start of a fiber run, mm. The emitter first recovers the previous run's matrix retract, then extrudes any remainder of this value as an anchor prime. 4 mm with a 1 mm retract is 1 mm recover plus 3 mm prime.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(4));
+
+    def = this->add("fs_retract_v", coFloat);
+    def->label = L("Matrix retract at fiber run end");
+    def->tooltip = L("Matrix (axis V) retract after the final wipe of a fiber run, mm. Fiber axis U is never retracted.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(1));
+
+    def = this->add("fs_fiber_rate", coFloat);
+    def->label = L("Fiber feed rate per path length");
+    def->tooltip = L("Fiber (axis U) millimeters fed per millimeter of deposit path. Sets how much fiber goes down: higher means a denser fiber line. Reference machine full impregnation is about 1.0 mm/mm.");
+    def->sidetext = L("mm/mm");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.98));
+
+    def = this->add("fs_matrix_ratio", coFloat);
+    def->label = L("Matrix to fiber ratio P");
+    def->tooltip = L("Matrix:fiber ratio of joint deposits; matrix feed V equals U times P. Higher means more plastic bound per unit of fiber. Reference machine constant is 0.034.");
+    def->mode = comExpert;
+    def->min = 0;
+    def->set_default_value(new ConfigOptionFloat(0.034));
+
+    def = this->add("fs_deposit_feed", coFloat);
+    def->label = L("Fiber deposit feedrate");
+    def->tooltip = L("Feedrate of joint fiber+matrix deposit moves, mm/min.");
+    def->sidetext = L("mm/min");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(1200));
+
+    def = this->add("fs_rectify_enabled", coBool);
+    def->label = L("Rectilinear fiber stripes");
+    def->tooltip = L("Emit parallel fiber stripes clipped against each layer's contours, in addition to contour reinforcement. Requires Continuous fiber capability.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("fs_rectify_angle", coFloat);
+    def->label = L("Fiber stripe angle");
+    def->tooltip = L("Direction of the rectilinear fiber stripes, degrees counter-clockwise from +X.");
+    def->sidetext = L("°");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0));
+
+    def = this->add("fs_rectify_spacing", coFloat);
+    def->label = L("Fiber stripe spacing");
+    def->tooltip = L("Pitch between adjacent rectilinear fiber stripes, mm. Smaller means stronger reinforcement.");
+    def->sidetext = L("mm");
+    def->min = 0.1;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(4));
+
+    def = this->add("fs_rectify_min_seg", coFloat);
+    def->label = L("Fiber stripe minimum segment");
+    def->tooltip = L("Stripe fragments shorter than this are skipped, mm.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(3));
+
+
+    // Serpentine interior fill admission gate (operator ruling 2026-10-01: fill is
+    // for massive areas, never thin walls). A morphological opening of the layer
+    // shape by this radius removes every band thinner than it by construction, so
+    // chords can only be struck inside material at least this thick.
+    def = this->add("fs_fill_min_wall_width", coFloat);
+    def->label = L("Fiber fill minimum wall width");
+    def->tooltip = L("Interior fiber fill is admitted only where the layer is at least this wide (morphological opening diameter, mm). Bands thinner than this belong to the contour trace alone. Must be larger than the fiber spacing.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(4));
+
+    // Cheap pre-filter in front of the opening gate: islands whose area is below
+    // this never produce fill chords (they cannot host a useful fill anyway).
+    def = this->add("fs_fill_min_area", coFloat);
+    def->label = L("Fiber fill minimum island area");
+    def->tooltip = L("Islands smaller than this area never receive interior fiber fill.");
+    def->sidetext = L(u8"mm²");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(100));
+
+    def = this->add("fs_t0_wrap", coBool);
+    def->label = L("Tool-wrap fiber windows");
+    def->tooltip = L("Wrap emitted fiber windows in T0/T1 tool changes around the reference machine macro dialect. Requires the machine macros to own tool offsets and dock motion.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("fs_fiber_nozzle_diameter", coFloat);
+    def->label = L("Fiber nozzle diameter");
+    def->tooltip = L("Diameter of the continuous-fiber nozzle. On the three-head reference machine the matrix and fiber heads are 0.7 mm and the plastic head is 0.4 mm; the regular Nozzle diameters field above only describes the plastic head.");
+    def->sidetext = L("mm");
+    def->min = 0.1;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.7));
+
+
+    // Fiber layer schedule (vendor-alignment P3). Default every_layer reproduces
+    // today's behavior exactly; band confines fiber to a stress-zone band measured
+    // from the print bottom, stepping by fs_fiber_z_step (the vendor reference
+    // pattern on the S-hook: 0.2-3.8 mm at 0.24 mm pitch).
+    def = this->add("fs_fiber_schedule", coEnum);
+    def->label = L("Fiber layer schedule");
+    def->tooltip = L("Which layers receive fiber. Every layer: every capable layer gets a fiber window (default behavior). Z band: only layers inside the Z band below, on macro layer boundaries - matching the reference machine pattern of reinforcing the stress zone instead of every layer. Macro layer: fiber over the whole height, but only once per macro layer, because the composite bead is taller than a plastic layer. Requires Continuous fiber capability.");
+    def->mode = comExpert;
+    def->enum_keys_map = &ConfigOptionEnum<FiberSchedule>::get_enum_values();
+    def->enum_values.push_back("every_layer");
+    def->enum_values.push_back("band");
+    def->enum_values.push_back("macro_layer");
+    def->enum_labels.push_back(L("Every layer"));
+    def->enum_labels.push_back(L("Z band (stress zone)"));
+    def->enum_labels.push_back(L("Once per macro layer"));
+    def->set_default_value(new ConfigOptionEnum<FiberSchedule>(FiberSchedule::fsEveryLayer));
+
+    def = this->add("fs_fiber_band_z_min", coFloat);
+    def->label = L("Fiber band bottom");
+    def->tooltip = L("Lowest print-Z (mm from the print bottom) that receives fiber when the fiber layer schedule is Z band.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.2));
+
+    def = this->add("fs_fiber_band_z_max", coFloat);
+    def->label = L("Fiber band top");
+    def->tooltip = L("Highest print-Z (mm from the print bottom) that receives fiber when the fiber layer schedule is Z band.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(3.8));
+
+    def = this->add("fs_fiber_z_step", coFloat);
+    def->label = L("Fiber macro layer height");
+    def->tooltip = L("Height of one fiber macro layer, mm: how tall the deposited composite bead is, and therefore how far apart consecutive fiber layers sit. The plastic layer height should divide it exactly, so that a whole number of plastic layers fills each macro layer - the reference machine pairs 0.12 mm plastic layers into a 0.24 mm macro layer. Used by the Z band and macro layer schedules.");
+    def->sidetext = L("mm");
+    def->min = 0.01;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.24));
+
+    // Concentric wall fill (operator ruling 2026-10-01): where the interior-fill
+    // admission gate refuses a thin-wall island, the wall is carried by multiple
+    // shape-hugging concentric loops instead of a single contour trace. Default
+    // off: a refused island keeps trace-only behavior unless a profile opts in.
+    def = this->add("fs_fiber_wall_loops", coBool);
+    def->label = L("Fiber concentric wall loops");
+    def->tooltip = L("Fill narrow walls with concentric fiber loops hugging the part shape instead of a single contour trace. Applies to islands too thin for the interior fill admission gate; thick areas keep the serpentine fill.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("fs_fiber_wall_pitch", coFloat);
+    def->label = L("Fiber wall loop pitch");
+    def->tooltip = L("Spacing between concentric fiber wall loops, mm. The wall loops continue inward at this pitch until the wall thickness is exhausted.");
+    def->sidetext = L("mm");
+    def->min = 0.1;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.7));
+
+    // Tail matrix payout (G-code review finding #1, 2026-10-01): the post-cut
+    // V-only tail moves must not revert to a V/XY ratio of ~1.0. The factor is
+    // a fraction of the body matrix payout rate (fiber_rate x matrix ratio),
+    // so the default 1.0 keeps the tail depositing matrix at the same V per mm
+    // of path as the joint U/V body deposits.
+    def = this->add("fs_tail_v_factor", coFloat);
+    def->label = L("Tail matrix payout factor");
+    def->tooltip = L("Matrix (V) payout of the post-cut tail moves as a fraction of the body deposit rate (fiber rate x matrix ratio). 1 keeps the tail matrix flow identical to the joint fiber+matrix deposits before the cut. Walls-mode process profiles may ship 0.72 to match the reference machine's post-cut multiplier; that is a calibrated reduction, not a bug.");
+    def->min = 0.01;
+    def->max = 1.0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(1.0));
+
+    // T0 (composite) thermal lifecycle (G-code review finding #3, 2026-10-01):
+    // the slicer previously relied on the machine start gcode to have T0 hot.
+    // With a temperature configured, the slicer preheats T0 in the start
+    // sequence, waits (M109) before the first T0 selection, and shuts T0 down
+    // in the trailer. 0 disables all emitted T0 thermal commands.
+    def = this->add("fs_t0_temp", coInt);
+    def->label = L("Composite nozzle temperature");
+    def->tooltip = L("Nozzle temperature (degrees) the slicer heats and waits for on the composite (T0) extruder before the first fiber window, and shuts down at the end of the plate. 0 disables the emitted T0 heating and shutdown commands (machine start/end gcode is then responsible).");
+    def->sidetext = L(u8"\u2103" /* °C */);
+    def->min = 0;
+    def->max = 500;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInt(0));
+
+    // Composite-band geometry reservation (operator review 2026-10-02, R2.1):
+    // on fiber layers the plastic plan must leave room for the composite bead so
+    // the fiber does not retrace the plastic it was deposited on. off performs no
+    // reservation; outer_wall is a diagnostic experiment only; band subtracts the
+    // exclusion band around the final accepted fiber paths (body and post-cut
+    // tail) from the plastic collections before they are exported.
+    def = this->add("fs_fiber_reserve", coEnum);
+    def->label = L("Fiber reservation mode");
+    def->tooltip = L("Reserve geometry for the composite bead on fiber layers. Off performs no reservation (an export must not be reported as reservation-passed). Outer wall only is a diagnostic experiment that removes the outer plastic wall on fiber layers. Composite band subtracts an exclusion band around the planned fiber paths from the plastic walls and infill, keeping the exterior surface by shifting beads inward instead of deleting the wall.");
+    def->enum_keys_map = &ConfigOptionEnum<FiberReserveMode>::get_enum_values();
+    def->enum_values.push_back("off");
+    def->enum_values.push_back("outer_wall");
+    def->enum_values.push_back("band");
+    def->enum_labels.push_back(L("Off"));
+    def->enum_labels.push_back(L("Outer wall only (diagnostic)"));
+    def->enum_labels.push_back(L("Composite band"));
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionEnum<FiberReserveMode>(FiberReserveMode::frmOff));
+
+    def = this->add("fs_fiber_bond_overlap", coFloat);
+    def->label = L("Fiber bonding overlap");
+    def->tooltip = L("Intended bonding overlap (mm) between the composite bead and the adjacent plastic. The exclusion distance around a fiber path is (composite bead width + plastic bead width) / 2 minus this overlap, so the plastic is kept clear of the fiber body but still touches it enough to bond.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 1;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.1));
+
+    // Continuous-fiber mode and pattern keys. At their defaults, or with
+    // fs_fiber_mode left at "off", the perimeter-following fiber path is unchanged.
+    def = this->add("fs_fiber_mode", coEnum);
+    def->label = L("Fiber mode");
+    def->tooltip = L("Selects the continuous-fiber pattern used when the fiber channel is enabled. Off: fiber follows the external perimeter on scheduled layers. Plastic only: no fiber, even if the capability flag is on. Walls: interior fiber at the selected coverage, plastic keeps the outer skin. Solid: fills the interior completely with fiber inside the outer plastic shell.");
+    def->enum_keys_map = &ConfigOptionEnum<FiberMode>::get_enum_values();
+    def->enum_values.push_back("off");
+    def->enum_values.push_back("plastic_only");
+    def->enum_values.push_back("walls");
+    def->enum_values.push_back("solid");
+    def->enum_labels.push_back(L("Off"));
+    def->enum_labels.push_back(L("Plastic only"));
+    def->enum_labels.push_back(L("Walls"));
+    def->enum_labels.push_back(L("Solid"));
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionEnum<FiberMode>(FiberMode::fmOff));
+
+    def = this->add("fs_fiber_coverage_percent", coFloat);
+    def->label = L("Fiber coverage");
+    def->tooltip = L("Interior fiber coverage for Walls mode, as a percentage of full density. The fiber line spacing is derived from the fiber bead width and this percentage; the exact law depends on the fiber infill pattern. 0 percent disables the interior fiber and leaves the fiber perimeter alone.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(80.));
+
+    // The fiber lane sits inboard of the plastic walls, not on them: these two
+    // counts are the number of PLASTIC walls outboard and inboard of the single
+    // fiber perimeter (reference machine InsetXPOuterWithFiberCount /
+    // InsetXPInnerWithFiberCount). Default 0 so an absent key keeps the fiber
+    // perimeter exactly where the legacy path put it.
+    def = this->add("fs_fiber_plastic_walls_outer", coInt);
+    def->label = L("Plastic walls outside fiber");
+    def->tooltip = L("Number of plastic walls printed outboard of the fiber perimeter in Walls and Solid modes. The fiber lane is pushed inward by this many wall spacings plus half of each bead width, so the fiber is buried behind plastic instead of riding on the outer wall. 0 puts the fiber directly behind the outer wall surface.");
+    def->min = 0;
+    def->max = 10;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInt(0));
+
+
+    def = this->add("fs_fiber_infill_pattern", coEnum);
+    def->label = L("Fiber infill pattern");
+    def->tooltip = L("Pattern used for the interior fiber in Walls and Solid modes. Rectilinear is the legacy single-pass serpentine. Isogrid lays three rib families 60 degrees apart, each rib a pair of passes one bead apart, at the rib spacing the coverage percentage asks for. Solid lays adjacent passes one bead apart, cycling through the fiber fill angle list.");
+    def->enum_keys_map = &ConfigOptionEnum<FiberInfillPattern>::get_enum_values();
+    def->enum_values.push_back("rectilinear");
+    def->enum_values.push_back("isogrid");
+    def->enum_values.push_back("solid");
+    def->enum_labels.push_back(L("Rectilinear"));
+    def->enum_labels.push_back(L("Isogrid"));
+    def->enum_labels.push_back(L("Solid"));
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionEnum<FiberInfillPattern>(FiberInfillPattern::fipRectilinear));
+
+    // The composite bead is wider than the orifice that extrudes it (reference
+    // machine: a 0.7 mm composite nozzle lays a 0.8 mm roving bead). Every fiber
+    // spacing law and the fiber lane inset are expressed in bead widths, so the
+    // bead width is configured separately from the nozzle diameter. 0 falls back
+    // to the fiber nozzle diameter, which is the legacy behavior.
+    def = this->add("fs_fiber_bead_width", coFloat);
+    def->label = L("Fiber bead width");
+    def->tooltip = L("Width of the deposited composite bead, which is normally wider than the fiber nozzle diameter. The fiber line spacing and the distance the fiber lane is held inboard of the plastic walls are both derived from it. 0 uses the fiber nozzle diameter instead.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 5;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    // Fiber feasibility limits (reference machine FiberMinRadius /
+    // FiberMaxArcSegmentLength). The radius limit is a reject-don't-simplify
+    // check: a strand that violates it is refused and accounted, never quietly
+    // straightened. The segment limit is a reporting resolution: long segments
+    // are split at collinear points, so the geometry is unchanged. 0 disables
+    // either, which is the legacy behavior.
+    def = this->add("fs_fiber_min_radius", coFloat);
+    def->label = L("Fiber minimum turn radius");
+    def->tooltip = L("Smallest turn radius (mm) the fiber can be laid around. Corners tighter than this are handled according to the tight turn policy. 0 disables the check.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 200;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    def = this->add("fs_fiber_tight_turn_policy", coEnum);
+    def->label = L("Fiber tight turn policy");
+    def->tooltip = L("What to do where a planned fiber path turns tighter than the minimum turn radius. Keep strand rounds each corner to the largest fillet that fits (capped at the minimum radius) and deposits one strand; corners that still cannot meet the radius are reported. Split strand cuts the fiber at the tight turn, which is only useful when each piece is still long enough for the calibrated tail. Has no effect while the minimum turn radius is 0.");
+    def->enum_keys_map = &ConfigOptionEnum<FiberTightTurnPolicy>::get_enum_values();
+    def->enum_values.push_back("keep");
+    def->enum_values.push_back("split");
+    def->enum_labels.push_back(L("Keep strand"));
+    def->enum_labels.push_back(L("Split strand at the turn"));
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionEnum<FiberTightTurnPolicy>(FiberTightTurnPolicy::fttKeep));
+
+    def = this->add("fs_fiber_seam_position", coEnum);
+    def->label = L("Fiber seam position");
+    def->tooltip = L("Where the seam of a closed fiber loop goes. The seam carries the cut, the restart and the tail overlap, so it is the weakest point of the loop. Aligned keeps every loop starting at the same place, which is predictable but stacks the seams into a column up the part. Scattered spreads the seam around each loop, so no two layers break at the same spot. Longest straight run puts the seam in the middle of the loop's longest straight section, away from corners. All three are deterministic: the same model and settings always give the same seams.");
+    def->enum_keys_map = &ConfigOptionEnum<FiberSeamPosition>::get_enum_values();
+    def->enum_values.push_back("aligned");
+    def->enum_values.push_back("scattered");
+    def->enum_values.push_back("longest_edge");
+    def->enum_labels.push_back(L("Aligned"));
+    def->enum_labels.push_back(L("Scattered"));
+    def->enum_labels.push_back(L("Longest straight run"));
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionEnum<FiberSeamPosition>(FiberSeamPosition::fspAligned));
+
+    def = this->add("fs_fiber_chain_loops", coBool);
+    def->label = L("Chain fiber loops into fill");
+    def->tooltip = L("Lay an island's boundary fiber loop and its interior fill as one continuous strand wherever the connector between them stays inside the part. Saves a cut, a restart purge and a tail for every island that has both. Off by default so existing projects keep their cut count; Reinforced and Fortified turn it on.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("fs_fiber_verbose_comments", coBool);
+    def->label = L("Fiber verbose comments");
+    def->tooltip = L("Emit the reference machine's entity comments (; Inset XF start, ; Fiber infill start, ; SEAM Fiber at ..., ; MACROLAYER:) alongside each fiber strand. Off by default: the comments are for tooling and preview parity, not for the printer, and leaving them out keeps the G-code smaller.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    // Three-zone fiber deposition speed. All five default to 0, which keeps the
+    // single fiber feedrate the legacy path emits, so unset profiles are
+    // byte-identical. The reference machine deposits the first ~16 mm of every
+    // strand at 5 mm/s and then runs at 30 mm/s.
+    def = this->add("fs_fiber_speed_start", coFloat);
+    def->label = L("Fiber start speed");
+    def->tooltip = L("Deposition speed for the beginning of each fiber strand, where the fiber still has to be anchored to the part. 0 keeps the normal fiber speed for the whole strand.");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->max = 500;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    def = this->add("fs_fiber_speed_start_length", coFloat);
+    def->label = L("Fiber start length");
+    def->tooltip = L("How far into each fiber strand the start speed applies, measured along the deposited path.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 500;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    def = this->add("fs_fiber_speed_normal", coFloat);
+    def->label = L("Fiber normal speed");
+    def->tooltip = L("Deposition speed for the body of each fiber strand, between the start and finish zones. 0 uses the fiber feedrate the strand was planned with. The FibreSeeker start G-code sets square-corner velocity to 10 mm/s; a matching body speed keeps fiber corners from requesting a faster instantaneous turn than the motion planner will grant.");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->max = 500;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    def = this->add("fs_fiber_speed_finish", coFloat);
+    def->label = L("Fiber finish speed");
+    def->tooltip = L("Deposition speed for the end of each fiber strand, where the cut tail is laid into the part. 0 keeps the normal fiber speed to the end of the strand.");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->max = 500;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    def = this->add("fs_fiber_speed_finish_length", coFloat);
+    def->label = L("Fiber finish length");
+    def->tooltip = L("How much of the end of each fiber strand the finish speed applies to, measured along the deposited path.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 500;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    def = this->add("fs_fiber_max_arc_seg", coFloat);
+    def->label = L("Fiber maximum segment length");
+    def->tooltip = L("Longest move a fiber strand is split into (mm). Longer stretches are divided at points on the same path, so the deposited shape is unchanged but the fiber and matrix feeds are commanded at a finer resolution, as the reference machine does. 0 emits the path as planned.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 200;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    def = this->add("fs_fiber_fill_inset", coFloat);
+    def->label = L("Fiber fill inset");
+    def->tooltip = L("Distance (mm) by which the fiber fill region is eroded away from the boundary between the fiber area and the outer plastic shell, so fiber chords never touch the outer FFF skin.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 5;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.3));
+
+    def = this->add("fs_fiber_fill_angles", coString);
+    def->label = L("Fiber fill angles");
+    def->tooltip = L("Slash-separated list of fiber chord angles (degrees, relative to the X axis) cycled per fiber layer in Walls and Solid modes, e.g. 0/90/0 alternates 0 and 90 degrees on successive fiber layers.");
+    def->sidetext = L("deg");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionString("0/90/0"));
 
     def = this->add("gcode_flavor", coEnum);
     def->label = L("G-code flavor");
@@ -9099,6 +9628,16 @@ void PrintConfigDef::handle_legacy(t_config_option_key &opt_key, std::string &va
     //BBS: handle legacy options
     if (opt_key == "curr_bed_type" && value == "SuperTack Plate") {
         value = "Supertack Plate";
+    } else if (opt_key == "fs_fiber_window_mode" || opt_key == "fs_rectify_max_seg" || opt_key == "fs_fiber_plastic_walls_inner") {
+        // Dropped dormant keys: ignore if a project file still carries them.
+        opt_key = "";
+    } else if (opt_key == "fs_fiber_mode") {
+        if (value == "speedy")
+            value = "plastic_only";
+        else if (value == "reinforced")
+            value = "walls";
+        else if (value == "fortified")
+            value = "solid";
     } else if (opt_key == "enable_wipe_tower") {
         opt_key = "enable_prime_tower";
     } else if (opt_key == "wipe_tower_width") {

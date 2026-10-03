@@ -71,6 +71,10 @@ struct CoolingLine
         // ORCA: Add support for ironing fan speed control
         TYPE_IRONING_FAN_START         = 1 << 19,
         TYPE_IRONING_FAN_END           = 1 << 20,
+        // FibreSeeker3: continuous-fiber move (U/V/P axis words present before any comment).
+        // This buffer's parser does not model those axes; the line must be emitted verbatim
+        // and only its feedrate tracked.
+        TYPE_FIBER                   = 1 << 21,
     };
 
     CoolingLine(unsigned int type, size_t  line_start, size_t  line_end) :
@@ -422,6 +426,23 @@ std::vector<PerExtruderAdjustments> CoolingBuffer::parse_layer_gcode(const std::
             if (wipe)
                 line.type |= CoolingLine::TYPE_WIPE;
 
+            // FibreSeeker3: this parser only tracks X/Y/Z/E/F words; U/V/P words (the
+            // continuous-fiber lifecycle emitted between M1001 and M1002) are invisible
+            // to the length measurement below, and the feedrate de-duplication would
+            // then blank or corrupt the lifecycle lines. Mark the line as fiber-opaque:
+            // emitted verbatim, excluded from surgery, slowdown, and speed-block merging,
+            // with the modal feedrate re-synced on the emit side. Only words before a
+            // comment are inspected, so extrusion tags such as ";_EXTRUDE_SET_SPEED"
+            // (which contain U/P) are not mistaken for fiber axes.
+            if (m_config.fs_fiber_enabled.value) {
+                std::string_view code_part(sline);
+                const size_t sc = code_part.find(';');
+                if (sc != std::string_view::npos)
+                    code_part = code_part.substr(0, sc);
+                if (code_part.find_first_of("UV") != std::string_view::npos)
+                    line.type |= CoolingLine::TYPE_FIBER;
+            }
+
             // Orca: only slow down movements since the first extrusion
             if (boost::contains(sline, ";_EXTRUDE_SET_SPEED"))
                 layer_had_extrusion = true;
@@ -473,7 +494,8 @@ std::vector<PerExtruderAdjustments> CoolingBuffer::parse_layer_gcode(const std::
                 if ((line.type & CoolingLine::TYPE_ADJUSTABLE) || active_speed_modifier != size_t(-1))
                     line.time_max = (adjustment->slow_down_min_speed == 0.f) ? FLT_MAX : std::max(line.time, line.length / adjustment->slow_down_min_speed);
                 // BBS: add G2 and G3 support
-                if (active_speed_modifier < adjustment->lines.size() && ((line.type & CoolingLine::TYPE_G1) ||
+                // FibreSeeker3: fiber lines must never be merged into an FFF speed modifier block.
+                if (active_speed_modifier < adjustment->lines.size() && !(line.type & CoolingLine::TYPE_FIBER) && ((line.type & CoolingLine::TYPE_G1) ||
                                                                          (line.type & CoolingLine::TYPE_G2) ||
                                                                          (line.type & CoolingLine::TYPE_G3))) {
                     // Inside the ";_EXTRUDE_SET_SPEED" blocks, there must not be a G1 Fxx entry.
@@ -940,6 +962,14 @@ std::string CoolingBuffer::apply_layer_cooldown(
         }
         else if (line->type & CoolingLine::TYPE_EXTRUDE_END) {
             // Just remove this comment.
+        } else if (line->type & CoolingLine::TYPE_FIBER) {
+            // FibreSeeker3: continuous-fiber move (U/V/P words). This buffer does not model
+            // those axes; emit the line verbatim and re-sync the modal feedrate from the raw
+            // F word so later de-duplication decisions stay correct.
+            const char *f_fiber = strstr(line_start + 2, " F");
+            if (f_fiber != nullptr && f_fiber < line_end)
+                current_feedrate = atoi(f_fiber + 2);
+            new_gcode.append(line_start, line_end - line_start);
         } else if (line->type & (CoolingLine::TYPE_ADJUSTABLE | CoolingLine::TYPE_EXTERNAL_PERIMETER | CoolingLine::TYPE_WIPE | CoolingLine::TYPE_HAS_F)) {
             // Find the start of a comment, or roll to the end of line.
             const char *end = line_start;
@@ -970,6 +1000,9 @@ std::string CoolingBuffer::apply_layer_cooldown(
                 new_gcode.append(line_start, end - line_start);
                 current_feedrate = new_feedrate;
             }
+            // FibreSeeker3: set when the de-duplication below would corrupt the line; the
+            // line is then emitted with all its code words intact instead.
+            bool keep_intact = false;
             if (modify || remove) {
                 if (modify) {
                     // Replace the feedrate.
@@ -984,25 +1017,43 @@ std::string CoolingBuffer::apply_layer_cooldown(
                     // Roll the pointer before the 'F' word.
                     for (f -= 2; f > line_start && (*f == ' ' || *f == '\t'); -- f);
 
-                    if ((f - line_start == 1) && *line_start == 'G' && (*f == '1' || *f == '0')) {
+                    // The "G1"/"G0"-only collapse and the F-word removal below are only safe
+                    // when the F word is the last word of the line. When anything follows the
+                    // F token (e.g. the fiber lifecycle line "G1 F1200 Z0.20"), removing F
+                    // leaves a remainder that no longer starts with a command word (orphan
+                    // continuation), so emit the line intact instead.
+                    const char *after_f = fpos;
+                    for (; after_f != end && *after_f != ' ' && *after_f != ';' && *after_f != '\n'; ++ after_f);
+                    while (after_f < end && (*after_f == ' ' || *after_f == '\t'))
+                        ++ after_f;
+                    keep_intact = after_f < end;
+
+                    if (keep_intact) {
+                        // Emitted intact below.
+                    } else if ((f - line_start == 1) && *line_start == 'G' && (*f == '1' || *f == '0')) {
                         // BBS: only remain "G1" or "G0" of this line after remove 'F' part, don't save
                     } else {
                         // Append up to the F word, without the trailing whitespace.
                         new_gcode.append(line_start, f - line_start + 1);
                     }
                 }
-                // Skip the non-whitespaces of the F parameter up the comment or end of line.
-                for (; fpos != end && *fpos != ' ' && *fpos != ';' && *fpos != '\n'; ++ fpos);
-                // Append the rest of the line without the comment.
-                if (fpos < end)
-                    // The G-code line is not empty yet. Emit the rest of it.
-                    new_gcode.append(fpos, end - fpos);
-                else if (remove && new_gcode == "G1") {
-                    // The G-code line only contained the F word, now it is empty. Remove it completely including the comments.
-                    new_gcode.resize(new_gcode.size() - 2);
-                    end = line_end;
+                if (! keep_intact) {
+                    // Skip the non-whitespaces of the F parameter up the comment or end of line.
+                    for (; fpos != end && *fpos != ' ' && *fpos != ';' && *fpos != '\n'; ++ fpos);
+                    // Append the rest of the line without the comment.
+                    if (fpos < end)
+                        // The G-code line is not empty yet. Emit the rest of it.
+                        new_gcode.append(fpos, end - fpos);
+                    else if (remove && new_gcode == "G1") {
+                        // The G-code line only contained the F word, now it is empty. Remove it completely including the comments.
+                        new_gcode.resize(new_gcode.size() - 2);
+                        end = line_end;
+                    }
                 }
             }
+            if (keep_intact)
+                // Emit the code words of the line verbatim; its comment (if any) is appended below.
+                new_gcode.append(line_start, end - line_start);
             // Process the rest of the line.
             if (end < line_end) {
                 if (line->type & (CoolingLine::TYPE_ADJUSTABLE | CoolingLine::TYPE_EXTERNAL_PERIMETER | CoolingLine::TYPE_WIPE)) {

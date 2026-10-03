@@ -230,6 +230,10 @@ void AppConfig::set_defaults()
     if (get("preview_default_view_type").empty())
         set("preview_default_view_type", "auto");
 
+    // ORCA: color of continuous fiber paths in the G-code preview ("Continuous fiber" role), "#rrggbb".
+    if (get("preview_fiber_color").empty())
+        set("preview_fiber_color", "#009688");
+
     if (get("filaments_area_preferred_count").empty())
         set("filaments_area_preferred_count", "10");
 

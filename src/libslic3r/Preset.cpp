@@ -1362,6 +1362,51 @@ static std::vector<std::string> s_Preset_print_options{
     "zaa_dont_alternate_fill_direction",
     "zaa_min_z",
     "ironing_expansion",
+    // FibreSeeker3 continuous-fiber strength bundle: process-owned. Listed
+    // here only (not in s_Preset_printer_options). Dual-registering these made
+    // full_fff_config() printer-wins overwrite the process strength profile
+    // with machine defaults, so the Print-tab fiber controls had no effect on
+    // a real slice. Construct-full-config and CLI --load-settings already
+    // prefer the process file; one-list registration makes the GUI match.
+    // Capability (fs_fiber_enabled) and hardware lifecycle stay printer-only.
+    "fs_fiber_enforce",
+    "fs_rectify_enabled",
+    "fs_rectify_angle",
+    "fs_rectify_spacing",
+    "fs_fiber_rate",
+    "fs_matrix_ratio",
+    // Mode selector and pattern parameters are a process choice so a process
+    // preset can change them without the printer apply-last overwriting them.
+    "fs_fiber_mode",
+    "fs_fiber_coverage_percent",
+    "fs_fiber_plastic_walls_outer",
+    "fs_fiber_fill_inset",
+    "fs_fiber_fill_angles",
+    "fs_fiber_infill_pattern",
+    "fs_fiber_bead_width",
+    "fs_fiber_min_radius",
+    "fs_fiber_tight_turn_policy",
+    "fs_fiber_seam_position",
+    "fs_fiber_chain_loops",
+    "fs_fiber_verbose_comments",
+    "fs_fiber_speed_start",
+    "fs_fiber_speed_start_length",
+    "fs_fiber_speed_normal",
+    "fs_fiber_speed_finish",
+    "fs_fiber_speed_finish_length",
+    "fs_fiber_max_arc_seg",
+    // Lifecycle values the mode presets carry (band schedule, tail V factor).
+    "fs_fiber_schedule",
+    "fs_fiber_band_z_min",
+    "fs_fiber_band_z_max",
+    "fs_fiber_z_step",
+    "fs_tail_v_factor",
+    // The fill admission gate and the minimum deposited segment are per-pattern
+    // decisions (the isogrid rib pitch sets how wide an opening a rib needs), so
+    // the mode presets carry them too.
+    "fs_fill_min_wall_width",
+    "fs_fill_min_area",
+    "fs_rectify_min_seg",
 };
 
 static std::vector<std::string> s_Preset_filament_options {/*"filament_colour", */ "default_filament_colour", "required_nozzle_HRC", "filament_diameter", "pellet_flow_coefficient", "volumetric_speed_coefficients", "filament_type",
@@ -1460,7 +1505,8 @@ static std::vector<std::string> s_Preset_printer_options {
     "host_type", "print_host", "printhost_apikey", "flashforge_serial_number", "bbl_use_printhost", "printer_agent",
     "print_host_webui",
     "printhost_cafile","printhost_port","printhost_authorization_type",
-    "printhost_user", "printhost_password", "printhost_ssl_ignore_revoke", "thumbnails", "thumbnails_format",
+    "printhost_user", "printhost_password", "printhost_ssl_ignore_revoke",
+    "printhost_skip_precheck", "printhost_skip_foreign_detect", "thumbnails", "thumbnails_format",
     "use_relative_e_distances", "extruder_type", "use_firmware_retraction", "printer_notes",
     "grab_length", "support_object_skip_flush", "physical_extruder_map",
     "cooling_tube_retraction",
@@ -1474,6 +1520,16 @@ static std::vector<std::string> s_Preset_printer_options {
     // Fast-purge printer flag + device/firmware-facing per-variant extruder-change
     // deretraction speed (unconsumed by the slicer; carried by H2D/A2L/X2D/P2S machine profiles).
     "support_fast_purge_mode", "deretract_speed_extruder_change",
+    // FibreSeeker3 continuous fiber (fs_*): machine-only capability and
+    // hardware lifecycle. Mode, coverage, burial, pattern, speeds and fill
+    // gates live in s_Preset_print_options so a process preset can change them
+    // without the printer apply-last in full_fff_config() overwriting them.
+    "fs_fiber_enabled", "fs_restart_feed", "fs_tail_length", "fs_restart_z_hop", "fs_prime_v",
+    "fs_retract_v", "fs_deposit_feed",
+    "fs_t0_wrap", "fs_fiber_nozzle_diameter",
+    "fs_fiber_wall_loops", "fs_fiber_wall_pitch",
+    "fs_t0_temp",
+    "fs_fiber_reserve", "fs_fiber_bond_overlap",
     "printer_plugin_config_overrides"
     };
 
@@ -4161,7 +4217,10 @@ static std::vector<std::string> s_PhysicalPrinter_opts {
     // HTTP digest authentization (RFC 2617)
     "printhost_user",
     "printhost_password",
-    "printhost_ssl_ignore_revoke"
+    "printhost_ssl_ignore_revoke",
+    // Pre-print checks a Moonraker host may run before it accepts a job
+    "printhost_skip_precheck",
+    "printhost_skip_foreign_detect"
 };
 
 const std::vector<std::string>& PhysicalPrinter::printer_options()

@@ -1,0 +1,95 @@
+{
+	"type": "filament",
+	"name": "FibreSeek PLA @FibreSeeker3 SK3",
+	"inherits": "fdm_filament_common",
+	"from": "system",
+	"setting_id": "5CIDviaZ0hhCtVQu",
+	"filament_id": "OFNVUU26",
+	"instantiation": "true",
+	"filament_type": [
+		"PLA"
+	],
+	"filament_vendor": [
+		"FibreSeek"
+	],
+	"nozzle_temperature": [
+		"220"
+	],
+	"nozzle_temperature_initial_layer": [
+		"220"
+	],
+	"cool_plate_temp": [
+		"55"
+	],
+	"eng_plate_temp": [
+		"55"
+	],
+	"hot_plate_temp": [
+		"55"
+	],
+	"textured_plate_temp": [
+		"55"
+	],
+	"supertack_plate_temp": [
+		"55"
+	],
+	"cool_plate_temp_initial_layer": [
+		"55"
+	],
+	"eng_plate_temp_initial_layer": [
+		"55"
+	],
+	"hot_plate_temp_initial_layer": [
+		"55"
+	],
+	"textured_plate_temp_initial_layer": [
+		"55"
+	],
+	"supertack_plate_temp_initial_layer": [
+		"55"
+	],
+	"filament_max_volumetric_speed": [
+		"25"
+	],
+	"filament_flow_ratio": [
+		"1"
+	],
+	"filament_density": [
+		"1.24"
+	],
+	"filament_cost": [
+		"20"
+	],
+	"fan_min_speed": [
+		"90"
+	],
+	"fan_max_speed": [
+		"100"
+	],
+	"close_fan_the_first_x_layers": [
+		"2"
+	],
+	"slow_down_layer_time": [
+		"2"
+	],
+	"slow_down_min_speed": [
+		"10"
+	],
+	"filament_retraction_length": [
+		"1"
+	],
+	"filament_retraction_speed": [
+		"25"
+	],
+	"filament_retraction_minimum_travel": [
+		"0.6"
+	],
+	"filament_z_hop": [
+		"0.4"
+	],
+	"filament_notes": "FibreSeek PLA, 1.75 mm. 220 C nozzle, 55 C bed, 25 mm3/s max flow. Fan off first layers. Chamber 0 C. All bed-plate variants pinned equal: SK3 has a single heated bed.",
+	"compatible_printers": [
+		"FibreSeeker3 SK3 CF nozzle",
+		"FibreSeeker3 SK3 FFF nozzle"
+	]
+}

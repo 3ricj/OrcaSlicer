@@ -1,0 +1,65 @@
+{
+	"type": "filament",
+	"name": "FibreSeek PPS @FibreSeeker3 SK3",
+	"inherits": "fdm_filament_common",
+	"from": "system",
+	"setting_id": "kK1VMgkgBZRZVTqi",
+	"filament_id": "OFAiA3RJ",
+	"instantiation": "true",
+	"filament_type": [
+		"PPS"
+	],
+	"filament_vendor": [
+		"FibreSeek"
+	],
+	"nozzle_temperature": [
+		"300"
+	],
+	"nozzle_temperature_initial_layer": [
+		"300"
+	],
+	"cool_plate_temp": [
+		"85"
+	],
+	"eng_plate_temp": [
+		"85"
+	],
+	"hot_plate_temp": [
+		"85"
+	],
+	"textured_plate_temp": [
+		"85"
+	],
+	"supertack_plate_temp": [
+		"85"
+	],
+	"cool_plate_temp_initial_layer": [
+		"85"
+	],
+	"eng_plate_temp_initial_layer": [
+		"85"
+	],
+	"hot_plate_temp_initial_layer": [
+		"85"
+	],
+	"textured_plate_temp_initial_layer": [
+		"85"
+	],
+	"supertack_plate_temp_initial_layer": [
+		"85"
+	],
+	"filament_density": [
+		"1.35"
+	],
+	"fan_max_speed": [
+		"0"
+	],
+	"fan_min_speed": [
+		"0"
+	],
+	"filament_notes": "FibreSeek PPS, 1.75 mm. 300 C extrusion, density 1.35. Bed 85 C. Zero part cooling is generic PPS practice. All bed-plate variants pinned equal: SK3 has a single heated bed.",
+	"compatible_printers": [
+		"FibreSeeker3 SK3 CF nozzle",
+		"FibreSeeker3 SK3 FFF nozzle"
+	]
+}

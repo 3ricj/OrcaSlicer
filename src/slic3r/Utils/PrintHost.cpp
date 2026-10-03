@@ -96,6 +96,12 @@ std::string PrintHost::get_print_host_webui(DynamicPrintConfig* config)
         webui_url = ElegooLink::get_print_host_webui(config);
         break;
     }
+    case htMoonraker: {
+        webui_url = config->opt_string("print_host_webui");
+        if (webui_url.empty())
+            webui_url = Moonraker::default_webui_url(config->opt_string("print_host"));
+        break;
+    }
     default: break;
     }
 

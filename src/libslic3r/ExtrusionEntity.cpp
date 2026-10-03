@@ -680,6 +680,8 @@ std::string ExtrusionEntity::role_to_string(ExtrusionRole role)
         case erWipeTower                    : return L("Prime tower");
         case erCustom                       : return L("Custom");
         case erMixed                        : return L("Multiple");
+        // ORCA: continuous-fiber deposits
+        case erFiber                        : return L("Continuous fiber");
         default                             : assert(false);
     }
     return "";

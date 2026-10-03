@@ -1,0 +1,21 @@
+{
+  "type": "filament",
+  "name": "FS3 PETG T1 (P2 slice)",
+  "from": "User",
+  "filament_type": "PETG",
+  "filament_vendor": "FibreSeeker",
+  "nozzle_temperature_initial_layer": "250",
+  "nozzle_temperature": "250",
+  "cool_plate_temp": "75",
+  "eng_plate_temp": "75",
+  "hot_plate_temp": "75",
+  "textured_plate_temp": "75",
+  "cool_plate_temp_initial_layer": "75",
+  "eng_plate_temp_initial_layer": "75",
+  "hot_plate_temp_initial_layer": "75",
+  "textured_plate_temp_initial_layer": "75",
+  "filament_max_volumetric_speed": "12",
+  "filament_ramming_parameters": "120 100 6 | 120 1.0 5 6 8 | .3 120 .4 160 .4 200 .4 240 | . 200 0 0 0 0 0",
+  "filament_standby_temperature_reduction": "0",
+  "filament_wipe_tower_brim_width": "0"
+}

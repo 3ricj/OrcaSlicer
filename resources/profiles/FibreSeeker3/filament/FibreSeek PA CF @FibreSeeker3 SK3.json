@@ -1,0 +1,95 @@
+{
+	"type": "filament",
+	"name": "FibreSeek PA CF @FibreSeeker3 SK3",
+	"inherits": "fdm_filament_common",
+	"from": "system",
+	"setting_id": "dv27kfbAiIoLABp6",
+	"filament_id": "OFhXwiNE",
+	"instantiation": "true",
+	"filament_type": [
+		"PA-CF"
+	],
+	"filament_vendor": [
+		"FibreSeek"
+	],
+	"nozzle_temperature": [
+		"270"
+	],
+	"nozzle_temperature_initial_layer": [
+		"270"
+	],
+	"cool_plate_temp": [
+		"80"
+	],
+	"eng_plate_temp": [
+		"80"
+	],
+	"hot_plate_temp": [
+		"80"
+	],
+	"textured_plate_temp": [
+		"80"
+	],
+	"supertack_plate_temp": [
+		"80"
+	],
+	"cool_plate_temp_initial_layer": [
+		"80"
+	],
+	"eng_plate_temp_initial_layer": [
+		"80"
+	],
+	"hot_plate_temp_initial_layer": [
+		"80"
+	],
+	"textured_plate_temp_initial_layer": [
+		"80"
+	],
+	"supertack_plate_temp_initial_layer": [
+		"80"
+	],
+	"filament_max_volumetric_speed": [
+		"25"
+	],
+	"filament_flow_ratio": [
+		"1"
+	],
+	"filament_density": [
+		"1.06"
+	],
+	"filament_cost": [
+		"20"
+	],
+	"fan_min_speed": [
+		"5"
+	],
+	"fan_max_speed": [
+		"20"
+	],
+	"close_fan_the_first_x_layers": [
+		"5"
+	],
+	"slow_down_layer_time": [
+		"3"
+	],
+	"slow_down_min_speed": [
+		"10"
+	],
+	"filament_retraction_length": [
+		"1"
+	],
+	"filament_retraction_speed": [
+		"20"
+	],
+	"filament_retraction_minimum_travel": [
+		"2"
+	],
+	"filament_z_hop": [
+		"0.4"
+	],
+	"filament_notes": "FibreSeek PA CF (carbon-fibre filled PA), 1.75 mm. 270 C nozzle, 80 C bed, 25 mm3/s max flow. Use a hardened steel nozzle. Dry before printing. All bed-plate variants pinned equal: SK3 has a single heated bed.",
+	"compatible_printers": [
+		"FibreSeeker3 SK3 CF nozzle",
+		"FibreSeeker3 SK3 FFF nozzle"
+	]
+}
