@@ -1,6 +1,6 @@
 {
 	"name": "FibreSeeker3",
-	"version": "01.00.14.03",
+	"version": "01.00.14.04",
 	"force_update": "0",
 	"description": "FibreSeeker3 SK3 continuous-fiber machine profiles",
 	"machine_model_list": [
@@ -15,48 +15,48 @@
 			"sub_path": "process/fdm_process_common.json"
 		},
 		{
-			"name": "0.20mm Standard @FibreSeeker3 SK3",
-			"sub_path": "process/0.20mm Standard @FibreSeeker3 SK3.json"
+			"name": "0.12mm Standard @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Standard @FibreSeeker3 SK3.json"
 		},
 		{
-			"name": "0.20mm CF Heavy @FibreSeeker3 SK3",
-			"sub_path": "process/0.20mm CF Heavy @FibreSeeker3 SK3.json"
+			"name": "0.12mm CF Heavy @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm CF Heavy @FibreSeeker3 SK3.json"
 		},
 		{
-			"name": "0.20mm CF Light @FibreSeeker3 SK3",
-			"sub_path": "process/0.20mm CF Light @FibreSeeker3 SK3.json"
+			"name": "0.12mm CF Light @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm CF Light @FibreSeeker3 SK3.json"
 		},
 		{
-			"name": "0.20mm CF Standard @FibreSeeker3 SK3",
-			"sub_path": "process/0.20mm CF Standard @FibreSeeker3 SK3.json"
+			"name": "0.12mm CF Standard @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm CF Standard @FibreSeeker3 SK3.json"
 		},
 		{
-			"name": "0.20mm Fortified @FibreSeeker3 SK3",
-			"sub_path": "process/0.20mm Fortified @FibreSeeker3 SK3.json"
+			"name": "0.12mm Fortified @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Fortified @FibreSeeker3 SK3.json"
 		},
 		{
-			"name": "0.20mm Reinforced L1 @FibreSeeker3 SK3",
-			"sub_path": "process/0.20mm Reinforced L1 @FibreSeeker3 SK3.json"
+			"name": "0.12mm Reinforced L1 @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Reinforced L1 @FibreSeeker3 SK3.json"
 		},
 		{
-			"name": "0.20mm Reinforced L2 @FibreSeeker3 SK3",
-			"sub_path": "process/0.20mm Reinforced L2 @FibreSeeker3 SK3.json"
+			"name": "0.12mm Reinforced L2 @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Reinforced L2 @FibreSeeker3 SK3.json"
 		},
 		{
-			"name": "0.20mm Reinforced L3 @FibreSeeker3 SK3",
-			"sub_path": "process/0.20mm Reinforced L3 @FibreSeeker3 SK3.json"
+			"name": "0.12mm Reinforced L3 @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Reinforced L3 @FibreSeeker3 SK3.json"
 		},
 		{
-			"name": "0.20mm Reinforced L4 @FibreSeeker3 SK3",
-			"sub_path": "process/0.20mm Reinforced L4 @FibreSeeker3 SK3.json"
+			"name": "0.12mm Reinforced L4 @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Reinforced L4 @FibreSeeker3 SK3.json"
 		},
 		{
-			"name": "0.20mm Reinforced L5 @FibreSeeker3 SK3",
-			"sub_path": "process/0.20mm Reinforced L5 @FibreSeeker3 SK3.json"
+			"name": "0.12mm Reinforced L5 @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Reinforced L5 @FibreSeeker3 SK3.json"
 		},
 		{
-			"name": "0.20mm Speedy @FibreSeeker3 SK3",
-			"sub_path": "process/0.20mm Speedy @FibreSeeker3 SK3.json"
+			"name": "0.12mm Speedy @FibreSeeker3 SK3",
+			"sub_path": "process/0.12mm Speedy @FibreSeeker3 SK3.json"
 		}
 	],
 	"filament_list": [

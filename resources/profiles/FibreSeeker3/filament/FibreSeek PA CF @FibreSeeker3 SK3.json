@@ -84,9 +84,6 @@
 	"filament_retraction_minimum_travel": [
 		"2"
 	],
-	"filament_z_hop": [
-		"0.4"
-	],
 	"filament_notes": "FibreSeek PA CF (carbon-fibre filled PA), 1.75 mm. 270 C nozzle, 80 C bed, 25 mm3/s max flow. Use a hardened steel nozzle. Dry before printing. All bed-plate variants pinned equal: SK3 has a single heated bed.",
 	"compatible_printers": [
 		"FibreSeeker3 SK3 CF nozzle",

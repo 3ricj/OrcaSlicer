@@ -84,9 +84,6 @@
 	"filament_retraction_minimum_travel": [
 		"0.6"
 	],
-	"filament_z_hop": [
-		"0.4"
-	],
 	"filament_notes": "FibreSeek PETG, 1.75 mm. 250 C nozzle, 75 C bed, 25 mm3/s max flow. Fan off for the first 1 mm. Chamber 0 C. All bed-plate variants pinned equal: SK3 has a single heated bed.",
 	"compatible_printers": [
 		"FibreSeeker3 SK3 CF nozzle",
