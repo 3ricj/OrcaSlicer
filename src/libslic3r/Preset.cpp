@@ -3564,6 +3564,19 @@ std::vector<std::string> PresetCollection::diameters_of_selected_printer()
     return std::vector<std::string>{diameters.begin(), diameters.end()};
 }
 
+std::string printer_variant_display_name(const std::string &printer_model, const std::string &printer_variant)
+{
+    // Capability-named variants, not orifice sizes. Only FibreSeeker uses this
+    // mapping; a numeric token such as "0.4" or "0.4HF" is left alone.
+    if (!boost::algorithm::istarts_with(printer_model, "FibreSeeker"))
+        return printer_variant;
+    if (boost::algorithm::ends_with(printer_variant, "FFF"))
+        return "Plastic";
+    if (boost::algorithm::ends_with(printer_variant, "CF"))
+        return "Plastic+CF";
+    return printer_variant;
+}
+
 void PresetCollection::set_default_suppressed(bool default_suppressed)
 {
     if (m_default_suppressed != default_suppressed) {

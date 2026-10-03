@@ -191,4 +191,13 @@ TEST_CASE("Every PrintObjectConfig field is registered in a preset key list", "[
 {
     check_keys_are_in_a_preset(PrintObjectConfig::defaults().keys(), "PrintObjectConfig");
 }
+
+TEST_CASE("FibreSeeker printer variants label as Plastic and Plastic+CF", "[Preset]")
+{
+    CHECK(printer_variant_display_name("FibreSeeker3 SK3", "0.4FFF") == "Plastic");
+    CHECK(printer_variant_display_name("FibreSeeker3 SK3", "0.4CF") == "Plastic+CF");
+    CHECK(printer_variant_display_name("FibreSeeker3 SK3", "0.4") == "0.4");
+    CHECK(printer_variant_display_name("Bambu Lab X1 Carbon", "0.4") == "0.4");
+    CHECK(printer_variant_display_name("Bambu Lab X1 Carbon", "0.4HF") == "0.4HF");
+}
 // clang-format on
