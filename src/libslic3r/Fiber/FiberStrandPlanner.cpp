@@ -454,20 +454,27 @@ void fillet_path_turns(std::vector<FiberPoint>& pts, bool closed, double min_rad
         if (side > 0.0 && sweep < 0.0) sweep += 2.0 * FILL_PI;
         if (side < 0.0 && sweep > 0.0) sweep -= 2.0 * FILL_PI;
         const int steps = std::max(2, int(std::ceil(std::abs(sweep) * r / 1.0)));
-        out.push_back(p0);
-        for (int k = 1; k < steps; ++k) {
-            const double ang = a0 + sweep * (double(k) / double(steps));
-            FiberPoint q{ ctr.x + std::cos(ang) * r, ctr.y + std::sin(ang) * r };
+        auto push_pt = [&out](const FiberPoint& q) {
             if (out.empty() || std::hypot(q.x - out.back().x, q.y - out.back().y) >= 1e-6)
                 out.push_back(q);
+        };
+        push_pt(p0);
+        for (int k = 1; k < steps; ++k) {
+            const double ang = a0 + sweep * (double(k) / double(steps));
+            push_pt(FiberPoint{ ctr.x + std::cos(ang) * r, ctr.y + std::sin(ang) * r });
         }
-        if (out.empty() || std::hypot(p1.x - out.back().x, p1.y - out.back().y) >= 1e-6)
-            out.push_back(p1);
+        push_pt(p1);
     }
-    if (!closed)
-        out.push_back(pts.back());
-    else if (!out.empty())
-        out.push_back(out.front());
+    if (!closed) {
+        if (out.empty() || std::hypot(pts.back().x - out.back().x, pts.back().y - out.back().y) >= 1e-6)
+            out.push_back(pts.back());
+    } else if (!out.empty()) {
+        // A fully consumed side makes the last fillet's p1 coincide with the
+        // first fillet's p0; that already closes the ring. A second copy of
+        // the start vertex is a zero-length segment that finalize rejects.
+        if (std::hypot(out.back().x - out.front().x, out.back().y - out.front().y) >= 1e-6)
+            out.push_back(out.front());
+    }
     if (out.size() >= 3)
         pts.swap(out);
 }
