@@ -25,11 +25,20 @@ band around the accepted strand geometry (`Fiber::subtract_reserve_bands`).
 Reservation is applied to a copy of the sliced collections for that export
 only; the stored slice is restored afterwards.
 
+The harvested rings are the plastic outer-wall centerline, so the whole fiber
+region is held inboard of them by `Fiber::fiber_lane_inset_mm`, under every
+mode including `off`. The exterior of a part is plastic: an unshifted lane
+deposits roving on the visible surface. The inset is the requested plastic wall
+pack (`fs_fiber_plastic_walls_outer` wall spacings plus half of each bead, less
+`fs_fiber_bond_overlap`) and the wall count is clamped to at least one, so no
+profile can put roving on the skin. An island the inset consumes entirely is too
+thin to carry fiber behind its walls and stays plastic-only (`rejected_thin`).
+
 `fs_fiber_mode`:
 
 | Value | Effect |
 |---|---|
-| `off` | Fiber follows the external perimeter on scheduled layers. |
+| `off` | Fiber follows the part profile on scheduled layers, inset behind the plastic walls. |
 | `plastic_only` | No fiber, even if the capability flag is on. |
 | `walls` | Interior fiber at `fs_fiber_coverage_percent`; plastic keeps the outer skin. |
 | `solid` | 100 percent interior fiber inside the outer plastic shell. |

@@ -14754,7 +14754,7 @@ msgstr ""
 msgid "Plastic walls outside fiber"
 msgstr ""
 
-msgid "Number of plastic walls printed outboard of the fiber perimeter in Reinforced and Fortified modes. The fiber lane is pushed inward by this many wall spacings plus half of each bead width, so the fiber is buried behind plastic instead of riding on the outer wall. 0 puts the fiber directly behind the outer wall surface."
+msgid "Number of plastic walls printed outboard of the fiber perimeter. The fiber lane is pushed inward by this many wall spacings plus half of each bead width, so the fiber is buried behind plastic instead of riding on the outer wall. At least one plastic wall is always kept outside the fiber, so the visible surface stays plastic; a feature too thin to hold that wall pack stays plastic-only."
 msgstr ""
 
 msgid "Plastic walls inside fiber"
