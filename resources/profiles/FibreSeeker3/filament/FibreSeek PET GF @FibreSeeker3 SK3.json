@@ -90,9 +90,6 @@
 	"filament_retraction_minimum_travel": [
 		"0"
 	],
-	"filament_z_hop": [
-		"0.4"
-	],
 	"filament_notes": "FibreSeek PET GF (glass-fibre reinforced PET), 1.75 mm. 300 C nozzle, 75 C bed, 25 mm3/s max flow. Use a hardened steel nozzle. All bed-plate variants pinned equal: SK3 has a single heated bed.",
 	"compatible_printers": [
 		"FibreSeeker3 SK3 CF nozzle",
