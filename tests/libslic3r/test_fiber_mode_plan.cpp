@@ -226,18 +226,29 @@ TEST_CASE("FiberModePlan: band confines fiber to the Z band on macro steps", "[F
     CHECK_FALSE(fiber_layer_scheduled(empty_band, 3, 0.76, 0.12, false, 0.28));
 }
 
-TEST_CASE("FiberModePlan: degenerate schedule inputs degrade to every-layer, never to a crash", "[Fiber][FiberModePlan]")
+TEST_CASE("FiberModePlan: degenerate schedule inputs never crash and never invent a step", "[Fiber][FiberModePlan]")
 {
-    // Zero / non-finite layer height or macro height makes the Z tests
-    // meaningless, so the schedule constraint is dropped rather than guessed
-    // at: the plate falls back to reinforcing every layer but the ends.
-    const FiberScheduleParams s = sched(FiberSchedule::fsBand, FiberMode::fmWalls, 0.0);
-    CHECK_FALSE(fiber_layer_scheduled(s, 0, 0.28, 0.0, false, 0.28)); // the bed rule still holds
-    CHECK(fiber_layer_scheduled(s, 4, 1.0, 0.0, false, 0.28));
-    CHECK(fiber_layer_scheduled(s, 4, 1.0, std::nan(""), false, 0.28));
-    CHECK(fiber_layer_scheduled(sched(FiberSchedule::fsMacroLayer, FiberMode::fmWalls, std::nan("")),
-                                4, 1.0, 0.12, false, 0.28));
-    CHECK_FALSE(fiber_layer_scheduled(s, 4, 1.0, 0.12, true, 0.28));  // and the top skin rule
+    // A band schedule needs a real bead height to land on. With fs_fiber_z_step
+    // zero or non-finite there is no step to be on, so the layer is NOT
+    // scheduled: the same answer the pre-extraction inline exporter arithmetic
+    // gave (rel / 0 -> inf, lround(inf) * 0 -> NaN, fabs(NaN) <= tol is false),
+    // so lifting the rules out of the layer loop did not change the export.
+    // Refusing is also the safe direction: guessing a step would lay roving the
+    // operator never asked for.
+    const FiberScheduleParams band = sched(FiberSchedule::fsBand, FiberMode::fmWalls, 0.0);
+    CHECK_FALSE(fiber_layer_scheduled(band, 4, 1.0, 0.12, false, 0.28));
+    CHECK_FALSE(fiber_layer_scheduled(band, 4, 1.0, std::nan(""), false, 0.28));
+    // A non-finite LAYER height makes the band tolerance meaningless too, which
+    // must not read as "inside the band".
+    CHECK_FALSE(fiber_layer_scheduled(sched(FiberSchedule::fsBand, FiberMode::fmWalls, 0.24),
+                                      4, 1.0, std::nan(""), false, 0.28));
+    // macro_layer is the one schedule that CAN degrade: a bead height that is
+    // not a positive finite number means one plastic layer per macro layer, so
+    // every layer closes one and the plate reinforces all of them but the ends.
+    const FiberScheduleParams macro = sched(FiberSchedule::fsMacroLayer, FiberMode::fmWalls, std::nan(""));
+    CHECK(fiber_layer_scheduled(macro, 4, 1.0, 0.12, false, 0.28));
+    CHECK_FALSE(fiber_layer_scheduled(macro, 0, 0.28, 0.12, false, 0.28)); // the bed rule still holds
+    CHECK_FALSE(fiber_layer_scheduled(macro, 4, 1.0, 0.12, true, 0.28));   // and the top skin rule
 }
 
 // ---------------------------------------------------------------------------
