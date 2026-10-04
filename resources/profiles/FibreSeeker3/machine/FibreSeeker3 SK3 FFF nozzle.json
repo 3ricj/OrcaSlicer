@@ -47,6 +47,5 @@
 	"fs_prime_v": "4",
 	"fs_retract_v": "1",
 	"fs_deposit_feed": "1200",
-	"fs_rectify_max_seg": "45",
 	"fs_t0_wrap": "1"
 }

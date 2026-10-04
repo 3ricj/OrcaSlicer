@@ -778,8 +778,12 @@ private:
     bool m_need_change_layer_lift_z = false;
     int m_start_gcode_filament = -1;
     std::string m_filament_instances_code;
-    // True once the T0 temperature wait (M109 S<fs_t0_temp> T0) has been emitted for the
-    // current plate; reset when the start-gcode preheat is written. Gates the single M109.
+    // True while the composite (T0) head is known to be at its working
+    // temperature, i.e. the T0 wait (M109 S<fs_t0_temp> T0) has been paid and
+    // nothing has since dropped T0 back to standby. Cleared when the
+    // start-gcode preheat is written, and re-armed at the fibre -> plastic
+    // switch, so the wait is per fibre WINDOW rather than per plate. With the
+    // tool wrap off the latch stays once-per-plate, as before.
     bool m_fs_t0_hot = false;
     // Fiber mode mapping: counts layers that actually
     // EMIT fiber (not skipped plastic layers) for the laydown angle cycle. The

@@ -4666,6 +4666,51 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionInt(0));
 
+    // Paired tool-change sequence (owner ruling 2026-10-04): the vendor machine
+    // supplies a complete sequence at EVERY plastic<->fiber switch, and the
+    // exporter now does the same. These keys carry the numbers the sequence
+    // needs that are not already available from another key.
+
+    def = this->add("fs_t0_standby_temp", coInt);
+    def->label = L("Composite nozzle standby temperature");
+    def->tooltip = L("Nozzle temperature (degrees) the composite (T0) extruder is dropped to when a fiber window closes. Keeps the hotend ready without cooking matrix in the nozzle during the plastic pass. The vendor reference exports park at 180 degrees for a 270 degree working temperature and at 100 degrees for a 230 degree one, so this is a per-material number rather than a fixed offset. Emitted only when Composite nozzle temperature is set.");
+    def->sidetext = L(u8"\u2103" /* °C */);
+    def->min = 0;
+    def->max = 500;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInt(180));
+
+    def = this->add("fs_t1_standby_temp", coInt);
+    def->label = L("Plastic nozzle standby temperature");
+    def->tooltip = L("Nozzle temperature (degrees) the plastic (T1) extruder is dropped to while a fiber window runs, and restored from when the window closes. The vendor reference exports park the plastic head at 150 degrees for every material sampled, so the default is a constant rather than a fraction of the working temperature. 0 leaves the plastic head on its working temperature through the fiber pass. Emitted only when Composite nozzle temperature is set.");
+    def->sidetext = L(u8"\u2103" /* °C */);
+    def->min = 0;
+    def->max = 500;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInt(150));
+
+    def = this->add("fs_toolchange_retract_v", coFloat);
+    def->label = L("Matrix retract at tool change");
+    def->tooltip = L("Stationary matrix (axis V) withdrawal issued when a fiber window hands the tool back to plastic, mm, in addition to the per-run matrix retract. The vendor machine issues one on every switch and never recovers it, which is what keeps the net commanded stationary V per fiber cycle negative. 0 disables it and leaves the cycle net positive by this amount.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(4));
+
+    def = this->add("fs_toolchange_retract_v_speed", coFloat);
+    def->label = L("Matrix retract at tool change speed");
+    def->tooltip = L("Feedrate of the tool-change matrix withdrawal, mm/min.");
+    def->sidetext = L("mm/min");
+    def->min = 1;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(600));
+
+    def = this->add("fs_brush_on_toolchange", coBool);
+    def->label = L("Brush clean at fiber tool changes");
+    def->tooltip = L("Visit the brush station at every fiber tool change, cleaning against the head being put away. The vendor machine cleans at every switch; the macros own the motion, so this only names the station. Requires Tool-wrap fiber windows.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(true));
+
     // Composite-band geometry reservation (operator review 2026-10-02, R2.1):
     // on fiber layers the plastic plan must leave room for the composite bead so
     // the fiber does not retrace the plastic it was deposited on. off performs no

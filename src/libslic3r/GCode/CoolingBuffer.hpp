@@ -27,7 +27,12 @@ public:
     void        reset(const Vec3d &position);
     void        set_current_extruder(unsigned int extruder_id, unsigned int nozzle_id) { m_current_extruder = extruder_id; m_current_nozzle = nozzle_id; }
     std::string process_layer(std::string &&gcode, size_t layer_id, bool flush);
-
+    // Part-cooling demand actually emitted last, percent, or -1 when nothing has been
+    // emitted yet. Read by the continuous-fiber tool-change block to route the demand
+    // already resolved by this buffer onto the head fans explicitly, rather than
+    // inventing a speed: the fibre block is emitted before this layer is fed through
+    // process_layer, so the value is the demand the printer is physically running at.
+    int         current_fan_speed() const { return m_current_fan_speed; }
 private:
 	CoolingBuffer& operator=(const CoolingBuffer&) = delete;
     std::vector<PerExtruderAdjustments> parse_layer_gcode(const std::string &gcode, std::vector<float> &current_pos) const;

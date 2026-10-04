@@ -129,6 +129,8 @@ set(lisbslic3r_sources
     Fiber/FiberStrand.hpp
     Fiber/FiberStrandPlanner.cpp
     Fiber/FiberStrandPlanner.hpp
+    Fiber/FiberToolChange.cpp
+    Fiber/FiberToolChange.hpp
     EmbossShape.hpp
     enum_bitmask.hpp
     Execution/Execution.hpp

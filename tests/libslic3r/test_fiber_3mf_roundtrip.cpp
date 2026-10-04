@@ -47,6 +47,12 @@ const std::vector<std::pair<std::string, std::string>> fs_vendor_expectations = 
     {"fs_fiber_reserve", "band"},   {"fs_fiber_bond_overlap", "0.1"},
     {"fs_fiber_nozzle_diameter", "0.7"},
     {"fs_fiber_prime", "when_fiber"}, {"fs_fiber_prime_length", "90"},
+    // Paired composite tool-change sequence. The shipped CF profile does not
+    // override these, so the vendor values ARE the declared defaults, picked to
+    // match the reference machine: standby 180/150, V-4 @ 600, brush on.
+    {"fs_t0_standby_temp", "180"}, {"fs_t1_standby_temp", "150"},
+    {"fs_toolchange_retract_v", "4"}, {"fs_toolchange_retract_v_speed", "600"},
+    {"fs_brush_on_toolchange", "1"},
 };
 
 // Declared defaults from PrintConfig.cpp (must stay in sync with the defs).
@@ -72,6 +78,11 @@ const std::vector<std::pair<std::string, std::string>> fs_default_expectations =
     {"fs_fiber_nozzle_diameter", "0.7"},
     // Migration invariant: a legacy project must not gain a priming line.
     {"fs_fiber_prime", "never"}, {"fs_fiber_prime_length", "80"},
+    // And must not gain a paired tool-change sequence it never asked for: the
+    // defaults are inert unless fs_fiber_enabled and fs_t0_wrap are both on.
+    {"fs_t0_standby_temp", "180"}, {"fs_t1_standby_temp", "150"},
+    {"fs_toolchange_retract_v", "4"}, {"fs_toolchange_retract_v_speed", "600"},
+    {"fs_brush_on_toolchange", "1"},
 };
 
 struct Scene {

@@ -1779,7 +1779,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool, fs_t0_wrap))
     ((ConfigOptionEnum<FiberPrimeMode>, fs_fiber_prime))
     ((ConfigOptionFloat, fs_fiber_prime_length))
-    ((ConfigOptionFloat, fs_fiber_nozzle_diameter))    ((ConfigOptionFloat, fs_fill_min_wall_width))
+    ((ConfigOptionFloat, fs_fiber_nozzle_diameter))
+    ((ConfigOptionFloat, fs_fill_min_wall_width))
     ((ConfigOptionFloat, fs_fill_min_area))
     ((ConfigOptionEnum<FiberSchedule>, fs_fiber_schedule))
     ((ConfigOptionFloat, fs_fiber_band_z_min))
@@ -1897,6 +1898,18 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloats,             first_x_layer_fan_speed))
     ((ConfigOptionBool,               reduce_crossing_wall))
     ((ConfigOptionFloatOrPercent,     max_travel_detour_distance))
+    // FibreSeeker3 composite tool-change keys. Registered here rather than beside the other
+    // fs_* keys in GCodeConfig because PRINT_CONFIG_CLASS_DEFINE expands its sequence with a
+    // recursive BOOST_PP_SEQ_FOR_EACH, and MSVC rejects the GCodeConfig sequence with C1009
+    // "macros nested too deeply" once it passes 227 entries (measured: 226 compiles, 228 does
+    // not). GCodeConfig sits at 226 with the priming keys already in it, so the five new keys go
+    // into PrintConfig, which derives from GCodeConfig: m_config.fs_* access, the printer-preset
+    // membership and the config-dump ban list are all unchanged by the move.
+    ((ConfigOptionInt, fs_t0_standby_temp))
+    ((ConfigOptionInt, fs_t1_standby_temp))
+    ((ConfigOptionFloat, fs_toolchange_retract_v))
+    ((ConfigOptionFloat, fs_toolchange_retract_v_speed))
+    ((ConfigOptionBool, fs_brush_on_toolchange))
     ((ConfigOptionPoints,             printable_area))
     ((ConfigOptionPointsGroups,       extruder_printable_area))
     ((ConfigOptionBool,               support_parallel_printheads))

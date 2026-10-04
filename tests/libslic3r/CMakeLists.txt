@@ -46,6 +46,7 @@ add_executable(${_TEST_NAME}_tests
     test_fiber_run.cpp
     # Fiber strand model: early cut, tail deposited on-path.
     test_fiber_strand.cpp
+    test_fiber_export_identity.cpp
     test_fiber_strand_planner.cpp
     # Fiber mode selector -> strand planner parameters.
     test_fiber_mode_plan.cpp
@@ -53,6 +54,8 @@ add_executable(${_TEST_NAME}_tests
     test_fiber_3mf_roundtrip.cpp
     # Plastic reservation around final strand paths (body + tail).
     test_fiber_reserve.cpp
+    # Paired composite tool-change sequence (standby / wait / brush / fans / V ledger).
+    test_fiber_toolchange.cpp
     test_utils.cpp
     test_miniz_extension.cpp
     test_timeutils.cpp

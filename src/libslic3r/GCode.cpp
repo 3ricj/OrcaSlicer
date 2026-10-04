@@ -16,6 +16,7 @@
 #include "Fiber/FiberModePlan.hpp"
 #include "Fiber/FiberReserve.hpp"
 #include "Fiber/FiberStrandPlanner.hpp"
+#include "Fiber/FiberToolChange.hpp"
 #include "Geometry/ConvexHull.hpp"
 #include "GCode/PrintExtents.hpp"
 #include "GCode/Thumbnails.hpp"
@@ -3805,13 +3806,13 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
             // s2). The shipped CF profiles wrap; without it there is nothing to prime on.
             if (!m_config.fs_t0_wrap.value)
                 fs_prime_err = "Tool-wrap fiber windows is off, so the composite head cannot be selected from the start g-code";
-            const Points& bed_pts = m_config.printable_area.values;
+            const Pointfs& bed_pts = m_config.printable_area.values;
             if (fs_prime_err.empty() && bed_pts.empty()) {
                 fs_prime_err = "no printable area to place the priming line on";
             } else if (fs_prime_err.empty()) {
                 Vec2d bed_min = Vec2d::Constant(std::numeric_limits<double>::infinity());
-                for (const Point& p : bed_pts)
-                    bed_min = bed_min.cwiseMin(unscaled(p));
+                for (const Vec2d& p : bed_pts)
+                    bed_min = bed_min.cwiseMin(p);
                 const double fs_margin = 10.0;
                 const double fs_x0     = bed_min.x() + fs_margin;
                 const double fs_y0     = bed_min.y() + fs_margin;
@@ -5640,6 +5641,19 @@ std::string GCode::generate_timelapse_gcode(const Print &print, coordf_t print_z
     }
 
     return timelapse_gcode;
+}
+
+// Working nozzle temperature of the plastic (T1) head, resolved the way the
+// exporter's own tool-change temperature handling resolves it: the filament
+// "other layers" value, falling back to the first-layer value when that is 0
+// or on the first layer. The fibre block emits bare T0/T1 rather than going
+// through _change_tool, so OozePrevention::post_toolchange never runs on this
+// path and nothing else restores T1 after a standby dwell.
+static int fs_plastic_working_temp(const FullPrintConfig &cfg, size_t filament_config_idx, bool first_layer)
+{
+    const int other = cfg.nozzle_temperature.get_at(filament_config_idx);
+    const int first = cfg.nozzle_temperature_initial_layer.get_at(filament_config_idx);
+    return (first_layer || other == 0) ? first : other;
 }
 
 // In sequential mode, process_layer is called once per each object and its copy,
@@ -7485,20 +7499,80 @@ LayerResult GCode::process_layer(
             // NO_OFFSET/MOVE_Z), and any non-empty rawparams additionally suppresses the T0
             // macro's _AUTO_LEFT_CLEAN hook. The trailing comment is machine-parsed by the
             // firmware work_handler tool-change detection and must stay.
-            // T0 thermal lifecycle (G-code review finding #3): with fs_t0_temp set, the
-            // preheat M104 was emitted after the machine start gcode; wait for the
-            // composite nozzle to actually reach temperature before the first T0 selection.
-            // Safe outgoing-tool state comes FIRST (review correction): a toolchange
-            // retract of the plastic channel plus an immediate lift to clearance, while
-            // T1 is still selected, so a blocking M109 can never leave a hot plastic
-            // nozzle dwelling on freshly printed plastic at layer Z.
-            if (m_config.fs_t0_temp.value > 0 && !m_fs_t0_hot) {
+            // Paired tool-change sequence (owner ruling 2026-10-04): the vendor machine
+            // supplies the whole sequence at EVERY plastic<->fibre switch, so the sequence
+            // is emitted per fibre WINDOW, not once per plate. Order is deliberate: the
+            // outgoing E withdrawal and lift happen while T1 is still selected (E is
+            // illegal under T0), then standby targets for both heads, the blocking
+            // readiness wait, the brush visit against the head being put away, explicit
+            // per-head fan routing, and only then the bare T0 line. The matching matrix
+            // withdrawal, standby pair, clean and E recovery come out of the window below.
+            Fiber::FiberToolChangeParams fs_tc;
+            fs_tc.t0_temp_c               = m_config.fs_t0_temp.value;
+            fs_tc.t0_standby_c            = m_config.fs_t0_standby_temp.value;
+            fs_tc.t1_standby_c            = m_config.fs_t1_standby_temp.value;
+            // Resolve the plastic head working temperature the way the exporter's own
+            // tool-change handling would (GCode::_change_tool): this path
+            // bypasses it, so nothing else puts T1 back on its working temperature
+            // after a standby dwell.
+            fs_tc.t1_working_c            = m_writer.filament() ?
+                fs_plastic_working_temp(m_config, get_filament_config_index((int) m_writer.filament()->id()), on_first_layer()) : 0;
+            fs_tc.toolchange_retract_v_mm = m_config.fs_toolchange_retract_v.value;
+            fs_tc.toolchange_retract_v_f  = m_config.fs_toolchange_retract_v_speed.value;
+            fs_tc.brush_on_toolchange     = m_config.fs_brush_on_toolchange.value;
+            // Part-cooling demand comes from the cooling buffer, which is the only
+            // fan emitter on this profile (fan_speedup_time and fan_kickstart are 0,
+            // so FanMover is not instantiated). The fibre block is emitted before this
+            // layer is fed through CoolingBuffer::process_layer, so the value read is
+            // the demand the printer is physically running at. -1 (nothing emitted yet)
+            // makes the helper emit no fan lines rather than invent a speed.
+            fs_tc.part_cooling_pct        = m_cooling_buffer ? m_cooling_buffer->current_fan_speed() : -1;
+            // The plate preamble preheated T0 and the priming line already consumed the
+            // blocking wait for the first window: do not stall on a second M109 there.
+            // Every later window re-pays the wait, because the standby dwell took the
+            // head off its working temperature in between. The standby pair is NOT
+            // gated by this: parking the outgoing head is free and is the point.
+            fs_tc.emit_readiness_wait     = !m_fs_t0_hot;
+            if (m_config.fs_t0_wrap.value) {
+                // Planner flush ahead of everything, matching the vendor, whose
+                // tool-change blocks all lead with M400. It has to precede the
+                // withdrawal below, so it is emitted here rather than by the helper.
+                //
+                // MEASURED SIDE EFFECT, accepted deliberately: this block and its
+                // partner below are emitted into the layer body BEFORE that body is
+                // fed through CoolingBuffer::process_layer, so CoolingBuffer's per-line
+                // time model now sees the withdrawal, the lift and the feedrate words
+                // that a paired switch adds. On layers carrying fibre it therefore
+                // computes a slightly LOWER part-cooling demand (measured on a 200-window
+                // composite export: bare M106 lines 71 -> 78, mean value -14.9, every one
+                // of the 79 changed Z groups inside a fibre window and none outside, and
+                // all 8614 real extrusion lines byte-identical). That is the correct sign:
+                // the switch really does spend wall-clock at the part, so the part really
+                // does cool more and needs less fan. Left as-is rather than hidden from
+                // the buffer, because suppressing it would make the cooling model less
+                // truthful, not more. Note the model is still incomplete in the other
+                // direction: the blocking M109 in the block is real time CoolingBuffer
+                // cannot see, as it only times G1 moves.
+                gcode += "M400\n";
+                // Outgoing withdrawal of the plastic channel while T1 is still selected,
+                // paired with the recovery emitted at the end of the window. Rocket pairs
+                // G1 F1200 E-5 with G1 F900 E5; lengths and speeds come from the filament
+                // profile, not from new constants.
                 gcode += this->retract(true, false, LiftType::NormalLift, true);
-                gcode += "M109 S" + std::to_string(m_config.fs_t0_temp.value) + " T0\n";
+                gcode += Fiber::emit_toolchange_to_fiber(fs_tc);
                 m_fs_t0_hot = true;
             }
-            if (m_config.fs_t0_wrap.value)
-                gcode += "T0 ; switch extruder type to:FIBER\n";
+            else {
+                // Unwrapped (developer-only) path: the caller tool context is already
+                // fibre, so there is no outgoing plastic tool to withdraw, clean or put
+                // away. Behaviour is exactly what it was before the paired sequence
+                // existed, including the once-per-plate latch.
+                if (m_config.fs_t0_temp.value > 0 && !m_fs_t0_hot) {
+                    gcode += this->retract(true, false, LiftType::NormalLift, true);
+                    gcode += "M109 S" + std::to_string(m_config.fs_t0_temp.value) + " T0\n";
+                    m_fs_t0_hot = true;
+                }
+            }
             Fiber::FiberEmitParams ep;
             ep.restart_feed_mm = m_config.fs_restart_feed.value;
             ep.tail_length_mm  = m_config.fs_tail_length.value; // ignored by emit_strand: the strand carries its own
@@ -7533,8 +7607,27 @@ LayerResult GCode::process_layer(
                     ++fs_emit_failed;
                 }
             }
-            if (m_config.fs_t0_wrap.value)
-                gcode += "T1 ; switch extruder type to:PLASTIC\n";
+            if (m_config.fs_t0_wrap.value) {
+                gcode += Fiber::emit_toolchange_to_plastic(fs_tc);
+                // Full recovery of the outgoing withdrawal, emitted after T1 is
+                // selected because E is the active-extruder axis. GCode::unretract()
+                // is unlift() + unretract(), so BOTH halves of the pairing come out of
+                // the window: the Z hop registered by the eager_lift() above is
+                // released here rather than being left pending for the next plastic
+                // extrusion, and the filament is re-primed at deretraction_speed. The
+                // real CF export shows both halves (G1 Z.6 lift going out, G1 Z.2
+                // restore plus G1 E10 coming back); the pristine base emits the lift
+                // and never restores it at the switch.
+                // Guarded on the filament being tracked, exactly as GCode::retract()
+                // is, so an export without a writer filament is a no-op rather than a
+                // null dereference.                if (m_writer.filament() != nullptr)
+                    gcode += this->unretract();
+                // Re-arm the thermal wait for the next window: the standby pair above
+                // took T0 off its working temperature, so the next plastic->fibre switch
+                // must wait for it again. This is the per-window re-arm that replaces the
+                // old once-per-plate latch.
+                m_fs_t0_hot = false;
+            }
             // The fiber strands moved the tool outside the writer's knowledge; invalidate the
             // cached position so the next extrusion starts from a fully specified travel.
             m_last_pos_defined = false;
@@ -7689,6 +7782,8 @@ void GCode::append_full_config(const Print &print, std::string &str)
         "fs_fiber_band_z_max"sv, "fs_fiber_z_step"sv,
         "fs_fiber_wall_loops"sv, "fs_fiber_wall_pitch"sv,
         "fs_tail_v_factor"sv, "fs_t0_temp"sv,
+        "fs_t0_standby_temp"sv, "fs_t1_standby_temp"sv, "fs_toolchange_retract_v"sv,
+        "fs_toolchange_retract_v_speed"sv, "fs_brush_on_toolchange"sv,
         "fs_fiber_reserve"sv, "fs_fiber_bond_overlap"sv,
         "fs_fiber_mode"sv, "fs_fiber_coverage_percent"sv, "fs_fiber_plastic_walls_outer"sv,
         "fs_fiber_fill_inset"sv, "fs_fiber_fill_angles"sv,

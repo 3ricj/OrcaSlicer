@@ -467,8 +467,7 @@ TEST_CASE("emit_fiber_prime_line writes the reference priming window", "[Fiber][
         "G1 F1200 Z0.80\n"
         "M1002\n"
         "T1 ; switch extruder type to:PLASTIC\n";
-    REQUIRE(err == golden);
-}
+    REQUIRE(out == golden);}
 
 TEST_CASE("emit_fiber_prime_line leaves the tool bracket out when unwrapped", "[Fiber][FiberEmitter]")
 {

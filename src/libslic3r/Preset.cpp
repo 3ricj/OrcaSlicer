@@ -1527,8 +1527,14 @@ static std::vector<std::string> s_Preset_printer_options {
     "fs_fiber_enabled", "fs_restart_feed", "fs_tail_length", "fs_restart_z_hop", "fs_prime_v",
     "fs_retract_v", "fs_deposit_feed",
     "fs_t0_wrap", "fs_fiber_nozzle_diameter",
-    "fs_fiber_prime", "fs_fiber_prime_length",    "fs_fiber_wall_loops", "fs_fiber_wall_pitch",
+    "fs_fiber_prime", "fs_fiber_prime_length",
+    "fs_fiber_wall_loops", "fs_fiber_wall_pitch",
     "fs_t0_temp",
+    // Paired composite tool-change sequence: standby targets, the tool-change
+    // matrix withdrawal and the brush visit. All printer-owned.
+    "fs_t0_standby_temp", "fs_t1_standby_temp",
+    "fs_toolchange_retract_v", "fs_toolchange_retract_v_speed",
+    "fs_brush_on_toolchange",
     "fs_fiber_reserve", "fs_fiber_bond_overlap",
     "printer_plugin_config_overrides"
     };

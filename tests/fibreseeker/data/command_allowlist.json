@@ -25,6 +25,7 @@
   "M280",
   "M2800",
   "M400",
+  "M73",
   "M82",
   "M83",
   "MOVE_OUT_BRUSH_STATION",

@@ -14658,6 +14658,40 @@ msgstr ""
 msgid "XY length of the sacrificial composite priming line, mm. It must exceed the fiber cut tail, because a composite window deposits a body before the cut as well as the severed tail after it; a line no longer than the tail is refused rather than shortened."
 msgstr ""
 
+msgid "Composite nozzle standby temperature"
+msgstr ""
+
+msgid "Nozzle temperature (degrees) the composite (T0) extruder is dropped to when a fiber window closes, and charged back from when the next window opens. Keeps the hotend ready without cooking matrix in the nozzle during the plastic pass. Emitted only when Composite nozzle temperature is set."
+msgstr ""
+
+
+msgid "Plastic nozzle standby temperature"
+msgstr ""
+
+msgid "Nozzle temperature (degrees) the plastic (T1) extruder is dropped to while a fiber window runs, and restored from when the window closes. 0 leaves the plastic head on its working temperature through the fiber pass. Emitted only when Composite nozzle temperature is set."
+msgstr ""
+
+
+msgid "Matrix retract at tool change"
+msgstr ""
+
+msgid "Stationary matrix (axis V) withdrawal issued when a fiber window hands the tool back to plastic, mm, in addition to the per-run matrix retract. The vendor machine issues one on every switch and never recovers it, which is what keeps the net commanded stationary V per fiber cycle negative. 0 disables it and leaves the cycle net positive by this amount."
+msgstr ""
+
+
+msgid "Matrix retract at tool change speed"
+msgstr ""
+
+msgid "Feedrate of the tool-change matrix withdrawal, mm/min."
+msgstr ""
+
+
+msgid "Brush clean at fiber tool changes"
+msgstr ""
+
+msgid "Visit the brush station at every fiber tool change, cleaning against the head being put away. The vendor machine cleans at every switch; the macros own the motion, so this only names the station. Requires Tool-wrap fiber windows."
+msgstr ""
+
 msgid "Fiber nozzle diameter"
 msgstr ""
 
