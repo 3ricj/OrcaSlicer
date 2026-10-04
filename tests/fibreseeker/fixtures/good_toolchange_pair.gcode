@@ -30,7 +30,8 @@
 ; to undo it.
 ;
 ; What the validator independently confirms here: no bare M106 (R12W would fire
-; on an un-routed fan command), no E move under T0 (R05), no U/V move under T1
+; on an un-routed fan command), every M106 P word inside 0..5 (R12, which is
+; what licenses P5 here), no E move under T0 (R05), no U/V move under T1
 ; (R04), no tool switch with a window open (R06T), and the budget still closes.
 ; The two caller-side E lines are the writer own shape, not a transcription:
 ; the withdrawal is GCodeWriter::retract_for_toolchange(), so its feedrate is
@@ -61,6 +62,8 @@ CLEAN_NOZZLE
 MOVE_OUT_BRUSH_STATION
 M106 P2 S255 ; fibre-side cooling, fan4, owned by T0 (depositing)
 M106 P1 S0 ; part-cooling, fan3, owned by T1 (idle)
+M106 P3 S255 ; auxiliary fan on while T0 deposits
+M106 P5 S255 ; exhaust fan on while T0 deposits
 T0 ; switch extruder type to:FIBER
 ; LAYER:3 [0.44]
 SET_PRINT_STATS_INFO CURRENT_LAYER=3
@@ -92,6 +95,8 @@ CLEAN_NOZZLE
 MOVE_OUT_BRUSH_STATION
 M106 P2 S0 ; fibre-side cooling, fan4, owned by T0 (idle)
 M106 P1 S255 ; part-cooling, fan3, owned by T1 (depositing)
+M106 P3 S0 ; auxiliary fan off while T1 deposits
+M106 P5 S0 ; exhaust fan off while T1 deposits
 T1 ; switch extruder type to:PLASTIC
 G1 E10 F1500  ;  ; unretract
 G1 X154.000 E0.8 F1500

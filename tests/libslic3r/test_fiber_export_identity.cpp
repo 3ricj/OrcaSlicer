@@ -205,6 +205,8 @@ TEST_CASE("Composite export reaches the fibre window and emits the tool-change w
     const size_t n_brush     = count_of("CLEAN_NOZZLE");
     const size_t n_v_retract = count_of("V-4.000");
     const size_t n_fan_off   = count_of("M106 P1 S0");
+    const size_t n_aux_on    = count_of("M106 P3 S255");
+    const size_t n_aux_off   = count_of("M106 P3 S0");
 
     // Several windows, so "once per plate" cannot satisfy a floor.
     REQUIRE(n_windows >= 20);
@@ -223,4 +225,10 @@ TEST_CASE("Composite export reaches the fibre window and emits the tool-change w
     // Part-cooling is explicitly zeroed while the fibre head is depositing, once
     // per switch plus the start-gcode zero.
     CHECK(n_fan_off == n_windows / 2 + 1);
+    // The auxiliary ports are raised for every fibre pass and zeroed for every
+    // plastic pass, so both counts track the switch count. The zero side also
+    // appears once in the start gcode, which is what left them stranded at 0
+    // before this clause existed.
+    CHECK(n_aux_on == n_windows / 2);
+    CHECK(n_aux_off == n_windows / 2 + 1);
 }

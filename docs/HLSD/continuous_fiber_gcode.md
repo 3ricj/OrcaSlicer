@@ -96,6 +96,14 @@ Plastic -> fibre, in order:
    > activation and deactivation of a shared output, not a physically separate
    > fan per head** - literal per-head fans would be a firmware fans.cfg
    > question, not an exporter one.
+7b. `M106 P3 S255` / `M106 P5 S255` - the auxiliary ports, raised for the fibre
+   pass and zeroed on the way back out. Both Rocket reference files eventually
+   command P3 and P5 to 255, and the machine start gcode ends by zeroing both,
+   so before this clause an export commanded them to 0 and never enabled them
+   again for the rest of the plate. The value is deliberately NOT the cooling
+   demand: 255 is the measured vendor constant and the clause is a fixed on/off
+   per head, so an unresolved cooling state suppresses the P1/P2 routing and
+   leaves these two lines standing. Behind `fs_aux_fans_on_toolchange`.
 8. `T0 ; switch extruder type to:FIBER`
 
 Fibre -> plastic mirrors it: the second matrix withdrawal
@@ -104,7 +112,8 @@ T0 is still selected because V is a T0-channel axis), `M104` standby on T0, then
 `M104 S<working> T1` / `M109 S<working> T1` restoring the plastic head - the
 incoming head is pre-charged and then brought to temperature with a BLOCKING
 wait, because the standby dwell that wait pays for happens on every window - the
-brush triple, the mirrored fan pair, `T1`, then the recovery of step 2. That
+brush triple, the mirrored fan pair plus the auxiliary pair zeroed to
+`M106 P3 S0` / `M106 P5 S0`, `T1`, then the recovery of step 2. That
 recovery is the exporter's own `unretract()`, which is unlift plus unretract, so
 the switch is self-contained: the Z hop registered by the outgoing withdrawal is
 released at the station rather than being left pending for the next extrusion.

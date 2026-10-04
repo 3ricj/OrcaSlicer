@@ -14692,6 +14692,12 @@ msgstr ""
 msgid "Visit the brush station at every fiber tool change, cleaning against the head being put away. The vendor machine cleans at every switch; the macros own the motion, so this only names the station. Requires Tool-wrap fiber windows."
 msgstr ""
 
+msgid "Auxiliary fans at fiber tool changes"
+msgstr ""
+
+msgid "Drive the auxiliary fan ports P3 and P5 to full speed while the composite head deposits and back to zero when plastic resumes, at every fiber tool change. The machine start gcode leaves both ports at zero and the vendor machine raises them for the fiber pass, so without this they never run. The value is the vendor constant, not the part-cooling demand."
+msgstr ""
+
 msgid "Fiber nozzle diameter"
 msgstr ""
 

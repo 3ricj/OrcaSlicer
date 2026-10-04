@@ -76,6 +76,27 @@ void append_head_fans(std::string& s, const FiberToolChangeParams& p, bool fiber
     put(s, buf);
 }
 
+// Auxiliary fan ports P3 and P5 at a switch. The vendor reference exports
+// drive both to 255 for the fibre pass and back to 0 for the plastic pass;
+// the machine start gcode zeroes them and nothing else ever raised them,
+// which is the "commanded to 0 with no later enable" defect. The value is a
+// fixed vendor constant, not the cooling demand, so this is deliberately
+// independent of part_cooling_pct: an unresolved cooling state must not
+// suppress a command whose value the vendor fixes.
+void append_aux_fans(std::string& s, const FiberToolChangeParams& p, bool fiber_active)
+{
+    if (!p.aux_fans_on_toolchange)
+        return;
+    const char* state = fiber_active ? "on" : "off";
+    const char* dep   = fiber_active ? "T0 deposits" : "T1 deposits";
+    const int   pwm   = fiber_active ? 255 : 0;
+    char buf[96];
+    std::snprintf(buf, sizeof(buf), "M106 P3 S%d ; auxiliary fan %s while %s", pwm, state, dep);
+    put(s, buf);
+    std::snprintf(buf, sizeof(buf), "M106 P5 S%d ; exhaust fan %s while %s", pwm, state, dep);
+    put(s, buf);
+}
+
 } // namespace
 
 std::string emit_toolchange_to_fiber(const FiberToolChangeParams& p)
@@ -123,6 +144,7 @@ std::string emit_toolchange_to_fiber(const FiberToolChangeParams& p)
     // Clean against the head being put away (T1) while it is still selected.
     append_brush(s, p.brush_on_toolchange);
     append_head_fans(s, p, true);
+    append_aux_fans(s, p, true);
     put(s, "T0 ; switch extruder type to:FIBER");
     return s;
 }
@@ -161,6 +183,7 @@ std::string emit_toolchange_to_plastic(const FiberToolChangeParams& p)
     // Clean against the head being put away (T0) while it is still selected.
     append_brush(s, p.brush_on_toolchange);
     append_head_fans(s, p, false);
+    append_aux_fans(s, p, false);
     put(s, "T1 ; switch extruder type to:PLASTIC");
     return s;
 }

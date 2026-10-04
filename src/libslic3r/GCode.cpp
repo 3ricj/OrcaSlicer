@@ -7520,6 +7520,7 @@ LayerResult GCode::process_layer(
             fs_tc.toolchange_retract_v_mm = m_config.fs_toolchange_retract_v.value;
             fs_tc.toolchange_retract_v_f  = m_config.fs_toolchange_retract_v_speed.value;
             fs_tc.brush_on_toolchange     = m_config.fs_brush_on_toolchange.value;
+            fs_tc.aux_fans_on_toolchange  = m_config.fs_aux_fans_on_toolchange.value;
             // Part-cooling demand comes from the cooling buffer, which is the only
             // fan emitter on this profile (fan_speedup_time and fan_kickstart are 0,
             // so FanMover is not instantiated). The fibre block is emitted before this
@@ -7783,7 +7784,7 @@ void GCode::append_full_config(const Print &print, std::string &str)
         "fs_fiber_wall_loops"sv, "fs_fiber_wall_pitch"sv,
         "fs_tail_v_factor"sv, "fs_t0_temp"sv,
         "fs_t0_standby_temp"sv, "fs_t1_standby_temp"sv, "fs_toolchange_retract_v"sv,
-        "fs_toolchange_retract_v_speed"sv, "fs_brush_on_toolchange"sv,
+        "fs_toolchange_retract_v_speed"sv, "fs_brush_on_toolchange"sv, "fs_aux_fans_on_toolchange"sv,
         "fs_fiber_reserve"sv, "fs_fiber_bond_overlap"sv,
         "fs_fiber_mode"sv, "fs_fiber_coverage_percent"sv, "fs_fiber_plastic_walls_outer"sv,
         "fs_fiber_fill_inset"sv, "fs_fiber_fill_angles"sv,

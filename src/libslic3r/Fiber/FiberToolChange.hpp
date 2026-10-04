@@ -118,6 +118,15 @@ struct FiberToolChangeParams
     // is the head that carries fresh material to the switch station.
     bool brush_on_toolchange = true;
 
+    // Drive the auxiliary fan ports P3 and P5 at the switch. The vendor
+    // reference exports command both to 255 while the composite head deposits
+    // and back to 0 for the plastic pass, and the machine start gcode leaves
+    // them at 0, so without this clause they never run at all. Unlike the
+    // P1/P2 routing this is NOT derived from the cooling demand: 255 is the
+    // measured vendor value, a fixed on/off per head, so the clause is gated
+    // only by this flag and by nothing else.
+    bool aux_fans_on_toolchange = true;
+
     // Part-cooling demand at the switch, percent 0..100, resolved by the
     // caller from the cooling system's current value. The exporter's generic
     // fan writer emits a bare M106 with no P word, which on this firmware

@@ -1910,6 +1910,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloat, fs_toolchange_retract_v))
     ((ConfigOptionFloat, fs_toolchange_retract_v_speed))
     ((ConfigOptionBool, fs_brush_on_toolchange))
+    ((ConfigOptionBool, fs_aux_fans_on_toolchange))
     ((ConfigOptionPoints,             printable_area))
     ((ConfigOptionPointsGroups,       extruder_printable_area))
     ((ConfigOptionBool,               support_parallel_printheads))

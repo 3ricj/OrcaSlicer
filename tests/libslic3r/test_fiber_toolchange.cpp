@@ -112,8 +112,9 @@ TEST_CASE("FiberToolChange: plastic -> fibre emits the full outgoing sequence", 
     // The tool line is bare T0 with the firmware-parsed comment, and last.
     REQUIRE(!s.empty());
     CHECK(ends_with_line(s, "T0 ; switch extruder type to:FIBER"));
-    // Every line terminated.
-    CHECK(count_sub(s, "\n") == 10);
+    // Every line terminated. Ten lines of standby/charge/wait/brush/fan
+    // routing plus the two auxiliary fan lines the switch adds.
+    CHECK(count_sub(s, "\n") == 12);
 }
 
 TEST_CASE("FiberToolChange: fibre -> plastic emits the matching return sequence", "[Fiber][FiberToolChange]")
@@ -173,11 +174,17 @@ TEST_CASE("FiberToolChange: fan outputs are routed per head with an explicit P w
 
 TEST_CASE("FiberToolChange: nothing is invented when a source has no value", "[Fiber][FiberToolChange]")
 {
-    // Cooling demand unresolved: emit no fan lines at all rather than guess.
+    // Cooling demand unresolved: emit no DEMAND-DERIVED fan lines rather than
+    // guess a speed. The auxiliary ports are not demand-derived - the vendor
+    // fixes them at 255 for the fibre pass - so this state does not invent them
+    // and they stay emitted.
     FiberToolChangeParams nofan = profile_params();
     nofan.part_cooling_pct = -1;
     const std::string s = emit_toolchange_to_fiber(nofan);
-    CHECK(s.find("M106") == std::string::npos);
+    CHECK(s.find("M106 P1") == std::string::npos);
+    CHECK(s.find("M106 P2") == std::string::npos);
+    CHECK(s.find("M106 P3 S255") != std::string::npos);
+    CHECK(s.find("M106 P5 S255") != std::string::npos);
     // The switch itself still happens and is still cleaned.
     CHECK(s.find("T0 ;") != std::string::npos);
     CHECK(count_sub(s, "CLEAN_NOZZLE") == 1);
@@ -258,6 +265,57 @@ TEST_CASE("FiberToolChange: the first window of a primed plate does not wait twi
     CHECK(r.find("M104 S180 T0 ; standby") != std::string::npos);
     CHECK(r.find("M109 S250 T1") != std::string::npos);
 }
+TEST_CASE("FiberToolChange: auxiliary ports P3 and P5 are driven on both halves", "[Fiber][FiberToolChange]")
+{
+    // The owner table row: "Both Rocket files eventually command P3 and P5 to
+    // 255" against our output "commands P3 and P5 to 0, with no later enable".
+    // The machine start gcode zeroes both ports, so before this clause nothing
+    // raised them again for the rest of the plate.
+    const std::string in  = emit_toolchange_to_fiber(profile_params());
+    const std::string out = emit_toolchange_to_plastic(profile_params());
+
+    // Going into fibre both ports run; coming out both are explicitly zeroed
+    // rather than left running, so no window inherits the previous one's state.
+    CHECK(count_line_start(in, "M106 P3 S255") == 1);
+    CHECK(count_line_start(in, "M106 P5 S255") == 1);
+    CHECK(count_line_start(out, "M106 P3 S0") == 1);
+    CHECK(count_line_start(out, "M106 P5 S0") == 1);
+    // Exactly one command per port per half, so a window cannot stack them.
+    CHECK(count_line_start(in, "M106 P3") == 1);
+    CHECK(count_line_start(in, "M106 P5") == 1);
+    CHECK(count_line_start(out, "M106 P3") == 1);
+    CHECK(count_line_start(out, "M106 P5") == 1);
+    // Named in the emitted bytes, so the routing is attributable at the switch.
+    CHECK(in.find("M106 P3 S255 ; auxiliary fan on while T0 deposits") != std::string::npos);
+    CHECK(out.find("M106 P5 S0 ; exhaust fan off while T1 deposits") != std::string::npos);
+    // Both precede the tool line: the ports are set up for the pass that follows.
+    // The tool line is the LAST line, and it is located from the end rather than
+    // by find("T0 ;"), which would also match the T word of the standby line.
+    const std::string tool_in  = "T0 ; switch extruder type to:FIBER";
+    const std::string tool_out = "T1 ; switch extruder type to:PLASTIC";
+    CHECK(ends_with_line(in, tool_in));
+    CHECK(ends_with_line(out, tool_out));
+    CHECK(in.find("M106 P3") < in.size() - tool_in.size() - 1);
+    CHECK(out.find("M106 P5") < out.size() - tool_out.size() - 1);
+    // The value is the vendor constant, NOT the cooling demand: half cooling
+    // demand halves P1/P2 and leaves P3/P5 at full.
+    FiberToolChangeParams half = profile_params();
+    half.part_cooling_pct = 50;
+    const std::string h = emit_toolchange_to_fiber(half);
+    CHECK(h.find("M106 P2 S127") != std::string::npos);
+    CHECK(h.find("M106 P3 S255") != std::string::npos);
+    CHECK(h.find("M106 P5 S255") != std::string::npos);
+    // Switched off: only the two auxiliary lines go; the routing and the switch
+    // are untouched.
+    FiberToolChangeParams off = profile_params();
+    off.aux_fans_on_toolchange = false;
+    const std::string o = emit_toolchange_to_fiber(off);
+    CHECK(count_line_start(o, "M106 P3") == 0);
+    CHECK(count_line_start(o, "M106 P5") == 0);
+    CHECK(count_line_start(o, "M106 P2") == 1);
+    CHECK(ends_with_line(o, "T0 ; switch extruder type to:FIBER"));
+}
+
 TEST_CASE("FiberToolChange: the stationary V ledger is the measured arithmetic, not a claim", "[Fiber][FiberToolChange]")
 {
     // Prime 4 in, window retract 1 out, tool-change withdrawal 4 out and never
@@ -295,6 +353,9 @@ TEST_CASE("FiberToolChange: the struct defaults are the measured vendor values",
     CHECK(d.toolchange_retract_v_mm == Approx(4.0));
     CHECK(d.toolchange_retract_v_f == Approx(600.0));
     CHECK(d.brush_on_toolchange == true);
+    // The vendor raises P3/P5 for the fibre pass in every reference export, so
+    // the clause is on by default rather than opt-in.
+    CHECK(d.aux_fans_on_toolchange == true);
     // A default-constructed block must therefore carry the measured numbers.
     d.t0_temp_c      = 270;
     d.t1_working_c   = 250;

@@ -1534,7 +1534,7 @@ static std::vector<std::string> s_Preset_printer_options {
     // matrix withdrawal and the brush visit. All printer-owned.
     "fs_t0_standby_temp", "fs_t1_standby_temp",
     "fs_toolchange_retract_v", "fs_toolchange_retract_v_speed",
-    "fs_brush_on_toolchange",
+    "fs_brush_on_toolchange", "fs_aux_fans_on_toolchange",
     "fs_fiber_reserve", "fs_fiber_bond_overlap",
     "printer_plugin_config_overrides"
     };

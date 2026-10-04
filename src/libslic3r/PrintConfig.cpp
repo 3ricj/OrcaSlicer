@@ -4711,6 +4711,12 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionBool(true));
 
+    def = this->add("fs_aux_fans_on_toolchange", coBool);
+    def->label = L("Auxiliary fans at fiber tool changes");
+    def->tooltip = L("Drive the auxiliary fan ports P3 and P5 to full speed while the composite head deposits and back to zero when plastic resumes, at every fiber tool change. The machine start gcode leaves both ports at zero and the vendor machine raises them for the fiber pass, so without this they never run. The value is the vendor constant, not the part-cooling demand.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(true));
+
     // Composite-band geometry reservation (operator review 2026-10-02, R2.1):
     // on fiber layers the plastic plan must leave room for the composite bead so
     // the fiber does not retrace the plastic it was deposited on. off performs no
