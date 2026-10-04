@@ -115,8 +115,11 @@ std::string emit_toolchange_to_fiber(const FiberToolChangeParams& p)
     // safe if the return half can put it back, and the caller passes 0 when the
     // filament working temperature cannot be resolved. The composite head is
     // charged and waited for only when the caller asks for the readiness wait; on
-    // the first window of a primed plate the head is provably hot, and dropping
-    // it to standby without an M109 to bring it back would make it print cold.
+    // the first window of a plate that was NOT primed the head is provably hot
+    // from the preamble preheat, and dropping it to standby without an M109 to
+    // bring it back would make it print cold. A PRIMED plate is the opposite case:
+    // the priming window is closed by emit_toolchange_to_plastic below, which
+    // parks T0 like any other exit, so the first model window owes the wait again.
     if (p.t0_temp_c > 0) {
         if (p.t1_working_c > 0)
             append_standby(s, p.t1_standby_c, 1);

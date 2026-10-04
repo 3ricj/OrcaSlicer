@@ -4713,7 +4713,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("fs_aux_fans_on_toolchange", coBool);
     def->label = L("Auxiliary fans at fiber tool changes");
-    def->tooltip = L("Drive the auxiliary fan ports P3 and P5 to full speed while the composite head deposits and back to zero when plastic resumes, at every fiber tool change. The machine start gcode leaves both ports at zero and the vendor machine raises them for the fiber pass, so without this they never run. The value is the vendor constant, not the part-cooling demand.");
+    def->tooltip = L("Drive the auxiliary fan ports P3 and P5 to full speed while the composite head deposits and back to zero when plastic resumes. Applies at every fiber tool change and to the composite priming window, which the start sequence now enters and leaves through the same paired sequence. The machine start gcode leaves both ports at zero and the vendor machine raises them for the fiber pass, so without this they never run. The value is the vendor constant, not the part-cooling demand.");
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionBool(true));
 

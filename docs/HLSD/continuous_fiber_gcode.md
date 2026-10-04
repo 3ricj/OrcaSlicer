@@ -106,6 +106,27 @@ Plastic -> fibre, in order:
    demand: 255 is the measured vendor constant and the clause is a fixed on/off
    per head, so an unresolved cooling state suppresses the P1/P2 routing and
    leaves these two lines standing. Behind `fs_aux_fans_on_toolchange`.
+   The composite priming window is covered by this same clause and needs no fan
+   path of its own: startup routes through this pair (see "Composite priming
+   line"), so the purge is entered by step 7b on the way in and zeroed by it on
+   the way out exactly as a model window is. That is why no separate priming fan
+   emission was added — a second producer of the same two lines is how the two
+   paths would drift.
+
+   > **This is a deliberate departure from the vendor, measured, not assumed.**
+   > Three Rocket v1.4.0.857 S-hook references were read at their own startup
+   > prime: the vendor does NOT raise P3/P5 for its prime. One never emits P3 or
+   > P5 at all; another emits `M106 P3 S0` / `M106 P5 S0` immediately BEFORE its
+   > prime `M1001`, i.e. it zeroes them there; `P3 S255`/`P5 S255` appear exactly
+   > once per reference file, at a plastic layer boundary; and zero fan lines fall
+   > strictly inside any `M1001` window in any of them, so the vendor clause is
+   > not a per-fibre-window clause. What the vendor does raise ahead of its prime
+   > is `P2` (S255 / S204), the shape `good_priming.gcode` pins, and that line is
+   > deliberately NOT copied: `P2` carries the part-cooling demand, which the
+   > plate preamble has not resolved, so emitting it there would invent a value
+   > the print never asked for. The purge therefore carries P3/P5 on this
+   > clause's own stated function — the exhaust runs while the composite head
+   > deposits — at a value the vendor fixes, not on vendor parity.
 8. `T0 ; switch extruder type to:FIBER`
 
 Fibre -> plastic mirrors it: the second matrix withdrawal
