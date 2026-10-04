@@ -51,9 +51,11 @@ Plastic -> fibre, in order:
    wait for the incoming head. The pre-charge is at WORKING temperature, not
    standby: the vendor sends `M104 S270 T0` / `M109 S270 T0` on every entry into
    fibre, so the head is already climbing when the blocking wait is reached.
-   Steps 4 and 5 are skipped together on the first window of a primed plate,
-   where the preamble preheat plus the priming line already paid the wait, and
-   where parking the head with no blocking wait to undo it would strand it cold.
+   Steps 4 and 5 are skipped together on the first window of a plate that was
+   NOT primed, where the preamble preheat is still standing and nothing has
+   parked the head since. On the first window of a PRIMED plate they are emitted:
+   the priming window is closed by the fibre->plastic half below, which parks T0
+   exactly as a model window does, so the wait is owed again.
 
    > **Standby-target clause: IMPLEMENTED, vendor divergence recorded.** The
    > objective asks for "standby targets for both heads" at the plastic->fibre
@@ -67,11 +69,11 @@ Plastic -> fibre, in order:
    > change: that head is already parked at that temperature, because the
    > opposite half dropped it there when the previous window closed, and M104
    > does not block. It is emitted only inside the readiness gate, where a
-   > blocking M109 follows to undo it. On the first window of a primed plate,
-   > where no M109 is emitted, the line is withheld, because parking a head with
-   > no way back would strand the composite head cold. That single gated
-   > exception is the only place the clause yields, and it yields to not making
-   > the print worse than the vendor.
+   > blocking M109 follows to undo it. On the first window of a plate that was
+   > not primed, where no M109 is emitted, the line is withheld, because parking
+   > a head with no way back would strand the composite head cold. That single
+   > gated exception is the only place the clause yields, and it yields to not
+   > making the print worse than the vendor.
 6. Brush triple, against the head being put away, while it is still selected.
 7. `M106 P2 S<n>` / `M106 P1 S<n>` - the demand routed to the cooling output
    the depositing material needs (P2 -> fan4, fibre-side; P1 -> fan3
@@ -148,12 +150,28 @@ the G-code as `; FIBER PRIME:`, never silently shortened - when it is no longer
 than `fs_tail_length`, because a strand must carry a body before the cut as well
 as the severed tail after it.
 
+The window is emitted **unwrapped** and is entered and left by the same paired
+sequence a model window uses: `emit_toolchange_to_fiber` before it, with the
+caller's `M400` flush, and `emit_toolchange_to_plastic` after it. The emitter's
+`tool_wrap` bracket is deliberately not used here, because the fibre->plastic
+half has to issue its matrix withdrawal while T0 is still selected and a closing
+bracket would make that illegal. So the purge pays the same four things every
+other window pays - the standby park of the head being put away, the per-window
+matrix withdrawal, the brush visit, and the aux-fan drive - and the composite
+head is left at `fs_t0_standby_temp` rather than at its working target for the
+dwell between the purge and the plate's first fibre strand. That park is what
+makes the first model window re-charge and wait for T0: the purge exit clears the
+exporter's hot-T0 latch, so the first real strand is never laid on a head that
+was dropped to standby after the purge. `tests/fibreseeker/fixtures/good_startup_purge.gcode`
+pins the whole startup block through the independent validator.
+
 `fs_fiber_prime = when_fiber` restricts the cost to prints that carry fiber. The
 gate is `Fiber::print_carries_fiber`, which asks the same
 `Fiber::fiber_layer_scheduled` the exporter asks per layer, so the priming
 decision and the export cannot disagree about whether a plate is reinforced.
 Priming also requires `fs_t0_wrap`: the preamble's tool context is the plastic
-head, and an unwrapped block would put U/V moves on T1.
+head, and without the wrap there is no way to select the composite head from the
+start g-code, so there is nothing to prime.
 
 `fs_*` keys are banned from the G-code config dump so a stock FFF slice stays
 byte-identical in the header as well as the body.

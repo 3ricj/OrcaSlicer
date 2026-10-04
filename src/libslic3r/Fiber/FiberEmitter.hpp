@@ -122,10 +122,14 @@ bool plan_fiber_prime_line(const FiberPoint& from, const FiberPoint& to, double 
 // machine-side constants, so the priming window is indistinguishable from a
 // strand window except for where it lies.
 //
-// `tool_wrap` brackets the block in the machine-dialect T0/T1 tool changes
-// (fs_t0_wrap): the plate preamble runs on the plastic head and this firmware
-// does not carry a tool context across plain moves, so the block has to select
-// and release the composite head itself.
+// `tool_wrap` brackets the block in the machine-dialect T0/T1 tool changes. The
+// exporter does NOT use it: the startup purge is entered and left by the paired
+// tool-change sequence (Fiber/FiberToolChange), which owns both tool lines, and
+// the fibre->plastic half has to issue its matrix withdrawal while T0 is still
+// selected, which a closing bracket would make illegal. The bracket stays
+// available because it is the complete standalone block - a caller that only
+// needs the window and its tool bracket, and no switch handling, can still ask
+// for it - and the wrapped form is what the priming fixture pins.
 bool emit_fiber_prime_line(const FiberPrimeLine& line, const FiberEmitParams& params,
                            bool tool_wrap, std::string& out, std::string* error = nullptr);
 

@@ -3008,6 +3008,19 @@ static double fs_first_print_z(const Print& print, const PrintConfig& config)
     return std::isfinite(z) ? z : config.initial_layer_print_height.value;
 }
 
+// Working nozzle temperature of the plastic (T1) head, resolved the way the
+// exporter's own tool-change temperature handling resolves it: the filament
+// "other layers" value, falling back to the first-layer value when that is 0
+// or on the first layer. The fibre block emits bare T0/T1 rather than going
+// through _change_tool, so OozePrevention::post_toolchange never runs on this
+// path and nothing else restores T1 after a standby dwell.
+static int fs_plastic_working_temp(const FullPrintConfig &cfg, size_t filament_config_idx, bool first_layer)
+{
+    const int other = cfg.nozzle_temperature.get_at(filament_config_idx);
+    const int first = cfg.nozzle_temperature_initial_layer.get_at(filament_config_idx);
+    return (first_layer || other == 0) ? first : other;
+}
+
 void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGeneratorCallback thumbnail_cb)
 {
     PROFILE_FUNC();
@@ -3774,8 +3787,9 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
     // Write the custom start G-code
     file.writeln(machine_start_gcode);
     // T0 (composite) preheat (G-code review finding #3): after the start sequence so the
-    // composite hotend soaks while the plate preamble runs; the M109 wait is emitted once,
-    // immediately before the first T0 selection. Emitted only when fs_t0_temp is configured.
+    // composite hotend soaks while the plate preamble runs; the blocking M109 is emitted
+    // by the priming window's tool-change entry below, immediately before the first T0
+    // selection. Emitted only when fs_t0_temp is configured.
     if (m_config.fs_fiber_enabled.value && m_config.fs_t0_temp.value > 0) {
         file.write_format("M104 S%d T0\n", m_config.fs_t0_temp.value);
         m_fs_t0_hot = false;
@@ -3802,8 +3816,10 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
             // operator expects it, not under the print. The line runs along +X.
             std::string fs_prime_err;
             // The wrap is mandatory here, unlike elsewhere: the preamble's tool context is
-            // the plastic head, so an unwrapped block would put U/V moves on T1 (contract
-            // s2). The shipped CF profiles wrap; without it there is nothing to prime on.
+            // the plastic head, so nothing may select the composite head from the start
+            // g-code unless the machine dialect wraps (contract s2). The shipped CF profiles
+            // wrap; without it there is nothing to prime on. The tool lines themselves now
+            // come from the paired tool-change helpers rather than the emitter's bracket.
             if (!m_config.fs_t0_wrap.value)
                 fs_prime_err = "Tool-wrap fiber windows is off, so the composite head cannot be selected from the start g-code";
             const Pointfs& bed_pts = m_config.printable_area.values;
@@ -3829,16 +3845,76 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
                     fs_ep.prime_v_mm      = m_config.fs_prime_v.value;
                     fs_ep.retract_v_mm    = m_config.fs_retract_v.value;
                     std::string fs_prime;
-                    if (Fiber::emit_fiber_prime_line(fs_line, fs_ep, m_config.fs_t0_wrap.value, fs_prime, &fs_prime_err)) {
-                        // The preheat M104 above only asked for temperature; the priming line
-                        // is the first material the composite head lays, so it waits for the
-                        // nozzle to get there and consumes the single M109 that the layer loop
-                        // would otherwise emit before the first T0 selection.
-                        if (m_config.fs_t0_temp.value > 0 && !m_fs_t0_hot) {
-                            file.write_format("M109 S%d T0\n", m_config.fs_t0_temp.value);
-                            m_fs_t0_hot = true;
-                        }
+                    if (Fiber::emit_fiber_prime_line(fs_line, fs_ep, false, fs_prime, &fs_prime_err)) {
+                        // Startup runs the SAME paired tool-change handling the model
+                        // uses, not a bare T0/T1 bracket around the window. Both halves
+                        // are emitted here, and the priming window is emitted UNWRAPPED
+                        // so the two helpers own the tool selects: the fibre->plastic
+                        // half has to issue its matrix withdrawal while T0 is still
+                        // selected (V is a T0-channel axis), which a closing bracket
+                        // would have made illegal.
+                        //
+                        // What this replaces, and the defect it closes: the exit used to
+                        // be the strand's own V-retract, Z lift, M1002 and a bare T1. That
+                        // left T0 commanded at its WORKING target and T1 at its PRINTING
+                        // target for the whole dwell between the purge and the first model
+                        // fibre strand - tens of seconds of commanded plastic deposition
+                        // with a hot idle composite head, i.e. the ooze the paired
+                        // sequence exists to remove. It also skipped the per-window matrix
+                        // withdrawal (the third quantity of the stationary-V ledger), the
+                        // brush visit, and the P3/P5 aux-fan drive.
+                        //
+                        // Parameters are resolved exactly as the model resolves them at a
+                        // window, so startup and model cannot disagree. Two are worth
+                        // naming: part_cooling_pct is -1 because the cooling buffer has not
+                        // resolved a demand this early, which makes the helper emit no
+                        // demand-derived fan lines rather than invent a speed (the
+                        // vendor-constant P3/P5 lines are deliberately NOT gated on it);
+                        // and t1_working_c comes from the first printing filament's own
+                        // column, because the writer's filament is not initialised until
+                        // further below - it is also what gates the T1 standby drop, so a
+                        // head that cannot be brought back is never parked.
+                        Fiber::FiberToolChangeParams fs_tc;
+                        fs_tc.t0_temp_c               = m_config.fs_t0_temp.value;
+                        fs_tc.t0_standby_c            = m_config.fs_t0_standby_temp.value;
+                        fs_tc.t1_standby_c            = m_config.fs_t1_standby_temp.value;
+                        fs_tc.t1_working_c            = fs_plastic_working_temp(m_config, get_filament_config_index((int) initial_non_support_extruder_id), true);
+                        fs_tc.toolchange_retract_v_mm = m_config.fs_toolchange_retract_v.value;
+                        fs_tc.toolchange_retract_v_f  = m_config.fs_toolchange_retract_v_speed.value;
+                        fs_tc.brush_on_toolchange     = m_config.fs_brush_on_toolchange.value;
+                        fs_tc.aux_fans_on_toolchange  = m_config.fs_aux_fans_on_toolchange.value;
+                        fs_tc.part_cooling_pct        = -1;
+                        // The readiness wait is ON on BOTH halves, which is the reverse of
+                        // the model's first window. On the entry because the preamble's
+                        // M104 only ASKED for the temperature, so this is the one blocking
+                        // wait the plate pays for T0 and it replaces the hand-written M109
+                        // this block used to emit. On the exit because this half really
+                        // does park T0 - unlike the model's first window, which withholds
+                        // the park for a head that is provably hot - and the T1 restore
+                        // that pays for the dwell the park creates goes with it.
+                        fs_tc.emit_readiness_wait     = true;
+
+                        // ---- plastic -> fibre: the priming window's entry ----
+                        // Planner flush leads every vendor tool-change block, and on this
+                        // half it must precede the block, so the caller emits it (the
+                        // model does the same in GCode::process_layer). No E withdrawal
+                        // accompanies it: the writer has no filament yet at this point, and
+                        // the plastic head was already primed and cleaned by the machine
+                        // start g-code, so there is no pending writer state to pair.
+                        file.write("M400\n");
+                        file.write(Fiber::emit_toolchange_to_fiber(fs_tc));
+
                         file.write(fs_prime);
+
+                        // ---- fibre -> plastic: the priming window's exit ----
+                        file.write(Fiber::emit_toolchange_to_plastic(fs_tc));
+                        // Re-arm the thermal wait for the first model window. T0 has just
+                        // been dropped to standby, so the plate's first real strand must
+                        // re-charge and wait for it rather than assume it is still hot from
+                        // startup - extruding composite on a parked head is worse than the
+                        // ooze being fixed. The layer loop reads this latch as
+                        // emit_readiness_wait.
+                        m_fs_t0_hot = false;
                         // The priming window moved the tool outside the writer's knowledge.
                         m_writer.set_current_position_clear(false);
                         m_last_pos_defined = false;
@@ -5643,20 +5719,8 @@ std::string GCode::generate_timelapse_gcode(const Print &print, coordf_t print_z
     return timelapse_gcode;
 }
 
-// Working nozzle temperature of the plastic (T1) head, resolved the way the
-// exporter's own tool-change temperature handling resolves it: the filament
-// "other layers" value, falling back to the first-layer value when that is 0
-// or on the first layer. The fibre block emits bare T0/T1 rather than going
-// through _change_tool, so OozePrevention::post_toolchange never runs on this
-// path and nothing else restores T1 after a standby dwell.
-static int fs_plastic_working_temp(const FullPrintConfig &cfg, size_t filament_config_idx, bool first_layer)
-{
-    const int other = cfg.nozzle_temperature.get_at(filament_config_idx);
-    const int first = cfg.nozzle_temperature_initial_layer.get_at(filament_config_idx);
-    return (first_layer || other == 0) ? first : other;
-}
-
 // In sequential mode, process_layer is called once per each object and its copy,
+
 // therefore layers will contain a single entry and single_object_instance_idx will point to the copy of the object.
 // In non-sequential mode, process_layer is called per each print_z height with all object and support layers accumulated.
 // For multi-material prints, this routine minimizes extruder switches by gathering extruder specific extrusion paths
@@ -7528,11 +7592,13 @@ LayerResult GCode::process_layer(
             // the demand the printer is physically running at. -1 (nothing emitted yet)
             // makes the helper emit no fan lines rather than invent a speed.
             fs_tc.part_cooling_pct        = m_cooling_buffer ? m_cooling_buffer->current_fan_speed() : -1;
-            // The plate preamble preheated T0 and the priming line already consumed the
-            // blocking wait for the first window: do not stall on a second M109 there.
-            // Every later window re-pays the wait, because the standby dwell took the
-            // head off its working temperature in between. The standby pair is NOT
-            // gated by this: parking the outgoing head is free and is the point.
+            // The plate preamble preheated T0, but the priming window's exit dropped it
+            // to standby on the way out, exactly as a model window does - so the first
+            // window re-pays the wait. The latch is false after the purge for that
+            // reason; leaving it set would have the plate's first real strand extrude
+            // composite on a head parked at standby. It is true only when the plate is
+            // NOT primed, where the preamble preheat is still standing. The standby pair
+            // is NOT gated by this: parking the outgoing head is free and is the point.
             fs_tc.emit_readiness_wait     = !m_fs_t0_hot;
             if (m_config.fs_t0_wrap.value) {
                 // Planner flush ahead of everything, matching the vendor, whose

@@ -139,10 +139,11 @@ struct FiberToolChangeParams
     int part_cooling_pct = -1;
 
     // Whether this switch emits the BLOCKING readiness wait (M109) and the
-    // standby pre-charge of the head being activated. False for the very first
-    // window of a plate when the plate preamble already preheated T0 and the
-    // priming line already consumed the blocking wait - the composite head is
-    // provably hot there, so waiting again would only stall the print.
+    // standby pre-charge of the head being activated. False only for the first
+    // window of a plate that was NOT primed, where the preamble preheat is still
+    // standing and nothing has parked the head since. A primed plate pays the
+    // wait on its first model window: the priming window is closed by
+    // emit_toolchange_to_plastic below, which parks T0 like any other exit.
     //
     // This gates the WAIT and the incoming head's pre-charge, and NOTHING ELSE.
     // Parking the head being put away is not gated: it is free (M104 does not

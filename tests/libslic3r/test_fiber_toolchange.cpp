@@ -235,10 +235,12 @@ TEST_CASE("FiberToolChange: nothing is invented when a source has no value", "[F
     CHECK(nb.find("M109 S270 T0") != std::string::npos);
 }
 
-TEST_CASE("FiberToolChange: the first window of a primed plate does not wait twice", "[Fiber][FiberToolChange]")
+TEST_CASE("FiberToolChange: a withheld readiness wait still parks the outgoing head", "[Fiber][FiberToolChange]")
 {
-    // The plate preamble preheated T0 and the priming line consumed the one
-    // blocking wait, so the first window must not stall on a second M109 for T0.
+    // The readiness gate is off only for the first window of a plate that was NOT
+    // primed, where the preamble preheat is still standing. (A PRIMED plate pays the
+    // wait on its first model window, because the priming window's exit parks T0 like
+    // any other exit - see the startup-purge case below.)
     FiberToolChangeParams first = profile_params();
     first.emit_readiness_wait = false;
     const std::string s = emit_toolchange_to_fiber(first);
@@ -259,7 +261,7 @@ TEST_CASE("FiberToolChange: the first window of a primed plate does not wait twi
     CHECK(s.find("T0 ;") != std::string::npos);
     CHECK(s.find("M106 P2") != std::string::npos);
 
-    // The return half of that same first window still pays the incoming wait: the
+    // The return half of that same window still pays the incoming wait: the
     // standby dwell it is waiting for happened, so T1 must not resume cold.
     const std::string r = emit_toolchange_to_plastic(first);
     CHECK(r.find("M104 S180 T0 ; standby") != std::string::npos);
@@ -402,4 +404,71 @@ TEST_CASE("FiberToolChange: the two halves are paired, not one-sided", "[Fiber][
     CHECK(count_sub(out, "M109") == 1);    // Every emitted line is newline terminated.
     CHECK(in.back() == '\n');
     CHECK(out.back() == '\n');
+}
+
+TEST_CASE("FiberToolChange: the startup purge pays both halves of the sequence", "[Fiber][FiberToolChange]")
+{
+    // The startup purge is a fibre window like any other, so it is entered and
+    // left by this same pair. Two things make its parameters differ from a
+    // mid-plate switch, and both are pinned here.
+    //
+    //   1. The cooling demand is NOT resolved yet - the purge runs before any
+    //      layer has been through CoolingBuffer - so part_cooling_pct is -1.
+    //   2. The readiness wait is ON on BOTH halves. On the entry because the
+    //      preamble's M104 only asked for the temperature and this is the one
+    //      blocking wait the plate pays for T0; on the exit because this half
+    //      really does park T0, unlike the model's first window, which withholds
+    //      the park for a head that is provably hot.
+    FiberToolChangeParams p = profile_params();
+    p.part_cooling_pct    = -1;
+    p.emit_readiness_wait = true;
+
+    const std::string in  = emit_toolchange_to_fiber(p);
+    const std::string out = emit_toolchange_to_plastic(p);
+
+    // The defect this closes: the purge exit used to be the strand's own
+    // V-retract, Z lift, M1002 and a bare T1, so the composite head stayed
+    // commanded at its working target for the whole dwell until the first model
+    // fibre strand. The exit now parks it.
+    CHECK(out.find("M104 S180 T0 ; standby") != std::string::npos);
+    // And the plastic head, dropped to standby by the entry, is brought back
+    // with a blocking wait rather than left to resume cold.
+    CHECK(out.find("M109 S250 T1") != std::string::npos);
+    // The entry parks the plastic head, so it is not left at its printing
+    // temperature through the purge dwell either.
+    CHECK(in.find("M104 S150 T1 ; standby") != std::string::npos);
+    // The per-window matrix withdrawal is issued while T0 is still selected,
+    // which is why the purge window is emitted unwrapped and the tool lines come
+    // from these two helpers rather than from the emitter's bracket.
+    CHECK(count_line_start(out, "T1 ;") == 1);
+    CHECK(count_line_start(out, "T0 ;") == 0);
+    CHECK(out.find("V-4.000") != std::string::npos);
+    // One clean per half: the purge takes the head to the brush station on the
+    // way in and on the way out, so tow residue is not carried to the plate.
+    CHECK(count_sub(in, "CLEAN_NOZZLE") == 1);
+    CHECK(count_sub(out, "CLEAN_NOZZLE") == 1);
+
+    // Unresolved cooling suppresses the DEMAND-DERIVED routing only. The aux
+    // ports carry a vendor constant, not a demand, so they are driven here too -
+    // the start gcode zeroes them and nothing else ever raised them.
+    CHECK(in.find("M106 P1") == std::string::npos);
+    CHECK(in.find("M106 P2") == std::string::npos);
+    CHECK(out.find("M106 P1") == std::string::npos);
+    CHECK(out.find("M106 P2") == std::string::npos);
+    CHECK(in.find("M106 P3 S255") != std::string::npos);
+    CHECK(in.find("M106 P5 S255") != std::string::npos);
+    CHECK(out.find("M106 P3 S0") != std::string::npos);
+    CHECK(out.find("M106 P5 S0") != std::string::npos);
+
+    // The dependency the exit park creates: because T0 was parked, the plate's
+    // first MODEL window is entered with the readiness wait back ON, so it carries
+    // a fresh reheat-and-wait for the composite head rather than assuming it is
+    // still hot from startup. That is the same block as profile_params() with the
+    // gate open, pinned by the outgoing-sequence case above; named here so the
+    // dependency is stated next to the park that creates it.
+    FiberToolChangeParams rearmed = profile_params();
+    rearmed.emit_readiness_wait = true;
+    const std::string re = emit_toolchange_to_fiber(rearmed);
+    CHECK(re.find("M104 S270 T0 ; pre-charge") != std::string::npos);
+    CHECK(re.find("M109 S270 T0") != std::string::npos);
 }
