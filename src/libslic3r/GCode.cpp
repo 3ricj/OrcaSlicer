@@ -6204,6 +6204,25 @@ LayerResult GCode::process_layer(
             // is the legacy value.
             const double fs_fiber_w = m_config.fs_fiber_bead_width.value > 0.0 ?
                 m_config.fs_fiber_bead_width.value : m_config.fs_fiber_nozzle_diameter.value;
+            // The fiber lane, for EVERY mode including the legacy perimeter
+            // follower (fmOff). The harvested rings are the plastic outer-wall
+            // centerline, so with no inset the roving is laid ON the exterior
+            // surface: the operator sees fiber on the edge of the part instead of
+            // plastic walls around a fiber core. The lane is therefore always held
+            // inboard behind at least one plastic wall (see fiber_lane_inset_mm);
+            // an island too thin for that lane is refused by the planner and stays
+            // plastic rather than being squeezed onto the skin.
+            {
+                const int  fs_walls_outer = m_config.fs_fiber_plastic_walls_outer.value;
+                double     fs_plastic_w   = 0.0;
+                double     fs_wall_pitch  = 0.0;
+                for (const LayerRegion* layerm : object_layer->regions()) {
+                    fs_plastic_w  = std::max(fs_plastic_w, double(layerm->flow(frExternalPerimeter).width()));
+                    fs_wall_pitch = std::max(fs_wall_pitch, double(layerm->flow(frPerimeter).spacing()));
+                }
+                fs_slp.boundary_inset_mm = Fiber::fiber_lane_inset_mm(fs_walls_outer, fs_wall_pitch,
+                    fs_plastic_w, fs_fiber_w, m_config.fs_fiber_bond_overlap.value);
+            }
             if (m_config.fs_fiber_mode.value != FiberMode::fmOff) {
                 const Fiber::FiberModeLayer fs_mpl = Fiber::resolve_fiber_mode_layer(
                     m_config.fs_fiber_mode.value,
@@ -6227,24 +6246,6 @@ LayerResult GCode::process_layer(
                 fs_slp.wall_loops_enabled = false;
                 fs_slp.wall_outer_loops   = 1;
                 fs_slp.wall_inner_loops   = 0;
-                // The fiber lane: the harvested rings are the plastic outer-wall
-                // centerline, so the fiber has to move inboard past every plastic
-                // wall planned outside it plus half of each bead, less the intended
-                // bonding overlap. With no plastic wall outboard of the fiber the
-                // lane still shifts in by half the bead-width difference, so the
-                // wider roving does not protrude past the nominal surface.
-                const int    fs_walls_outer = std::max(0, m_config.fs_fiber_plastic_walls_outer.value);
-                double       fs_plastic_w   = 0.0;
-                double       fs_wall_pitch  = 0.0;
-                for (const LayerRegion* layerm : object_layer->regions()) {
-                    fs_plastic_w  = std::max(fs_plastic_w, double(layerm->flow(frExternalPerimeter).width()));
-                    fs_wall_pitch = std::max(fs_wall_pitch, double(layerm->flow(frPerimeter).spacing()));
-                }
-                const double fs_inset = fs_walls_outer > 0 ?
-                    double(fs_walls_outer) * fs_wall_pitch + 0.5 * (fs_plastic_w + fs_fiber_w) -
-                        m_config.fs_fiber_bond_overlap.value :
-                    0.5 * (fs_fiber_w - fs_plastic_w);
-                fs_slp.boundary_inset_mm = std::max(0.0, fs_inset);
                 ++ m_fs_fiber_layer_idx; // this layer emits fiber: advance the angle cycle
             }
             fs_slres = Fiber::build_layer_strands(rings, fs_slp);
@@ -7554,6 +7555,12 @@ LayerResult GCode::process_layer(
         if (fs_slres.skipped_tiny + fs_slres.rejected_short + fs_slres.rejected_other > 0)
             gcode += "; FIBER: plastic-only fallback for " + std::to_string(fs_slres.skipped_tiny + fs_slres.rejected_short) +
                      " features shorter than the calibrated tail, " + std::to_string(fs_slres.rejected_other) + " rejected paths\n";
+        // Features the fiber lane cannot fit behind their plastic walls: the wall
+        // pack the lane needs is wider than the feature, so it stays FFF rather
+        // than having its surface replaced by roving.
+        if (fs_slres.rejected_thin > 0)
+            gcode += "; FIBER: plastic-only fallback for " + std::to_string(fs_slres.rejected_thin) +
+                     " features too thin for the fiber lane\n";
         // Turn-radius report (fs_fiber_min_radius). Emitted under both policies so
         // the cost of switching to split is visible before switching: keep shows
         // how many corners exceed the machine limit, split how many cuts that cost.

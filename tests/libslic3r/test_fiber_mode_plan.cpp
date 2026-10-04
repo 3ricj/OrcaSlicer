@@ -239,3 +239,45 @@ TEST_CASE("FiberModePlan: degenerate schedule inputs degrade to every-layer, nev
                                 4, 1.0, 0.12, false, 0.28));
     CHECK_FALSE(fiber_layer_scheduled(s, 4, 1.0, 0.12, true, 0.28));  // and the top skin rule
 }
+
+// ---------------------------------------------------------------------------
+// The fiber lane (fiber_lane_inset_mm). The exporter harvests the plastic
+// outer-wall CENTERLINE as the fiber ring, so the inset is the single quantity
+// that decides whether the roving hides behind plastic or lands on the visible
+// surface. A zero or negative inset is the bug this guards: fiber tracing the
+// edge of the part instead of a core under plastic walls.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("FiberModePlan: the fiber lane is always held behind at least one plastic wall", "[Fiber][FiberModePlan]")
+{
+    // Reference machine numbers: 0.4 mm plastic wall pitch and bead, 0.8 mm
+    // composite bead, 0.1 mm deliberate bond. One wall outboard puts the lane
+    // center 0.4 + (0.4 + 0.8)/2 - 0.1 = 0.9 mm off the wall centerline.
+    CHECK(fiber_lane_inset_mm(1, 0.4, 0.4, W, 0.1) == Approx(0.9));
+    // Asking for zero (or a negative count) still keeps one plastic wall: the
+    // exterior belongs to plastic, so the answer never collapses onto the skin.
+    CHECK(fiber_lane_inset_mm(0, 0.4, 0.4, W, 0.1) == Approx(0.9));
+    CHECK(fiber_lane_inset_mm(-3, 0.4, 0.4, W, 0.1) == Approx(0.9));
+    // More walls outboard push the lane deeper, one wall pitch per wall.
+    CHECK(fiber_lane_inset_mm(2, 0.4, 0.4, W, 0.1) == Approx(0.9 + 0.4));
+    CHECK(fiber_lane_inset_mm(3, 0.4, 0.4, W, 0.1) == Approx(0.9 + 2 * 0.4));
+    // The bond overlap pulls the lane back out but cannot undo the wall pack.
+    CHECK(fiber_lane_inset_mm(1, 0.4, 0.4, W, 0.0) == Approx(1.0));
+}
+
+TEST_CASE("FiberModePlan: a degenerate lane request degrades to a positive inset", "[Fiber][FiberModePlan]")
+{
+    // An overlap larger than the geometry would put the lane back on the wall:
+    // clamped to zero rather than allowed to negate the lane.
+    CHECK(fiber_lane_inset_mm(1, 0.4, 0.4, W, 5.0) == Approx(0.0));
+    CHECK(fiber_lane_inset_mm(1, 0.4, 0.4, W, -1.0) == Approx(fiber_lane_inset_mm(1, 0.4, 0.4, W, 0.0)));
+    // Missing wall pitch falls back to the plastic bead width, never to zero.
+    CHECK(fiber_lane_inset_mm(1, 0.0, 0.4, W, 0.1) == Approx(0.4 + 0.5 * (0.4 + W) - 0.1));
+    CHECK(fiber_lane_inset_mm(1, -2.0, 0.4, W, 0.1) == Approx(0.4 + 0.5 * (0.4 + W) - 0.1));
+    // Garbage inputs stay finite and non-negative: the planner rejects a
+    // negative inset outright, so the helper must never produce one.
+    CHECK(fiber_lane_inset_mm(1, std::nan(""), 0.4, W, 0.1) >= 0.0);
+    CHECK(fiber_lane_inset_mm(1, 0.4, 0.4, std::nan(""), 0.1) == 0.0); // no bead width to place
+    CHECK(fiber_lane_inset_mm(1, 0.4, 0.4, 0.0, 0.1) == 0.0);
+    CHECK(fiber_lane_inset_mm(1, 0.4, std::nan(""), W, 0.1) == Approx(0.4 + W - 0.1));
+}

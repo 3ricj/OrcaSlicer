@@ -4720,14 +4720,13 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionFloat(80.));
 
-    // The fiber lane sits inboard of the plastic walls, not on them: these two
-    // counts are the number of PLASTIC walls outboard and inboard of the single
-    // fiber perimeter (reference machine InsetXPOuterWithFiberCount /
-    // InsetXPInnerWithFiberCount). Default 0 so an absent key keeps the fiber
-    // perimeter exactly where the legacy path put it.
+    // The fiber lane sits inboard of the plastic walls, not on them: this count
+    // is the number of PLASTIC walls outboard of the single fiber perimeter
+    // (reference machine InsetXPOuterWithFiberCount). The lane is never allowed
+    // onto the exterior surface, so the count is clamped to at least one wall.
     def = this->add("fs_fiber_plastic_walls_outer", coInt);
     def->label = L("Plastic walls outside fiber");
-    def->tooltip = L("Number of plastic walls printed outboard of the fiber perimeter in Walls and Solid modes. The fiber lane is pushed inward by this many wall spacings plus half of each bead width, so the fiber is buried behind plastic instead of riding on the outer wall. 0 puts the fiber directly behind the outer wall surface.");
+    def->tooltip = L("Number of plastic walls printed outboard of the fiber perimeter. The fiber lane is pushed inward by this many wall spacings plus half of each bead width, so the fiber is buried behind plastic instead of riding on the outer wall. At least one plastic wall is always kept outside the fiber, so the visible surface stays plastic; a feature too thin to hold that wall pack stays plastic-only.");
     def->min = 0;
     def->max = 10;
     def->mode = comExpert;

@@ -15,6 +15,7 @@
 
 namespace Slic3r {
 namespace Fiber {
+
 std::vector<double> parse_fiber_angle_list(const std::string& spec)
 {
     std::vector<double> out;
@@ -173,6 +174,31 @@ bool print_carries_fiber(const Print& print, const FiberScheduleParams& sched)
         if (object != nullptr && first_fiber_layer(*object, sched) != nullptr)
             return true;
     return false;
+}
+
+double fiber_lane_inset_mm(int plastic_walls_outer, double wall_pitch_mm,
+                           double plastic_width_mm, double fiber_width_mm,
+                           double bond_overlap_mm)
+{
+    // The exterior belongs to plastic: a fiber lane with NOTHING outboard of it
+    // would be roving laid on the visible surface, so the wall pack is at least
+    // one wall deep whatever the key asks for.
+    const int walls = std::max(1, plastic_walls_outer);
+    // Non-finite or non-positive geometry cannot be reasoned about; fall back to
+    // the widths the caller always has (bead widths) rather than emit a lane at
+    // the surface. A negative overlap is treated as no overlap.
+    if (!std::isfinite(plastic_width_mm) || !(plastic_width_mm > 0.0))
+        plastic_width_mm = fiber_width_mm;
+    if (!std::isfinite(fiber_width_mm) || !(fiber_width_mm > 0.0))
+        return 0.0; // nothing to place: the caller's bead width is unusable
+    if (!std::isfinite(wall_pitch_mm) || !(wall_pitch_mm > 0.0))
+        wall_pitch_mm = plastic_width_mm;
+    if (!std::isfinite(bond_overlap_mm) || bond_overlap_mm < 0.0)
+        bond_overlap_mm = 0.0;
+    // Past the wall pack, past half of each bead, less the deliberate bond.
+    const double inset = double(walls) * wall_pitch_mm + 0.5 * (plastic_width_mm + fiber_width_mm) -
+        bond_overlap_mm;
+    return std::isfinite(inset) && inset > 0.0 ? inset : 0.0;
 }
 
 } // namespace Fiber
