@@ -46,6 +46,7 @@ const std::vector<std::pair<std::string, std::string>> fs_vendor_expectations = 
     {"fs_fiber_min_radius", "12"},  {"fs_fiber_max_arc_seg", "3"},
     {"fs_fiber_reserve", "band"},   {"fs_fiber_bond_overlap", "0.1"},
     {"fs_fiber_nozzle_diameter", "0.7"},
+    {"fs_fiber_prime", "when_fiber"}, {"fs_fiber_prime_length", "90"},
 };
 
 // Declared defaults from PrintConfig.cpp (must stay in sync with the defs).
@@ -69,6 +70,8 @@ const std::vector<std::pair<std::string, std::string>> fs_default_expectations =
     {"fs_fiber_min_radius", "0"},   {"fs_fiber_max_arc_seg", "0"},
     {"fs_fiber_reserve", "off"},    {"fs_fiber_bond_overlap", "0.1"},
     {"fs_fiber_nozzle_diameter", "0.7"},
+    // Migration invariant: a legacy project must not gain a priming line.
+    {"fs_fiber_prime", "never"}, {"fs_fiber_prime_length", "80"},
 };
 
 struct Scene {

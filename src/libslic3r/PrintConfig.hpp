@@ -530,6 +530,19 @@ enum class FiberMode : unsigned char {
     fmSolid
 };
 
+// FibreSeeker3 composite-head priming (fs_fiber_prime). The composite (T0) head
+// has to be primed once per plate before it lays a strand; a priming line is
+// sacrificial material on the bed, so whether to pay for it on a plate that
+// carries no fiber is the operator's call. never keeps a plastic-only plate
+// byte-identical to a plain FFF slice.
+enum class FiberPrimeMode : unsigned char {
+    fpmNever = 0,
+    // Prime on every plate with the capability on, fiber or no fiber.
+    fpmAlways,
+    // Prime only when the plate carries fiber: some object has a layer the
+    // fiber schedule selects, under any mode other than plastic_only.
+    fpmWhenFiber
+};
 // FibreSeeker3 policy for a planned corner tighter than fs_fiber_min_radius
 // (operator ruling 2026-10-02: the machine's real behavior around a tight bend
 // is not yet characterised, so the operator chooses). keep = deposit the strand
@@ -786,7 +799,7 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(FiberTightTurnPolicy)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(FiberSeamPosition)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(FiberMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(FiberInfillPattern)
-
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(FiberPrimeMode)
 #undef CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS
 
 // Defines each and every configuration option of Slic3r, including the properties of the GUI dialogs.
@@ -1764,8 +1777,9 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat, fs_rectify_spacing))
     ((ConfigOptionFloat, fs_rectify_min_seg))
     ((ConfigOptionBool, fs_t0_wrap))
-    ((ConfigOptionFloat, fs_fiber_nozzle_diameter))
-    ((ConfigOptionFloat, fs_fill_min_wall_width))
+    ((ConfigOptionEnum<FiberPrimeMode>, fs_fiber_prime))
+    ((ConfigOptionFloat, fs_fiber_prime_length))
+    ((ConfigOptionFloat, fs_fiber_nozzle_diameter))    ((ConfigOptionFloat, fs_fill_min_wall_width))
     ((ConfigOptionFloat, fs_fill_min_area))
     ((ConfigOptionEnum<FiberSchedule>, fs_fiber_schedule))
     ((ConfigOptionFloat, fs_fiber_band_z_min))

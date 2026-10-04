@@ -1527,7 +1527,7 @@ static std::vector<std::string> s_Preset_printer_options {
     "fs_fiber_enabled", "fs_restart_feed", "fs_tail_length", "fs_restart_z_hop", "fs_prime_v",
     "fs_retract_v", "fs_deposit_feed",
     "fs_t0_wrap", "fs_fiber_nozzle_diameter",
-    "fs_fiber_wall_loops", "fs_fiber_wall_pitch",
+    "fs_fiber_prime", "fs_fiber_prime_length",    "fs_fiber_wall_loops", "fs_fiber_wall_pitch",
     "fs_t0_temp",
     "fs_fiber_reserve", "fs_fiber_bond_overlap",
     "printer_plugin_config_overrides"

@@ -20,6 +20,15 @@ std::string fmt(const char* f, double v)
     return std::string(buf);
 }
 
+// Shared failure shape for the emitters: report, clear the output, reject.
+bool fail_into(std::string& out, std::string* error, const std::string& msg)
+{
+    if (error) {
+        *error = msg;
+    }
+    out.clear();
+    return false;
+}
 } // namespace
 
 double zone_feed_mm_min(const FiberEmitParams& params, double dist_mm, double total_mm, double fallback_f)
@@ -165,6 +174,87 @@ bool emit_strand(const FiberStrand& strand, const FiberEmitParams& params, std::
     s += "M1002\n";
 
     out = s;
+    return true;
+}
+
+bool plan_fiber_prime_line(const FiberPoint& from, const FiberPoint& to, double z, size_t layer_id,
+                           double ratio_p, double fiber_rate, double feed_mm_min,
+                           double tail_length_mm, FiberPrimeLine& out, std::string* error)
+{
+    auto fail = [error, &out](const char* msg) {
+        if (error) {
+            *error = msg;
+        }
+        out = FiberPrimeLine{};
+        return false;
+    };
+
+    if (!std::isfinite(from.x) || !std::isfinite(from.y) || !std::isfinite(to.x) || !std::isfinite(to.y) ||
+        !std::isfinite(z))
+        return fail("plan_fiber_prime_line: non-finite priming line geometry");
+    if (layer_id == 0)
+        return fail("plan_fiber_prime_line: layer id must be >= 1");
+    if (!(ratio_p > 0.0) || !std::isfinite(ratio_p))
+        return fail("plan_fiber_prime_line: matrix:fiber ratio P must be finite and > 0");
+    if (!(fiber_rate > 0.0) || !std::isfinite(fiber_rate))
+        return fail("plan_fiber_prime_line: fiber rate must be finite and > 0");
+    if (!(feed_mm_min > 0.0) || !std::isfinite(feed_mm_min))
+        return fail("plan_fiber_prime_line: deposit feedrate must be finite and > 0");
+    if (!(tail_length_mm > 0.0) || !std::isfinite(tail_length_mm))
+        return fail("plan_fiber_prime_line: calibrated tail must be finite and > 0");
+    // The physical limit on how short the line may be: a strand carries a body
+    // before the cut as well as the severed tail after it, so the line has to
+    // outlast fs_tail_length. finalize() enforces it; naming it here gives the
+    // operator the actionable message (lengthen the line) instead of the
+    // generic strand one.
+    if (std::hypot(to.x - from.x, to.y - from.y) <= tail_length_mm)
+        return fail("plan_fiber_prime_line: priming line is not longer than the calibrated tail, so it cannot carry a body before the cut");
+
+    out.from           = from;
+    out.to             = to;
+    out.z              = z;
+    out.layer_id       = layer_id;
+    out.ratio_p        = ratio_p;
+    out.fiber_rate     = fiber_rate;
+    out.feed_mm_min    = feed_mm_min;
+    out.tail_length_mm = tail_length_mm;
+    return true;
+}
+
+bool emit_fiber_prime_line(const FiberPrimeLine& line, const FiberEmitParams& params,
+                           bool tool_wrap, std::string& out, std::string* error)
+{
+    out.clear();
+
+    FiberStrand s;
+    s.layer_id       = line.layer_id;
+    s.z              = line.z;
+    s.pts            = {line.from, line.to};
+    s.ratio_p        = line.ratio_p;
+    s.fiber_rate     = line.fiber_rate;
+    s.feed_mm_min    = line.feed_mm_min;
+    s.tail_length_mm = line.tail_length_mm;
+    // The priming line is sacrificial, so it is laid at the plate's own matrix
+    // payout: no tail-factor discount, which exists to soften the tail of a
+    // strand bonded into real material.
+    s.tail_v_factor  = 1.0;
+
+    std::string err;
+    if (!s.finalize(&err))
+        return fail_into(out, error, "emit_fiber_prime_line: " + err);
+
+    // The priming line is not part of any layer, so it carries no layer marker:
+    // the validator then reports it as the priming window it is (WARN R13)
+    // rather than as fiber belonging to a layer.
+    FiberEmitParams pp      = params;
+    pp.emit_layer_marker    = false;
+    pp.verbose_comments     = false;
+
+    std::string body;
+    if (!emit_strand(s, pp, body, &err))
+        return fail_into(out, error, "emit_fiber_prime_line: " + err);
+
+    out = tool_wrap ? "T0 ; switch extruder type to:FIBER\n" + body + "T1 ; switch extruder type to:PLASTIC\n" : body;
     return true;
 }
 

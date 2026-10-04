@@ -28,9 +28,17 @@
 #include <string>
 #include <vector>
 
-#include "../PrintConfig.hpp" // FiberMode, FiberInfillPattern
+#include "../PrintConfig.hpp" // FiberMode, FiberInfillPattern, FiberSchedule
 
 namespace Slic3r {
+
+// Named by the schedule queries below. Forward declarations have to sit in
+// Slic3r, not in Slic3r::Fiber: an elaborated-type-specifier inside the Fiber
+// namespace would declare new classes there instead of referring to these.
+class Layer;
+class PrintObject;
+class Print;
+
 namespace Fiber {
 
 // One resolved fiber layer under a fiber mode. The caller overlays
@@ -78,6 +86,49 @@ FiberModeLayer resolve_fiber_mode_layer(FiberMode mode, FiberInfillPattern patte
                                         double coverage_percent, double fiber_width_mm,
                                         double fill_inset_mm,
                                         size_t fiber_layer_idx);
+
+// The fs_* keys the layer schedule decision consumes, so the schedule can be
+// evaluated outside the exporter without dragging a PrintConfig along. Filled
+// from m_config at the call site; the defaults are the key defaults.
+struct FiberScheduleParams
+{
+    FiberSchedule schedule = FiberSchedule::fsEveryLayer;
+    FiberMode     mode     = FiberMode::fmOff;
+    // fs_fiber_z_step: height of one fiber macro layer.
+    double        macro_layer_height_mm = 0.24;
+    // fs_fiber_band_z_min / fs_fiber_band_z_max, mm from the print bottom.
+    double        band_z_min_mm = 0.2;
+    double        band_z_max_mm = 3.8;
+};
+
+// How many plastic layers make up one fiber macro layer: the plastic-layer
+// count of a bead `macro_layer_height_mm` tall laid on `plastic_layer_height_mm`
+// layers, at least 1. Counted rather than matched on Z, so the schedule stays
+// deterministic and exactly periodic when the bead height is not a multiple of
+// the layer height. Degenerate inputs (zero or non-finite either side) give 1,
+// i.e. every layer closes a macro layer.
+size_t fiber_macro_layer_plastic_layers(double macro_layer_height_mm, double plastic_layer_height_mm);
+
+// Whether ONE layer receives fiber under the schedule. The same rules the
+// exporter applies per layer, lifted out of the export loop so the decision is
+// available before the first layer is written (composite-head priming has to
+// know whether the plate carries fiber at all) and testable without a print.
+//
+// z_bottom is the print-Z of the object's own layer 0: a band schedule measures
+// from the object bottom, not from the bed. `height` is the layer height, used
+// both as the band's step tolerance and to size a macro layer. `is_last_layer`
+// carries the plastic-top-skin rule.
+bool fiber_layer_scheduled(const FiberScheduleParams& sched, size_t layer_id, double print_z,
+                           double height, bool is_last_layer, double z_bottom);
+
+// The first layer of `object` that the schedule selects, or nullptr when the
+// object lays no fiber at all. Thin adapter over fiber_layer_scheduled.
+const Layer* first_fiber_layer(const PrintObject& object, const FiberScheduleParams& sched);
+
+// True when any object of the print lays fiber under the schedule. plastic_only
+// suppresses fiber even with the capability on, so it never counts as a print
+// with CF features.
+bool print_carries_fiber(const Print& print, const FiberScheduleParams& sched);
 
 } // namespace Fiber
 } // namespace Slic3r

@@ -422,3 +422,108 @@ TEST_CASE("emit_strand refuses unfinalized strands and inconsistent lists", "[Fi
     REQUIRE_FALSE(emit_strand(s, params, out, &err));
     REQUIRE(out.empty());
 }
+
+// ---- Composite-head priming (fs_fiber_prime) --------------------------------
+// The priming line is a strand, so the tests below pin the two things that
+// matter: the emitted block is the reference priming window byte-for-byte, and
+// a line that cannot carry a body plus the calibrated tail is refused rather
+// than silently shortened.
+
+TEST_CASE("emit_fiber_prime_line writes the reference priming window", "[Fiber][FiberEmitter]")
+{
+    // Reference machine constants (the shipped CF-nozzle profile).
+    FiberEmitParams p; // restart 55 @F1200, hop 1.2, prime V4, retract V1, lift 0.6
+
+    FiberPrimeLine line;
+    std::string    plan_err;
+    REQUIRE(plan_fiber_prime_line({10.0, 10.0}, {90.0, 10.0}, 0.20, 1, 0.034, 0.98, 1200.0, 54.8,
+                                  line, &plan_err));
+    REQUIRE(plan_err.empty());
+
+    std::string out;
+    std::string err;
+    REQUIRE(emit_fiber_prime_line(line, p, true, out, &err));
+    REQUIRE(err.empty());
+
+    // Budget: floor(55 + 24.696) = 79. Body ends at the cut, 25.20 mm in; the
+    // severed 54.8 mm tail is paid out to the line end under matrix drag.
+    const std::string golden =
+        "T0 ; switch extruder type to:FIBER\n"
+        "M1001 L79\n"
+        "G1 F1200 Z1.40\n"
+        "G1 X10.00 Y10.00 F1200\n"
+        "G1 F1200 U55.000 ; Extrude restart\n"
+        "G1 F1200 Z0.20\n"
+        "G1 F600 V1.000 ; Recover matrix retract\n"
+        "G1 F600 V3.000 ; Matrix prime\n"
+        "G1 X35.20 Y10.00 V0.840 U24.696 P0.034 F1200\n"
+        "; Start to cut\n"
+        "M2800\n"
+        "M400\n"
+        ";CUT DISTANCE 54.8\n"
+        "G1 X90.00 Y10.00 V1.826 F1200\n"
+        "; Cutting completed.\n"
+        "G1 F600 V-1.000 ; Retract\n"
+        "G1 F1200 Z0.80\n"
+        "M1002\n"
+        "T1 ; switch extruder type to:PLASTIC\n";
+    REQUIRE(err == golden);
+}
+
+TEST_CASE("emit_fiber_prime_line leaves the tool bracket out when unwrapped", "[Fiber][FiberEmitter]")
+{
+    FiberEmitParams p;
+    FiberPrimeLine  line;
+    std::string     err;
+    REQUIRE(plan_fiber_prime_line({10.0, 10.0}, {90.0, 10.0}, 0.20, 1, 0.034, 0.98, 1200.0, 54.8,
+                                  line, &err));
+
+    std::string wrapped;
+    std::string bare;
+    REQUIRE(emit_fiber_prime_line(line, p, true, wrapped, &err));
+    REQUIRE(emit_fiber_prime_line(line, p, false, bare, &err));
+    // The wrap is only the bracket: the window between the tool changes is identical.
+    const std::string open  = "T0 ; switch extruder type to:FIBER\n";
+    const std::string close = "T1 ; switch extruder type to:PLASTIC\n";
+    REQUIRE(wrapped.size() > open.size() + close.size());
+    CHECK(wrapped.compare(0, open.size(), open) == 0);
+    CHECK(wrapped.compare(wrapped.size() - close.size(), close.size(), close) == 0);
+    CHECK(bare == wrapped.substr(open.size(), wrapped.size() - open.size() - close.size()));
+    // Unwrapped output is the window alone: it still opens and closes exactly once.
+    CHECK(count_sub(bare, "M1001 ") == 1);
+    CHECK(count_sub(bare, "M1002") == 1);
+    CHECK(bare.find("T0") == std::string::npos);
+    // No layer marker: the priming window belongs to no layer.
+    CHECK(bare.find("; LAYER:") == std::string::npos);
+}
+
+TEST_CASE("plan_fiber_prime_line refuses a line that cannot carry a body and a tail", "[Fiber][FiberEmitter]")
+{
+    FiberPrimeLine line;
+    std::string    err;
+    // Exactly the tail length: no body before the cut.
+    CHECK_FALSE(plan_fiber_prime_line({0.0, 0.0}, {54.8, 0.0}, 0.2, 1, 0.034, 0.98, 1200.0, 54.8, line, &err));
+    CHECK(err.find("tail") != std::string::npos);
+    CHECK(line.tail_length_mm == 0.0); // refused plan leaves nothing half-built
+
+    CHECK_FALSE(plan_fiber_prime_line({0.0, 0.0}, {100.0, 0.0}, 0.2, 0, 0.034, 0.98, 1200.0, 54.8, line, &err));
+    CHECK_FALSE(plan_fiber_prime_line({0.0, 0.0}, {100.0, 0.0}, 0.2, 1, 0.0, 0.98, 1200.0, 54.8, line, &err));
+    CHECK_FALSE(plan_fiber_prime_line({0.0, 0.0}, {100.0, 0.0}, 0.2, 1, 0.034, 0.0, 1200.0, 54.8, line, &err));
+    CHECK_FALSE(plan_fiber_prime_line({0.0, 0.0}, {100.0, 0.0}, 0.2, 1, 0.034, 0.98, 0.0, 54.8, line, &err));
+    CHECK_FALSE(plan_fiber_prime_line({0.0, 0.0}, {0.0, 0.0}, 0.2, 1, 0.034, 0.98, 1200.0, 54.8, line, &err));
+    CHECK_FALSE(plan_fiber_prime_line({0.0, 0.0}, {100.0, 0.0}, 0.2, 1, 0.034, 0.98, 1200.0, 0.0, line, &err));
+    CHECK_FALSE(plan_fiber_prime_line({0.0, 0.0}, {100.0, 0.0}, std::nan(""), 1, 0.034, 0.98, 1200.0, 54.8, line, &err));
+}
+
+TEST_CASE("emit_fiber_prime_line surfaces the strand's own refusal", "[Fiber][FiberEmitter]")
+{
+    // A plan that passes the cheap gates but cannot be finalized: the feed
+    // rounds to zero, which would be fiber without matrix.
+    FiberPrimeLine line;
+    std::string    err;
+    REQUIRE(plan_fiber_prime_line({0.0, 0.0}, {100.0, 0.0}, 0.2, 1, 0.0001, 0.98, 1200.0, 54.8, line, &err));
+    std::string out;
+    CHECK_FALSE(emit_fiber_prime_line(line, FiberEmitParams{}, false, out, &err));
+    CHECK(out.empty());
+    CHECK_FALSE(err.empty());
+}

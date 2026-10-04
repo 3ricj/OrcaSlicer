@@ -38,8 +38,22 @@ A path that cannot carry body plus the calibrated tail is rejected and counted,
 never shortened. `fs_fiber_enforce` aborts the slice if a reinforceable layer
 would print without a complete fiber window.
 
-## Config ownership
+## Composite-head priming
 
+`fs_fiber_prime` lays one sacrificial composite strand on bare bed, in the plate
+preamble, before the plate's real deposition. The composite head is charged by
+the same restart-plus-prime lifecycle a strand uses, so the first strand of a
+plate does not start on the stale tow left by the last one.
+
+The gate for `when_fiber` is `Fiber::print_carries_fiber`, which evaluates the
+layer schedule over the whole plate. It calls `Fiber::fiber_layer_scheduled`,
+the same producer the exporter calls per layer, so the priming decision and the
+export never disagree about whether a plate is reinforced; a schedule rule that
+lives in only one of the two places is the bug class that would prime a
+plastic-only plate or leave a reinforced one unprimed. `plastic_only` is not a
+print with CF features.
+
+## Config ownership
 Process presets own the pattern (mode, coverage, infill, speeds, schedule).
 Printer presets own capability and hardware lifecycle (restart feed, tail
 length, nozzle diameter, wrap). `full_fff_config()` applies the printer last,

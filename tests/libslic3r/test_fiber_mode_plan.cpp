@@ -154,3 +154,88 @@ TEST_CASE("FiberModePlan: empty angle list and a negative inset degrade safely",
     CHECK(resolve_fiber_mode_layer(FiberMode::fmWalls, FiberInfillPattern::fipIsogrid,
                                    {}, 80.0, W, -1.0, 0).fill_outer_inset == Approx(0.0));
 }
+// ---- Schedule: does a layer receive fiber? (fs_fiber_schedule) -------------
+// The exporter applies these rules inside the layer loop; the composite-head
+// priming decision needs the same answer for the WHOLE plate before the first
+// layer is written, so the rules live here as a pure function. A priming line
+// that disagrees with the export about whether a plate carries fiber would
+// either waste roving on a plastic-only plate or leave a CF plate unprimed.
+
+namespace {
+
+FiberScheduleParams sched(FiberSchedule s, FiberMode m, double macro_h = 0.24)
+{
+    FiberScheduleParams p;
+    p.schedule              = s;
+    p.mode                  = m;
+    p.macro_layer_height_mm = macro_h;
+    return p;
+}
+
+} // namespace
+
+TEST_CASE("FiberModePlan: plastic_only never schedules a layer, under any schedule", "[Fiber][FiberModePlan]")
+{
+    for (const FiberSchedule s : {FiberSchedule::fsEveryLayer, FiberSchedule::fsBand, FiberSchedule::fsMacroLayer})
+        for (size_t id = 0; id < 5; ++id)
+            CHECK_FALSE(fiber_layer_scheduled(sched(s, FiberMode::fmPlasticOnly), id, 0.12 * (id + 1), 0.12, false, 0.12));
+}
+
+TEST_CASE("FiberModePlan: every_layer keeps the plastic first and last layer outside solid", "[Fiber][FiberModePlan]")
+{
+    const FiberScheduleParams s = sched(FiberSchedule::fsEveryLayer, FiberMode::fmOff);
+    CHECK_FALSE(fiber_layer_scheduled(s, 0, 0.28, 0.28, false, 0.28));  // bed stays FFF
+    CHECK(fiber_layer_scheduled(s, 1, 0.40, 0.12, false, 0.28));
+    CHECK_FALSE(fiber_layer_scheduled(s, 9, 1.48, 0.12, true, 0.28));   // top skin stays FFF
+    // Solid (Fortified) is allowed on the bed and the top skin.
+    const FiberScheduleParams solid = sched(FiberSchedule::fsEveryLayer, FiberMode::fmSolid);
+    CHECK(fiber_layer_scheduled(solid, 0, 0.28, 0.28, false, 0.28));
+    CHECK(fiber_layer_scheduled(solid, 9, 1.48, 0.12, true, 0.28));
+}
+
+TEST_CASE("FiberModePlan: macro_layer fires once per composite bead", "[Fiber][FiberModePlan]")
+{
+    // The reference pairing: 0.12 mm plastic layers, 0.24 mm composite bead.
+    const FiberScheduleParams s = sched(FiberSchedule::fsMacroLayer, FiberMode::fmWalls, 0.24);
+    size_t hits = 0;
+    for (size_t id = 1; id + 1 < 12; ++id) // id 0 is the bed, id 11 the top skin
+        hits += fiber_layer_scheduled(s, id, 0.12 * (id + 1), 0.12, false, 0.12) ? 1 : 0;
+    CHECK(hits == 5); // every second layer, and neither end
+    CHECK(fiber_layer_scheduled(s, 2, 0.36, 0.12, false, 0.12));
+    CHECK_FALSE(fiber_layer_scheduled(s, 3, 0.48, 0.12, false, 0.12));
+    // A bead that is a whole number of layers tall: 3 layers per 0.36 mm bead.
+    const FiberScheduleParams s3 = sched(FiberSchedule::fsMacroLayer, FiberMode::fmWalls, 0.36);
+    CHECK(fiber_layer_scheduled(s3, 3, 0.48, 0.12, false, 0.12));
+    CHECK_FALSE(fiber_layer_scheduled(s3, 4, 0.60, 0.12, false, 0.12));
+}
+
+TEST_CASE("FiberModePlan: band confines fiber to the Z band on macro steps", "[Fiber][FiberModePlan]")
+{
+    FiberScheduleParams s = sched(FiberSchedule::fsBand, FiberMode::fmWalls, 0.24);
+    s.band_z_min_mm = 0.2;
+    s.band_z_max_mm = 3.8;
+    // print_z measured against a 0.28 mm bottom: rel lands on 0.24 steps at ids 1,3,5,...
+    CHECK(fiber_layer_scheduled(s, 1, 0.52, 0.12, false, 0.28));   // rel 0.24, inside the band
+    CHECK_FALSE(fiber_layer_scheduled(s, 2, 0.64, 0.12, false, 0.28)); // rel 0.36: off-step
+    CHECK(fiber_layer_scheduled(s, 3, 0.76, 0.12, false, 0.28));   // rel 0.48
+    CHECK_FALSE(fiber_layer_scheduled(s, 33, 4.36, 0.12, false, 0.28)); // rel 4.08: above the band
+    // An inverted band asks for nothing; that must not read as "everything".
+    FiberScheduleParams empty_band = s;
+    empty_band.band_z_min_mm = 5.0;
+    empty_band.band_z_max_mm = 1.0;
+    CHECK_FALSE(fiber_layer_scheduled(empty_band, 3, 0.76, 0.12, false, 0.28));
+}
+
+TEST_CASE("FiberModePlan: degenerate schedule inputs degrade to every-layer, never to a crash", "[Fiber][FiberModePlan]")
+{
+    // Zero / non-finite layer height or macro height makes the Z tests
+    // meaningless, so the schedule constraint is dropped rather than guessed
+    // at: the plate falls back to reinforcing every layer but the ends.
+    const FiberScheduleParams s = sched(FiberSchedule::fsBand, FiberMode::fmWalls, 0.0);
+    CHECK_FALSE(fiber_layer_scheduled(s, 0, 0.28, 0.0, false, 0.28)); // the bed rule still holds
+    CHECK(fiber_layer_scheduled(s, 4, 1.0, 0.0, false, 0.28));
+    CHECK(fiber_layer_scheduled(s, 4, 1.0, std::nan(""), false, 0.28));
+    CHECK(fiber_layer_scheduled(sched(FiberSchedule::fsMacroLayer, FiberMode::fmWalls, std::nan("")),
+                                4, 1.0, 0.12, false, 0.28));
+    CHECK_FALSE(fiber_layer_scheduled(s, 4, 1.0, 0.12, true, 0.28));  // and the top skin rule
+}

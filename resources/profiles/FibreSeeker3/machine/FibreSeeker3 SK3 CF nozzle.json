@@ -53,5 +53,6 @@
 	"fs_fiber_wall_loops": "0",
 	"fs_fiber_wall_pitch": "0.7",
 	"fs_t0_wrap": "1",
-	"fs_t0_temp": "270"
+	"fs_t0_temp": "270",
+	"fs_fiber_prime": "when_fiber"
 }

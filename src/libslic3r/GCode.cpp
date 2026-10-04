@@ -34,6 +34,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <limits>
 #include <cstdlib>
 #include <chrono>
 #include <iostream>
@@ -2987,6 +2988,25 @@ static BambuBedType to_bambu_bed_type(BedType type)
     return bambu_bed_type;
 }
 
+// Print-Z at which a plate's first deposition happens: the lowest layer-0
+// print-Z over the objects and support layers being printed. Raft layers are
+// support layers, so a rafted plate is primed onto the raft rather than onto
+// the bare bed under it. Falls back to the initial layer print height when the
+// print has no layers at all.
+static double fs_first_print_z(const Print& print, const PrintConfig& config)
+{
+    double z = std::numeric_limits<double>::infinity();
+    for (const PrintObject* object : print.objects()) {
+        if (object == nullptr || object->layers().empty())
+            continue;
+        z = std::min(z, object->layers().front()->print_z);
+        for (const SupportLayer* sl : object->support_layers())
+            if (sl != nullptr)
+                z = std::min(z, sl->print_z);
+    }
+    return std::isfinite(z) ? z : config.initial_layer_print_height.value;
+}
+
 void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGeneratorCallback thumbnail_cb)
 {
     PROFILE_FUNC();
@@ -3758,6 +3778,78 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
     if (m_config.fs_fiber_enabled.value && m_config.fs_t0_temp.value > 0) {
         file.write_format("M104 S%d T0\n", m_config.fs_t0_temp.value);
         m_fs_t0_hot = false;
+    }
+    // Composite-head priming (fs_fiber_prime): charge the fiber head on sacrificial bed
+    // geometry before the plate's real deposition, so the first strand of the plate does
+    // not start on the stale tow left by the last one. The window is a real strand
+    // lifecycle (Fiber::emit_fiber_prime_line), not a bespoke block, so the firmware and
+    // the validator see the dialect they already know.
+    //
+    // "When the print has continuous fiber" is what makes this a CF-only cost: the
+    // schedule is evaluated over the whole plate up front, so a plate that lays no fiber
+    // pays nothing and its G-code stays byte-identical to a plain FFF slice.
+    if (m_config.fs_fiber_enabled.value && m_config.fs_fiber_prime.value != FiberPrimeMode::fpmNever) {
+        Fiber::FiberScheduleParams fs_sched;
+        fs_sched.schedule              = m_config.fs_fiber_schedule.value;
+        fs_sched.mode                  = m_config.fs_fiber_mode.value;
+        fs_sched.macro_layer_height_mm = m_config.fs_fiber_z_step.value;
+        fs_sched.band_z_min_mm         = m_config.fs_fiber_band_z_min.value;
+        fs_sched.band_z_max_mm         = m_config.fs_fiber_band_z_max.value;
+        if (m_config.fs_fiber_prime.value == FiberPrimeMode::fpmAlways ||
+            Fiber::print_carries_fiber(print, fs_sched)) {
+            // Front-left of the bed, clear of the part: sacrificial material goes where the
+            // operator expects it, not under the print. The line runs along +X.
+            std::string fs_prime_err;
+            // The wrap is mandatory here, unlike elsewhere: the preamble's tool context is
+            // the plastic head, so an unwrapped block would put U/V moves on T1 (contract
+            // s2). The shipped CF profiles wrap; without it there is nothing to prime on.
+            if (!m_config.fs_t0_wrap.value)
+                fs_prime_err = "Tool-wrap fiber windows is off, so the composite head cannot be selected from the start g-code";
+            const Points& bed_pts = m_config.printable_area.values;
+            if (fs_prime_err.empty() && bed_pts.empty()) {
+                fs_prime_err = "no printable area to place the priming line on";
+            } else if (fs_prime_err.empty()) {
+                Vec2d bed_min = Vec2d::Constant(std::numeric_limits<double>::infinity());
+                for (const Point& p : bed_pts)
+                    bed_min = bed_min.cwiseMin(unscaled(p));
+                const double fs_margin = 10.0;
+                const double fs_x0     = bed_min.x() + fs_margin;
+                const double fs_y0     = bed_min.y() + fs_margin;
+                Fiber::FiberPrimeLine fs_line;
+                if (Fiber::plan_fiber_prime_line({fs_x0, fs_y0},
+                                                 {fs_x0 + m_config.fs_fiber_prime_length.value, fs_y0},
+                                                 fs_first_print_z(print, m_config), 1,
+                                                 m_config.fs_matrix_ratio.value, m_config.fs_fiber_rate.value,
+                                                 m_config.fs_deposit_feed.value, m_config.fs_tail_length.value,
+                                                 fs_line, &fs_prime_err)) {
+                    Fiber::FiberEmitParams fs_ep;
+                    fs_ep.restart_feed_mm = m_config.fs_restart_feed.value;
+                    fs_ep.restart_z_mm    = m_config.fs_restart_z_hop.value;
+                    fs_ep.prime_v_mm      = m_config.fs_prime_v.value;
+                    fs_ep.retract_v_mm    = m_config.fs_retract_v.value;
+                    std::string fs_prime;
+                    if (Fiber::emit_fiber_prime_line(fs_line, fs_ep, m_config.fs_t0_wrap.value, fs_prime, &fs_prime_err)) {
+                        // The preheat M104 above only asked for temperature; the priming line
+                        // is the first material the composite head lays, so it waits for the
+                        // nozzle to get there and consumes the single M109 that the layer loop
+                        // would otherwise emit before the first T0 selection.
+                        if (m_config.fs_t0_temp.value > 0 && !m_fs_t0_hot) {
+                            file.write_format("M109 S%d T0\n", m_config.fs_t0_temp.value);
+                            m_fs_t0_hot = true;
+                        }
+                        file.write(fs_prime);
+                        // The priming window moved the tool outside the writer's knowledge.
+                        m_writer.set_current_position_clear(false);
+                        m_last_pos_defined = false;
+                    }
+                }
+            }
+            // A plate that asked to be primed and was not is reported in the G-code rather
+            // than swallowed, and does not abort the print: the usual cause is a line no
+            // longer than the cut tail, which the operator fixes by lengthening it.
+            if (!fs_prime_err.empty())
+                file.write_format("; FIBER PRIME: %s\n", fs_prime_err.c_str());
+        }
     }
     // Mark the end of the machine start g-code so the GCodeProcessor usage-block builder knows where user
     // g-code ends and can start attributing filament/extruder usage. Gated on enable_pre_heating: only the
@@ -5980,56 +6072,43 @@ LayerResult GCode::process_layer(
     // even when the capability flag is on; walls/solid drive interior fill.
     const bool fs_mode_wants_fiber = m_config.fs_fiber_mode.value != FiberMode::fmPlasticOnly;
     if (object_layer != nullptr && m_config.fs_fiber_enabled.value && fs_mode_wants_fiber) {
-        // Fiber layer schedule (fs_fiber_schedule): every_layer (default) reproduces previous output
-        // byte-for-byte; band confines fiber to layers inside [fs_fiber_band_z_min, fs_fiber_band_z_max]
-        // measured from the object bottom, landing on fs_fiber_z_step boundaries (the reference machine
-        // reinforces a stress zone instead of every layer). Unscheduled layers emit no fiber and
-        // enforcement is inert there - a scheduled-out layer is not a coverage failure.
-        // macro_layer additionally recognises that the composite bead is TALLER
-        // than a plastic layer (vendor MacroLayerHeight 0.24 against 0.12 mm
-        // plastic layers): plastic layers are grouped into macro layers one bead
-        // tall and only the layer that closes a macro layer carries fiber, so
-        // consecutive fiber beads do not have to share the same Z gap.
-        bool fs_scheduled = true;
-        const FiberSchedule fs_sched = m_config.fs_fiber_schedule.value;
-        const double        fs_macro_h = m_config.fs_fiber_z_step.value;
-        if (fs_sched == FiberSchedule::fsBand) {
-            const double z_bottom = object_layer->object()->get_layer(0)->print_z;
-            const double rel      = print_z - z_bottom;
-            const double tol      = 0.5 * object_layer->height + EPSILON;
-            const bool   in_band  = rel >= m_config.fs_fiber_band_z_min.value - tol &&
-                                    rel <= m_config.fs_fiber_band_z_max.value + tol;
-            const bool   on_step  = std::fabs(rel - std::lround(rel / fs_macro_h) * fs_macro_h) <= tol;
-            fs_scheduled          = in_band && on_step;
-        }
-        else if (fs_sched == FiberSchedule::fsMacroLayer) {
-            // Counted in plastic layers rather than matched on Z: a macro layer
-            // is however many plastic layers fill one composite bead, and only
-            // the layer that closes it carries fiber. Counting keeps the choice
-            // deterministic and exactly periodic, which a Z-proximity test is
-            // not when the bead height is not a multiple of the layer height.
-            const double h = object_layer->height;
-            const size_t n = h > 0.0 ? size_t(std::max(1.0, std::round(fs_macro_h / h))) : 1;
-            fs_scheduled   = object_layer->id() % n == 0;
+        // Fiber layer schedule (fs_fiber_schedule), decided by the one producer
+        // Fiber::fiber_layer_scheduled - the same call the composite-priming
+        // decision makes before the plate starts, so the priming line can never
+        // disagree with the export about whether this print carries fiber.
+        // every_layer (default) reproduces previous output byte-for-byte; band
+        // confines fiber to layers inside [fs_fiber_band_z_min, fs_fiber_band_z_max]
+        // measured from the object bottom, landing on fs_fiber_z_step boundaries
+        // (the reference machine reinforces a stress zone instead of every layer).
+        // Unscheduled layers emit no fiber and enforcement is inert there - a
+        // scheduled-out layer is not a coverage failure. macro_layer additionally
+        // recognises that the composite bead is TALLER than a plastic layer
+        // (vendor MacroLayerHeight 0.24 against 0.12 mm plastic layers): plastic
+        // layers are grouped into macro layers one bead tall and only the layer
+        // that closes a macro layer carries fiber, so consecutive fiber beads do
+        // not have to share the same Z gap.
+        Fiber::FiberScheduleParams fs_sched;
+        fs_sched.schedule              = m_config.fs_fiber_schedule.value;
+        fs_sched.mode                  = m_config.fs_fiber_mode.value;
+        fs_sched.macro_layer_height_mm = m_config.fs_fiber_z_step.value;
+        fs_sched.band_z_min_mm         = m_config.fs_fiber_band_z_min.value;
+        fs_sched.band_z_max_mm         = m_config.fs_fiber_band_z_max.value;
+        const bool fs_scheduled = Fiber::fiber_layer_scheduled(fs_sched, object_layer->id(), print_z,
+            object_layer->height, object_layer->upper_layer == nullptr,
+            object_layer->object()->get_layer(0)->print_z);
+        if (fs_sched.schedule == FiberSchedule::fsMacroLayer) {
             // The operator has to SEE a bead height that no whole number of
             // plastic layers fills, rather than infer it from the layer count:
             // the reference machine pairs 0.12 mm layers into a 0.24 mm macro
             // layer, and at a layer height that does not divide the bead the
             // fiber beads cannot sit flush.
-            if (fs_scheduled && h > 0.0 && std::fabs(double(n) * h - fs_macro_h) > EPSILON)
-                fs_macro_note = "; FIBER MACRO LAYER: bead " + float_to_string_decimal_point(fs_macro_h, 3) +
+            const double h = object_layer->height;
+            const size_t n = Fiber::fiber_macro_layer_plastic_layers(fs_sched.macro_layer_height_mm, h);
+            if (fs_scheduled && h > 0.0 && std::fabs(double(n) * h - fs_sched.macro_layer_height_mm) > EPSILON)
+                fs_macro_note = "; FIBER MACRO LAYER: bead " + float_to_string_decimal_point(fs_sched.macro_layer_height_mm, 3) +
                     " mm is not a whole number of " + float_to_string_decimal_point(h, 3) +
                     " mm plastic layers; using " + std::to_string(n) + " layers = " +
                     float_to_string_decimal_point(double(n) * h, 3) + " mm\n";
-        }
-        // Walls (Reinforced) and Off: a plastic-only first layer and last
-        // layer so the bed and the top skin stay FFF. Solid (Fortified) is
-        // allowed to put fiber on those layers.
-        if (fs_scheduled && m_config.fs_fiber_mode.value != FiberMode::fmSolid) {
-            if (object_layer->id() == 0)
-                fs_scheduled = false;
-            else if (object_layer->upper_layer == nullptr)
-                fs_scheduled = false;
         }
         fs_do_fiber = fs_scheduled;
         if (fs_scheduled) {
@@ -7598,6 +7677,7 @@ void GCode::append_full_config(const Print &print, std::string &str)
         "fs_retract_v"sv, "fs_fiber_rate"sv, "fs_matrix_ratio"sv, "fs_deposit_feed"sv,
         "fs_rectify_enabled"sv, "fs_rectify_angle"sv, "fs_rectify_spacing"sv, "fs_rectify_min_seg"sv,
         "fs_t0_wrap"sv, "fs_fiber_nozzle_diameter"sv,
+        "fs_fiber_prime"sv, "fs_fiber_prime_length"sv,
         "fs_fill_min_wall_width"sv, "fs_fill_min_area"sv, "fs_fiber_schedule"sv, "fs_fiber_band_z_min"sv,
         "fs_fiber_band_z_max"sv, "fs_fiber_z_step"sv,
         "fs_fiber_wall_loops"sv, "fs_fiber_wall_pitch"sv,

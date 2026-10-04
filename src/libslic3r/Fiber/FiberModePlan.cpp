@@ -5,12 +5,16 @@
 
 #include "FiberModePlan.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
+#include "../Layer.hpp"
+#include "../Print.hpp" // Print, PrintObject, Layer lists
+#include "../libslic3r.h" // EPSILON
+
 namespace Slic3r {
 namespace Fiber {
-
 std::vector<double> parse_fiber_angle_list(const std::string& spec)
 {
     std::vector<double> out;
@@ -100,6 +104,75 @@ FiberModeLayer resolve_fiber_mode_layer(FiberMode mode, FiberInfillPattern patte
         out.fill_angle_deg = std::isfinite(a) ? a : 0.0;
     }
     return out;
+}
+
+size_t fiber_macro_layer_plastic_layers(double macro_layer_height_mm, double plastic_layer_height_mm)
+{
+    // Counted in plastic layers rather than matched on Z: a macro layer is
+    // however many plastic layers fill one composite bead. Counting keeps the
+    // choice deterministic and exactly periodic, which a Z-proximity test is
+    // not when the bead height is not a multiple of the layer height.
+    if (!(macro_layer_height_mm > 0.0) || !std::isfinite(macro_layer_height_mm) ||
+        !(plastic_layer_height_mm > 0.0) || !std::isfinite(plastic_layer_height_mm))
+        return 1;
+    return size_t(std::max(1.0, std::round(macro_layer_height_mm / plastic_layer_height_mm)));
+}
+
+bool fiber_layer_scheduled(const FiberScheduleParams& sched, size_t layer_id, double print_z,
+                           double height, bool is_last_layer, double z_bottom)
+{
+    // plastic_only suppresses fiber even with the capability on.
+    if (sched.mode == FiberMode::fmPlasticOnly)
+        return false;
+
+    bool scheduled = true;
+    if (sched.schedule == FiberSchedule::fsBand) {
+        const double tol = 0.5 * height + EPSILON;
+        const double rel = print_z - z_bottom;
+        const bool   in_band = rel >= sched.band_z_min_mm - tol && rel <= sched.band_z_max_mm + tol;
+        // A bead height that is not a positive finite number puts nothing on a
+        // step, which is what the reference arithmetic also evaluates to.
+        const bool   step_ok   = sched.macro_layer_height_mm > 0.0 && std::isfinite(sched.macro_layer_height_mm);
+        const bool   on_step   = step_ok &&
+                                 std::fabs(rel - std::lround(rel / sched.macro_layer_height_mm) * sched.macro_layer_height_mm) <= tol;
+        scheduled              = in_band && on_step;
+    }
+    else if (sched.schedule == FiberSchedule::fsMacroLayer) {
+        // Only the layer that closes a macro layer carries fiber, so consecutive
+        // fiber beads do not have to share the same Z gap.
+        scheduled = layer_id % fiber_macro_layer_plastic_layers(sched.macro_layer_height_mm, height) == 0;
+    }
+
+    // Walls (Reinforced) and Off: a plastic-only first layer and last layer so
+    // the bed and the top skin stay FFF. Solid (Fortified) is allowed to put
+    // fiber on those layers.
+    if (scheduled && sched.mode != FiberMode::fmSolid && (layer_id == 0 || is_last_layer))
+        scheduled = false;
+    return scheduled;
+}
+
+const Layer* first_fiber_layer(const PrintObject& object, const FiberScheduleParams& sched)
+{
+    const ConstLayerPtrsAdaptor layers = object.layers();
+    if (layers.empty())
+        return nullptr;
+    // The band schedule measures from the object's own bottom, as the exporter
+    // does (its z_bottom is object layer 0 print_z).
+    const double z_bottom = layers[0]->print_z;
+    for (size_t i = 0; i < layers.size(); ++i) {
+        const Layer* l = layers[i];
+        if (fiber_layer_scheduled(sched, l->id(), l->print_z, l->height, l->upper_layer == nullptr, z_bottom))
+            return l;
+    }
+    return nullptr;
+}
+
+bool print_carries_fiber(const Print& print, const FiberScheduleParams& sched)
+{
+    for (const PrintObject* object : print.objects())
+        if (object != nullptr && first_fiber_layer(*object, sched) != nullptr)
+            return true;
+    return false;
 }
 
 } // namespace Fiber

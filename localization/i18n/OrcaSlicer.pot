@@ -14637,6 +14637,27 @@ msgstr ""
 msgid "Wrap emitted fiber windows in T0/T1 tool changes around the reference machine macro dialect. Requires the machine macros to own tool offsets and dock motion."
 msgstr ""
 
+msgid "Prime composite head"
+msgstr ""
+
+msgid "Lay a sacrificial composite line on bare bed to charge the fiber head before the first fiber window of a plate. Never: no priming line is emitted. Always: prime every plate with continuous-fiber capability. When the print has continuous fiber: prime only a plate that actually lays fiber. Requires Continuous fiber capability and Tool-wrap fiber windows."
+msgstr ""
+
+msgid "Never"
+msgstr ""
+
+msgid "Always"
+msgstr ""
+
+msgid "When the print has continuous fiber"
+msgstr ""
+
+msgid "Composite priming line length"
+msgstr ""
+
+msgid "XY length of the sacrificial composite priming line, mm. It must exceed the fiber cut tail, because a composite window deposits a body before the cut as well as the severed tail after it; a line no longer than the tail is refused rather than shortened."
+msgstr ""
+
 msgid "Fiber nozzle diameter"
 msgstr ""
 

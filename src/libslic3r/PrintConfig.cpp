@@ -658,10 +658,18 @@ static const t_config_enum_values s_keys_map_FiberSchedule = {
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(FiberSchedule)
 
+// FibreSeeker3 composite-head priming keys. Serialized keys are stable; the
+// default "never" is what keeps a plastic-only plate byte-identical.
+static const t_config_enum_values s_keys_map_FiberPrimeMode = {
+    { "never",       int(FiberPrimeMode::fpmNever) },
+    { "always",      int(FiberPrimeMode::fpmAlways) },
+    { "when_fiber",  int(FiberPrimeMode::fpmWhenFiber) }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(FiberPrimeMode)
+
 // FibreSeeker3 composite-band reservation modes (R2.1). Serialized keys are
 // stable; "off" must never be interpreted as "geometry reservation passed".
-static const t_config_enum_values s_keys_map_FiberReserveMode = {
-    { "off",        int(FiberReserveMode::frmOff) },
+static const t_config_enum_values s_keys_map_FiberReserveMode = {    { "off",        int(FiberReserveMode::frmOff) },
     { "outer_wall", int(FiberReserveMode::frmOuterWall) },
     { "band",       int(FiberReserveMode::frmBand) }
 };
@@ -4538,6 +4546,30 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Wrap emitted fiber windows in T0/T1 tool changes around the reference machine macro dialect. Requires the machine macros to own tool offsets and dock motion.");
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionBool(false));
+
+    // Composite-head priming. Off by default: a priming line is sacrificial
+    // material, so a plate that lays no fiber must not pay for one, and the
+    // default keeps such a plate byte-identical to a plain FFF slice.
+    def = this->add("fs_fiber_prime", coEnum);
+    def->label = L("Prime composite head");
+    def->tooltip = L("Lay a sacrificial composite line on bare bed to charge the fiber head before the first fiber window of a plate. Never: no priming line is emitted. Always: prime every plate with continuous-fiber capability. When the print has continuous fiber: prime only a plate that actually lays fiber. Requires Continuous fiber capability and Tool-wrap fiber windows.");
+    def->mode = comExpert;
+    def->enum_keys_map = &ConfigOptionEnum<FiberPrimeMode>::get_enum_values();
+    def->enum_values.push_back("never");
+    def->enum_values.push_back("always");
+    def->enum_values.push_back("when_fiber");
+    def->enum_labels.push_back(L("Never"));
+    def->enum_labels.push_back(L("Always"));
+    def->enum_labels.push_back(L("When the print has continuous fiber"));
+    def->set_default_value(new ConfigOptionEnum<FiberPrimeMode>(FiberPrimeMode::fpmNever));
+
+    def = this->add("fs_fiber_prime_length", coFloat);
+    def->label = L("Composite priming line length");
+    def->tooltip = L("XY length of the sacrificial composite priming line, mm. It must exceed the fiber cut tail, because a composite window deposits a body before the cut as well as the severed tail after it; a line no longer than the tail is refused rather than shortened.");
+    def->sidetext = L("mm");
+    def->min = 1;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(80));
 
     def = this->add("fs_fiber_nozzle_diameter", coFloat);
     def->label = L("Fiber nozzle diameter");

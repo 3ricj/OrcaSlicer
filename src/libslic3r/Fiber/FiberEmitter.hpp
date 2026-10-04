@@ -17,10 +17,14 @@
 //   G1 F<f> V-<retract>         V-only retract (U is never negative)
 //   Z lift, then M1002          close window
 //
+// The same file renders the composite priming line (emit_fiber_prime_line): a
+// sacrificial strand laid on bare bed, so the composite head is charged before
+// the first strand of the plate. It is a real strand lifecycle, cut included.
+//
 // Numeric constants come from FiberEmitParams, filled from fs_* keys at the
 // G-code call site. The emitter is pure: it never emits tool changes or
-// dock/brush moves.
-
+// dock/brush moves, except the optional T0/T1 bracket of the priming line,
+// which the caller asks for explicitly.
 #pragma once
 
 #include <string>
@@ -79,6 +83,51 @@ double zone_feed_mm_min(const FiberEmitParams& params, double dist_mm, double to
 // params.tail_length_mm is ignored - the strand carries its own calibrated
 // tail_length_mm. Returns false with `error` set and nothing partial produced.
 bool emit_strand(const FiberStrand& strand, const FiberEmitParams& params, std::string& out, std::string* error = nullptr);
+
+// Composite-head priming (fs_fiber_prime): the composite head is charged by
+// laying one sacrificial strand on bare bed before the plate's real deposition
+// starts. It is deliberately a real FiberStrand rather than a bespoke block:
+// the dialect requires every M1001 window to contain a cut, and the strand
+// model is the only producer of that shape, so a priming line is a straight
+// two-point strand laid off the part. Same restart, same matrix prime, same
+// joint deposits, same cut and tail, same budget accounting - nothing new for
+// the firmware or the validator to learn.
+//
+// Placement and mode are the caller's; this is the plan + emission of the line.
+struct FiberPrimeLine
+{
+    FiberPoint from;            // line start, absolute bed mm
+    FiberPoint to;              // line end; |to - from| is the line length
+    double     z = 0.0;         // deposit Z
+    size_t     layer_id = 1;    // layer id carried by the window's marker
+    double     ratio_p = 0.0;   // plate's matrix:fiber ratio
+    double     fiber_rate = 0.0;// plate's fiber feed per mm of path
+    double     feed_mm_min = 0.0; // plate's deposit feedrate
+    double     tail_length_mm = 0.0; // plate's calibrated tail
+};
+
+// Validates a priming line and fills `out`. Pure and total: returns false with
+// `error` set when the line cannot become a strand - non-finite geometry, a
+// non-positive ratio / rate / feed / tail, or a line shorter than the calibrated
+// tail. The last rule is the physical one: a strand must carry a body before the
+// cut as well as the severed tail after it, so a priming line has to be longer
+// than fs_tail_length. Everything past that is left to FiberStrand::finalize,
+// whose error is surfaced by emit_fiber_prime_line rather than duplicated here.
+bool plan_fiber_prime_line(const FiberPoint& from, const FiberPoint& to, double z, size_t layer_id,
+                           double ratio_p, double fiber_rate, double feed_mm_min,
+                           double tail_length_mm, FiberPrimeLine& out, std::string* error = nullptr);
+
+// Emits a priming line as the full strand lifecycle (window, restart, matrix
+// prime, joint deposits, cut, tail, retract, close) using `params` for the
+// machine-side constants, so the priming window is indistinguishable from a
+// strand window except for where it lies.
+//
+// `tool_wrap` brackets the block in the machine-dialect T0/T1 tool changes
+// (fs_t0_wrap): the plate preamble runs on the plastic head and this firmware
+// does not carry a tool context across plain moves, so the block has to select
+// and release the composite head itself.
+bool emit_fiber_prime_line(const FiberPrimeLine& line, const FiberEmitParams& params,
+                           bool tool_wrap, std::string& out, std::string* error = nullptr);
 
 // Enforcement policy for fs_fiber_enforce. Returns a human-readable violation
 // when an enforced slice must fail for this layer, or empty when acceptable.
