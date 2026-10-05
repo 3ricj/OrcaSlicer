@@ -60,6 +60,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -313,6 +314,24 @@ bool plan_fiber_release(const std::vector<FiberPoint>& pts,
                         ReleasePlan& out,
                         std::string* error);
 
+// Plans the forward dry release directly off a finalized CLOSED strand.
+//
+// The release is the first R mm of the strand's own path, retraced forward over
+// material the strand deposits at its opening, so support is guaranteed by
+// construction and no deposited-footprint oracle is required. The run carrying
+// the release must still qualify (anchor + R + 0.02 mm, heading spread <= 2 deg,
+// deviation <= 0.05 mm); when it does not, the plan comes back invalid with
+// FS_RELEASE_UNSUPPORTED rather than as a shortened release.
+//
+// Choosing the LONGEST qualifying run as the seam has to happen before
+// finalize(), because a finalized strand is immutable and may not be reordered.
+// This is the emission-side half: it does not move the seam, it decides whether
+// a release may be emitted at the seam the planner already committed to.
+bool plan_closed_strand_release(const class FiberStrand& strand,
+                                const TailReleaseParams& p,
+                                ReleasePlan& out,
+                                std::string* error = nullptr);
+
 // ---------------------------------------------------------------------------
 // Emission of the dry release moves
 // ---------------------------------------------------------------------------
@@ -478,6 +497,109 @@ std::string evidence_to_json(const TailReleaseEvidence& e);
 // export verification from physical print results).
 std::string evidence_manifest_to_json(const std::vector<TailReleaseEvidence>& records,
                                       const std::string& variant_name);
+
+// ---------------------------------------------------------------------------
+// Exporter glue: the two things the call site needs per fibre window
+// ---------------------------------------------------------------------------
+//
+// Both live here rather than inline in GCode.cpp for one reason: this module is
+// stdlib-only and is compiled and unit-tested on its own, while GCode.cpp needs
+// the whole dependency tree. Putting the call-site logic here means the numbers
+// the exporter actually uses are the numbers the tests pin.
+//
+// Forward declarations: FiberEmitter.hpp includes this header, so including it
+// back would close a cycle.
+class FiberStrand;
+struct FiberEmitParams;
+
+// The tail margin M applied to one strand, as a copy with its nominal tail
+// shortened by M.
+//
+// The strand carries its own tail length and finalize() cuts at
+// total_path - tail_length, so subtracting M from the tail is exactly what
+// moves the blade M mm EARLIER: the severed tail becomes T+M of path, which is
+// the post-cut deposition the spec asks for, while the strand endpoint is
+// untouched. The copy is re-finalized rather than the original mutated, so the
+// caller's planning result stays valid for the evidence record.
+//
+// Returns false, leaving `out` untouched, when the strand cannot carry the
+// margin (S <= T + M leaves no body). The caller then emits the strand
+// unshifted and surfaces the failure instead of silently shortening the tail.
+bool apply_tail_margin(const FiberStrand& strand,
+                       double margin_mm,
+                       FiberStrand& out,
+                       std::string* error = nullptr);
+
+// Builds the nominal MotionBlock list for one emitted fibre window: the
+// activation the preheat clock reasons about. The blocks mirror emit_strand()
+// move for move - window open and the macro-layer comment are Macros, the Z/XY
+// approach moves are Linear, the restart U and the V prime are Stationary,
+// every body and tail deposit is a Deposit at its zone feedrate, M2800/M400 and
+// the cut-boundary handshake are Macros (zero by contract), the V retract and Z
+// lift are Stationary, and a release path contributes one Linear block per
+// segment.
+//
+// This is what plan_tool_preheat() consumes. Tool-change blocks are the caller's
+// to supply, since those are owned by FiberToolChange.
+//
+// `from_xy`, when non-null, is the position the head actually arrives from (the
+// previous window's endpoint, which the call site knows and emit_strand() does
+// not). With it the approach travel is measured; without it the block is
+// recorded with zero path, which under-estimates rather than invents.
+std::vector<MotionBlock> strand_activation_blocks(const FiberStrand& strand,
+                                                  const FiberEmitParams& params,
+                                                  const ReleasePlan* release,
+                                                  const FiberPoint* from_xy = nullptr);
+
+// Reads the nominal block list straight out of already-emitted G-code.
+//
+// This is what makes the preheat lead real at the call site: the outgoing
+// activation for a plastic -> fibre switch is the plastic content the exporter
+// has already written for this layer, and by the time the fibre block is
+// appended that content exists only as a string. Rather than invent a duration,
+// the caller hands that string over and gets back the same MotionBlock list the
+// clock is defined over: G1 moves with material become Deposits, XY-only moves
+// become Linear, single-axis material moves become Stationary, G4 becomes a
+// Dwell, M109/M190/M191 become TempWait and everything else opaque becomes a
+// Macro. Comments and unknown words contribute nothing.
+//
+// The reader is deliberately conservative: a block whose feed is missing or
+// non-positive yields zero seconds rather than a guessed one, so an unreadable
+// export under-estimates the lead instead of over-estimating it.
+//
+// `initial_z` / `initial_xy` let the caller supply what the text cannot carry:
+// the layer Z and the position the head arrives from. Without them the first Z
+// move and the first XY move have no known predecessor and are timed as zero.
+std::vector<MotionBlock> blocks_from_gcode(const std::string& gcode,
+                                           double initial_z = std::nan(""),
+                                           const FiberPoint* initial_xy = nullptr,
+                                           std::vector<size_t>* line_offsets = nullptr);
+
+// The whole preheat ordering operation for one plastic -> fibre switch, in one
+// call, so the call site has nothing left to get wrong.
+//
+// Reads the already-emitted outgoing (plastic) content as the activation the
+// clock runs over, schedules the nonblocking M104 for the incoming head at
+// `lead_s` before that activation's nominal end, and splices the command into
+// the text at the line the scheduler picked. The splice never splits a line and
+// never reorders a command: the M104 goes immediately BEFORE the line the block
+// index names, which is exactly the "insert before this block" contract
+// plan_tool_preheat() documents.
+//
+// The blocking readiness M109 is NOT emitted here and NOT moved: it stays where
+// FiberToolChange puts it at the station, which is the station-only-wait rule.
+// This function only adds the predictive, nonblocking lead.
+//
+// Returns the rewritten text and fills `plan`. When the lead cannot be placed
+// (no outgoing content at all) the input is returned unchanged and the plan
+// carries the finding, so the caller never has to guess whether it was applied.
+std::string schedule_preheat_into_plastic(const std::string& outgoing_plastic_gcode,
+                                          int incoming_tool,
+                                          int incoming_target_c,
+                                          double lead_s,
+                                          PreheatPlan& plan,
+                                          double initial_z = std::nan(""),
+                                          const FiberPoint* initial_xy = nullptr);
 
 } // namespace Fiber
 } // namespace Slic3r

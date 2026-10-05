@@ -170,6 +170,11 @@ bool emit_strand(const FiberStrand& strand, const FiberEmitParams& params, std::
 
     // 8. Release at the strand ENDPOINT: V-only retract, Z lift, close window.
     s += "G1 F" + fmt("%.0f", params.retract_f) + " V-" + fmt("%.3f", FiberRun::round3(params.retract_v_mm)) + " ; Retract\n";
+    // Forward dry release, between the tail retract and the Z lift. The block
+    // carries XY and F only: no U, no V, no E, no Z. It deposits nothing, so it
+    // reserves nothing and never claims a measured clearance.
+    if (params.release != nullptr && params.release->valid && !params.release->path.empty())
+        s += emit_fiber_release(*params.release);
     s += "G1 F" + fmt("%.0f", params.lift_f) + " Z" + fmt("%.2f", strand.z + params.lift_z_mm) + "\n";
     s += "M1002\n";
 

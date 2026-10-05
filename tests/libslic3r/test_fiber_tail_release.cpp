@@ -22,6 +22,10 @@
 using Catch::Approx;
 
 #include "libslic3r/Fiber/FiberTailRelease.hpp"
+// The exporter glue takes a real strand and the real emission parameters, so
+// the glue tests below need both complete types.
+#include "libslic3r/Fiber/FiberEmitter.hpp"
+#include "libslic3r/Fiber/FiberStrand.hpp"
 
 #include <cmath>
 #include <string>
@@ -663,4 +667,331 @@ TEST_CASE("FiberTailRelease: degenerate geometry never crashes and never invents
     // A footprint of zero width is no footprint.
     CHECK(release_footprint(straight_100(), 0.0).empty());
     CHECK(release_footprint(straight_100(), 0.35).size() == 4);
+}
+
+// ---------------------------------------------------------------------------
+// Exporter glue: the margin shift and the activation-block builder
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// The worked 100 mm fixture as a real strand: straight along +X, cut at
+// 100 - 54.8 = 45.2 mm.
+FiberStrand strand_100(double tail_mm = 54.8)
+{
+    FiberStrand s;
+    s.layer_id       = 1;
+    s.z              = 0.2;
+    s.pts            = {FiberPoint{0.0, 0.0}, FiberPoint{100.0, 0.0}};
+    s.ratio_p        = 2.0;
+    s.fiber_rate     = 0.5;
+    s.feed_mm_min    = 1200.0;
+    s.tail_length_mm = tail_mm;
+    s.tail_v_factor  = 1.0;
+    return s;
+}
+
+bool ends_at(const FiberStrand& s, double x, double y)
+{
+    const FiberPoint& p = s.tail_pts.back();
+    return std::abs(p.x - x) < 1e-6 && std::abs(p.y - y) < 1e-6;
+}
+
+} // namespace
+
+TEST_CASE("FiberTailRelease: the margin moves the cut earlier and never the endpoint", "[Fiber][FiberTailRelease]")
+{
+    FiberStrand base = strand_100();
+    REQUIRE(base.finalize());
+    REQUIRE(!base.body_pts.empty());
+    // Baseline cut position, straight along +X so the x coordinate IS the arc length.
+    const double cut0 = base.body_pts.back().x;
+    CHECK(Approx(cut0).margin(1e-6) == 45.2);
+
+    // M = 0 is the feature off: the strand comes back as planned.
+    {
+        FiberStrand out;
+        REQUIRE(apply_tail_margin(base, 0.0, out));
+        CHECK(Approx(out.tail_length_mm).margin(1e-9) == 54.8);
+        CHECK(out.body_pts.size() == base.body_pts.size());
+        CHECK(Approx(out.body_pts.back().x).margin(1e-6) == cut0);
+    }
+
+    // M = 1 shifts the blade 1 mm earlier and leaves the endpoint alone.
+    {
+        FiberStrand out;
+        REQUIRE(apply_tail_margin(base, 1.0, out));
+        CHECK(Approx(out.tail_length_mm).margin(1e-9) == 53.8);
+        CHECK(Approx(out.body_pts.back().x).margin(1e-6) == 46.2);
+        CHECK(ends_at(out, 100.0, 0.0));
+        // The severed tail is now T + M of deposition, which is the point.
+        CHECK(Approx(out.tail_length_mm + 1.0).margin(1e-9) == 54.8);
+    }
+
+    // A margin the strand cannot carry is refused, not silently clamped.
+    {
+        FiberStrand out;
+        std::string err;
+        CHECK_FALSE(apply_tail_margin(base, 54.8, out, &err));
+        CHECK_FALSE(err.empty());
+        CHECK_FALSE(apply_tail_margin(base, 60.0, out, &err));
+        CHECK_FALSE(apply_tail_margin(base, std::nan(""), out, &err));
+    }
+
+    // The original is never mutated: the caller still needs it for the record.
+    CHECK(Approx(base.tail_length_mm).margin(1e-9) == 54.8);
+    CHECK(Approx(base.body_pts.back().x).margin(1e-6) == 45.2);
+}
+
+TEST_CASE("FiberTailRelease: activation blocks mirror the emitted window", "[Fiber][FiberTailRelease]")
+{
+    FiberStrand s = strand_100();
+    REQUIRE(s.finalize());
+
+    FiberEmitParams ep;
+    const auto blocks = strand_activation_blocks(s, ep, nullptr);
+    REQUIRE(!blocks.empty());
+
+    size_t deposits = 0, macros = 0, stationary = 0, linear = 0;
+    for (const MotionBlock& b : blocks) {
+        switch (b.kind) {
+        case MotionBlock::Kind::Deposit:    ++deposits;   break;
+        case MotionBlock::Kind::Macro:      ++macros;     break;
+        case MotionBlock::Kind::Stationary: ++stationary; break;
+        default:                            ++linear;     break;
+        }
+    }
+    // One Deposit block per emitted material move, body and tail alike.
+    CHECK(deposits == s.body_u.size() + s.tail_v.size());
+    // The clock cannot model the cutter, the handshake or the window markers,
+    // and they contribute nothing: that is the contract, not an omission.
+    CHECK(macros > 0);
+    for (const MotionBlock& b : blocks)
+        if (b.kind == MotionBlock::Kind::Macro)
+            CHECK(Approx(motion_block_nominal_seconds(b)).margin(1e-12) == 0.0);
+    CHECK(stationary >= 2); // restart U, V prime, V retract
+    CHECK(linear >= 3);     // Z up, XY approach, Z down, Z lift
+
+    // The deposited path the clock sees equals the strand's own printed length.
+    double deposited = 0.0;
+    for (const MotionBlock& b : blocks)
+        if (b.kind == MotionBlock::Kind::Deposit)
+            deposited += b.path_mm;
+    CHECK(Approx(deposited).margin(1e-6) == s.total_path);
+
+    // Nominal duration is positive and finite: the preheat scheduler needs a
+    // real endpoint to place the lead against.
+    const double secs = nominal_activation_seconds(blocks);
+    CHECK(secs > 0.0);
+    CHECK(std::isfinite(secs));
+
+    // An unfinalized strand yields no blocks rather than a plausible-looking lie.
+    FiberStrand raw = strand_100();
+    CHECK(strand_activation_blocks(raw, ep, nullptr).empty());
+}
+
+TEST_CASE("FiberTailRelease: a release adds its own blocks and its own time", "[Fiber][FiberTailRelease]")
+{
+    FiberStrand s = strand_100();
+    REQUIRE(s.finalize());
+
+    TailReleaseParams p = params_b();
+    p.release_mm = 6.8;
+    ReleasePlan plan;
+    std::string perr;
+    RectSupport everywhere(-100.0, -100.0, 200.0, 200.0);
+    REQUIRE(plan_fiber_release(s.pts, false, s.z, p, &everywhere, plan, &perr));
+    REQUIRE(plan.valid);
+
+    FiberEmitParams ep;
+    const double without = nominal_activation_seconds(strand_activation_blocks(s, ep, nullptr));
+    const double with    = nominal_activation_seconds(strand_activation_blocks(s, ep, &plan));
+
+    // The dry move is real time the preheat clock has to account for, and it is
+    // exactly the planned length at the release feedrate.
+    CHECK(with > without);
+    CHECK(Approx(with - without).margin(1e-6) ==
+          plan.planned_mm / (plan.f_mm_min / 60.0));
+
+    // Emission puts the block inside the window, between the retract and the
+    // Z lift, and the moves carry XY and F only.
+    ep.release = &plan;
+    std::string g;
+    REQUIRE(emit_strand(s, ep, g));
+    const size_t begin = g.find("FS_RELEASE_BEGIN");
+    const size_t end   = g.find("FS_RELEASE_END");
+    const size_t cut   = g.find("; Retract");
+    const size_t lift  = g.find("M1002");
+    REQUIRE(begin != std::string::npos);
+    REQUIRE(end != std::string::npos);
+    CHECK(cut < begin);
+    CHECK(begin < end);
+    CHECK(end < lift);
+
+    // No material, no Z, no V inside the release block.
+    const std::string block = g.substr(begin, end - begin);
+    for (size_t i = block.find('\n'); i != std::string::npos; ) {
+        const size_t nl = block.find('\n', i + 1);
+        const std::string line = block.substr(i, nl == std::string::npos ? std::string::npos : nl - i);
+        if (line.rfind("G1 ", 0) == 0) {
+            CHECK(line.find('U') == std::string::npos);
+            CHECK(line.find('V') == std::string::npos);
+            CHECK(line.find('E') == std::string::npos);
+            CHECK(line.find('Z') == std::string::npos);
+        }
+        if (nl == std::string::npos)
+            break;
+        i = nl + 1;
+    }
+
+    // With the feature off the window is byte-identical to an untouched export.
+    FiberEmitParams off;
+    std::string g_off;
+    REQUIRE(emit_strand(s, off, g_off));
+    CHECK(g_off.find("FS_RELEASE_BEGIN") == std::string::npos);
+}
+
+TEST_CASE("FiberTailRelease: the gcode reader and the block builder agree on one window", "[Fiber][FiberTailRelease]")
+{
+    // Two independent paths to the same number: the structured builder mirrors
+    // emit_strand() block by block, the reader parses the emitted text back. If
+    // they disagree, one of them is lying about the clock, and the preheat lead
+    // is scheduled against that clock.
+    FiberStrand s = strand_100();
+    REQUIRE(s.finalize());
+
+    FiberEmitParams ep;
+    ep.start_speed_mm_s  = 20.0;
+    ep.start_length_mm   = 10.0;
+    ep.finish_speed_mm_s = 35.0;
+    ep.finish_length_mm  = 10.0;
+
+    std::string g;
+    REQUIRE(emit_strand(s, ep, g));
+
+    const double from_blocks = nominal_activation_seconds(strand_activation_blocks(s, ep, nullptr));
+    // The reader is told what the text cannot carry: the layer Z and the XY the
+    // head arrives from. Without those the first Z and XY moves have no known
+    // predecessor and are timed as zero, which is the conservative default.
+    const double from_text = nominal_activation_seconds(blocks_from_gcode(g, s.z, &s.pts.front()));
+
+    // Body/tail deposits and the stationary primes must agree to printed
+    // precision. The reader sees the printed F words; the builder computes the
+    // same zone feed, so any drift in the zone logic shows up here.
+    CHECK(from_blocks > 0.0);
+    CHECK(from_text > 0.0);
+    CHECK(Approx(from_text).margin(0.05) == from_blocks);
+
+    // A release adds the same time to both views.
+    TailReleaseParams p = params_b();
+    p.release_mm = 6.8;
+    ReleasePlan plan;
+    std::string perr;
+    RectSupport everywhere(-100.0, -100.0, 200.0, 200.0);
+    REQUIRE(plan_fiber_release(s.pts, false, s.z, p, &everywhere, plan, &perr));
+
+    ep.release = &plan;
+    std::string g_rel;
+    REQUIRE(emit_strand(s, ep, g_rel));
+    const double b_rel = nominal_activation_seconds(strand_activation_blocks(s, ep, &plan));
+    const double t_rel = nominal_activation_seconds(blocks_from_gcode(g_rel, s.z, &s.pts.front()));
+    CHECK(b_rel > from_blocks);
+    CHECK(t_rel > from_text);
+    CHECK(Approx(t_rel).margin(0.05) == b_rel);
+
+    // Temperature waits and macros cost nothing, so a slice that only contains
+    // them reads as zero seconds. That is the contract the spec pins.
+    const std::string thermal =
+        "M109 S270 T0\n"
+        "M104 S150 T1\n"
+        "M2800\n"
+        "M400\n"
+        "G4 P250\n";
+    const auto tb = blocks_from_gcode(thermal);
+    bool saw_dwell = false, saw_tempwait = false, saw_macro = false;
+    for (const MotionBlock& b : tb) {
+        if (b.kind == MotionBlock::Kind::Dwell)    { saw_dwell = true; CHECK(Approx(b.dwell_s).margin(1e-9) == 0.25); }
+        if (b.kind == MotionBlock::Kind::TempWait) { saw_tempwait = true; }
+        if (b.kind == MotionBlock::Kind::Macro)    { saw_macro = true; }
+    }
+    CHECK(saw_dwell);
+    CHECK(saw_tempwait);
+    CHECK(saw_macro);
+    // Only the dwell is time.
+    CHECK(Approx(nominal_activation_seconds(tb)).margin(1e-9) == 0.25);
+
+    // A move with no F word is not timed by guesswork.
+    const auto nof = blocks_from_gcode("G1 X10 Y10\n");
+    CHECK(Approx(nominal_activation_seconds(nof)).margin(1e-12) == 0.0);
+}
+
+TEST_CASE("FiberTailRelease: the preheat is spliced into the outgoing plastic content", "[Fiber][FiberTailRelease]")
+{
+    // A stand-in for the plastic content the exporter has already written for a
+    // layer: travel, deposits at a known feed, and a temperature wait that must
+    // NOT be what the lead is measured against.
+    const std::string plastic =
+        "; plastic layer starts\n"
+        "G1 F3000 X10 Y10\n"
+        "G1 F1200 X60 Y10 E2.5\n"
+        "G1 F1200 X60 Y60 E2.5\n"
+        "M109 S240 T1\n"
+        "G1 F1200 X110 Y60 E2.5\n"
+        "G1 F1200 X110 Y110 E2.5\n";
+
+    // F1200 is 20 mm/s, so each 50 mm deposit is 2.5 s: four deposits give 10 s
+    // nominal, and the M109 contributes nothing. The opening travel has no known
+    // predecessor, so it is timed as zero rather than invented.
+    PreheatPlan probe;
+    const std::string all = schedule_preheat_into_plastic(plastic, 0, 270, 0.0, probe, 0.0);
+    CHECK(Approx(probe.endpoint_s).margin(1e-6) == 10.0);
+    CHECK(all.find("M109") != std::string::npos);
+
+    // A 5 s lead lands 5 s before the end, i.e. before the second half of the
+    // layer's deposition.
+    PreheatPlan p5;
+    const std::string with5 = schedule_preheat_into_plastic(plastic, 0, 270, 5.0, p5, 0.0);
+    REQUIRE(p5.valid);
+    REQUIRE(p5.inserted);
+    CHECK(with5.size() > plastic.size());
+    CHECK(with5.find("M104 S270 T0 ; FS_PREHEAT next_tool=0 lead_s=5") != std::string::npos);
+
+    // The command went in BEFORE the line the scheduler named, and no existing
+    // line was reordered or split: dropping the inserted line must reproduce
+    // the original byte for byte.
+    const size_t at = with5.find("M104 S270");
+    REQUIRE(at != std::string::npos);
+    const size_t eol = with5.find('\n', at);
+    REQUIRE(eol != std::string::npos);
+    const std::string removed = with5.substr(0, at) + with5.substr(eol + 1);
+    CHECK(removed == plastic);
+
+    // The lead is measured against DEPOSITION, so the preheat must sit before
+    // the last two deposits, not after them.
+    const size_t last_deposit = with5.rfind("G1 F1200 X110 Y110");
+    CHECK(at < last_deposit);
+
+    // A lead longer than the activation clamps to the start of it: the command
+    // still appears, and the plan says it was clamped.
+    PreheatPlan big;
+    const std::string with_big = schedule_preheat_into_plastic(plastic, 0, 270, 999.0, big, 0.0);
+    CHECK(big.valid);
+    CHECK(big.clamped_to_activation);
+    CHECK(with_big.find("M104 S270") != std::string::npos);
+
+    // No target temperature means no heat command at all, and the text is
+    // returned untouched rather than half-edited.
+    PreheatPlan none;
+    const std::string unchanged = schedule_preheat_into_plastic(plastic, 0, 0, 5.0, none, 0.0);
+    CHECK_FALSE(none.valid);
+    CHECK(unchanged == plastic);
+    CHECK(unchanged.find("M104") == std::string::npos);
+
+    // Empty outgoing content: nothing to measure against, so the plan reports a
+    // zero lead and the caller's text is still not corrupted.
+    PreheatPlan empty;
+    const std::string out_empty = schedule_preheat_into_plastic("", 0, 270, 5.0, empty, 0.0);
+    CHECK(empty.valid);
+    CHECK(Approx(empty.nominal_lead_s).margin(1e-9) == 0.0);
+    CHECK(out_empty.find("M104 S270") != std::string::npos);
 }

@@ -17,6 +17,10 @@
 #include "Fiber/FiberReserve.hpp"
 #include "Fiber/FiberStrandPlanner.hpp"
 #include "Fiber/FiberToolChange.hpp"
+// Tail cut/margin, forward dry release, seam policy, preheat clock. Reached
+// through FiberEmitter.hpp today, included explicitly because the fiber
+// block below calls it directly.
+#include "Fiber/FiberTailRelease.hpp"
 #include "Geometry/ConvexHull.hpp"
 #include "GCode/PrintExtents.hpp"
 #include "GCode/Thumbnails.hpp"
@@ -7558,6 +7562,24 @@ LayerResult GCode::process_layer(
             gcode += "; FIBER RESERVE:" + fs_reserve_note + "\n";
         gcode += fs_macro_note;
         if (!fs_slres.strands.empty()) {
+            // Predictive preheat of the incoming head, scheduled BEFORE the switch
+            // and spliced into the plastic content already emitted for this layer.
+            // That content IS the outgoing activation, so the lead is measured
+            // against real planned deposition rather than a constant guess. The
+            // blocking readiness M109 stays exactly where FiberToolChange puts it
+            // at the station: this adds only the nonblocking M104 ahead of it,
+            // which is the station-only-wait rule.
+            if (m_config.fs_t0_temp.value > 0) {
+                Fiber::PreheatPlan fs_pp;
+                const std::string fs_plastic = gcode;
+                gcode = Fiber::schedule_preheat_into_plastic(fs_plastic, 0,
+                                                             m_config.fs_t0_temp.value,
+                                                             m_config.fs_tool_preheat_lead_s.value,
+                                                             fs_pp, print_z);
+                if (fs_pp.valid && fs_pp.inserted && fs_pp.clamped_to_activation &&
+                    m_config.fs_fiber_verbose_comments.value)
+                    gcode += "; FS_PREHEAT clamped to the outgoing activation\n";
+            }
             // Emit bare T0/T1: on this firmware the R parameter is dead (T0/T1 are "traditional"
             // commands, so extended params are not parsed and the macros read only RESTORE/
             // NO_OFFSET/MOVE_Z), and any non-empty rawparams additionally suppresses the T0
@@ -7664,16 +7686,83 @@ LayerResult GCode::process_layer(
                 gcode += "; MACROLAYER:" + std::to_string(s0.layer_id) + " [" +
                          Slic3r::float_to_string_decimal_point(s0.z, 2) + "]\n";
             }
-            for (const Fiber::FiberStrand& strand : fs_slres.strands) {
+            // Tail margin M and the forward dry release, resolved once per window.
+            // M shifts the blade earlier by re-finalizing a copy of the strand with
+            // a shorter nominal tail, so the severed tail becomes T+M of deposition
+            // and the strand endpoint - and therefore the part - is untouched. A
+            // strand that cannot carry the margin is emitted unshifted rather than
+            // silently shortened.
+            const double fs_margin = m_config.fs_fiber_tail_margin_mm.value;
+            const bool fs_want_release = m_config.fs_fiber_release_length_mm.value > 0.0;
+            Fiber::TailReleaseParams fs_trp;
+            fs_trp.nominal_tail_mm    = m_config.fs_tail_length.value;
+            fs_trp.margin_mm          = fs_margin;
+            fs_trp.release_mm         = m_config.fs_fiber_release_length_mm.value;
+            fs_trp.release_speed_mm_s = m_config.fs_fiber_release_speed_mm_s.value;
+            fs_trp.anchor_mm          = m_config.fs_fiber_release_anchor_mm.value;
+            // The ACTUAL composite bead width, not the plastic nozzle width: the
+            // support test buffers the dry path by half of this. Same resolution the
+            // bead-width laws use, recomputed because that binding is scoped tighter.
+            fs_trp.bead_width_mm      = m_config.fs_fiber_bead_width.value > 0.0 ?
+                                          m_config.fs_fiber_bead_width.value :
+                                          m_config.fs_fiber_nozzle_diameter.value;
+            std::string fs_trp_err;
+            const bool fs_trp_ok =
+                Fiber::validate_tail_release_params(fs_trp, &fs_trp_err);
+            if (!fs_trp_ok && (fs_want_release || fs_margin > 0.0))
+                BOOST_LOG_TRIVIAL(warning)
+                    << "FibreSeeker3: tail/release parameters rejected: " << fs_trp_err;
+            std::string fs_release_detail;
+            for (const Fiber::FiberStrand& strand_in : fs_slres.strands) {
+                // Margin, as a re-finalized copy. On failure the original stands.
+                Fiber::FiberStrand fs_shifted;
+                std::string fs_m_err;
+                const bool fs_m_ok = fs_margin > 0.0 && fs_trp_ok &&
+                    Fiber::apply_tail_margin(strand_in, fs_margin, fs_shifted, &fs_m_err);
+                if (fs_margin > 0.0 && !fs_m_ok && !fs_m_err.empty())
+                    fs_release_detail = fs_m_err;
+                const Fiber::FiberStrand& strand =
+                    fs_m_ok ? fs_shifted : strand_in;
+
+                // Release. Only a CLOSED strand is planned here: the dry move has to
+                // retrace material this same strand deposited at its opening, which
+                // makes support true by construction. An open strand would need the
+                // real deposited footprint of the layer, which this call site does
+                // not have, so it is refused rather than assumed supported - the
+                // spec's own rule, and why the analyzer reports NOT_EVALUATED.
+                Fiber::ReleasePlan fs_rel;
+                ep.release = nullptr;
+                if (fs_want_release && fs_trp_ok) {
+                    const Fiber::FiberPoint& fs_p0 = strand.pts.front();
+                    const Fiber::FiberPoint& fs_pn = strand.pts.back();
+                    const bool fs_closed =
+                        std::hypot(fs_pn.x - fs_p0.x, fs_pn.y - fs_p0.y) < 0.05;
+                    if (fs_closed) {
+                        std::string fs_r_err;
+                        if (!Fiber::plan_closed_strand_release(strand, fs_trp, fs_rel, &fs_r_err))
+                            fs_release_detail = fs_r_err;
+                        else if (fs_rel.valid && !fs_rel.path.empty())
+                            ep.release = &fs_rel;
+                    } else {
+                        fs_release_detail =
+                            "FS_RELEASE_UNSUPPORTED: open strand has no deposited-footprint oracle";
+                    }
+                }
+
                 ep.emit_layer_marker = !marker_done;
                 std::string fs_gcode;
                 if (Fiber::emit_strand(strand, ep, fs_gcode)) {
+
                     gcode += fs_gcode;
                     marker_done = true;
                 } else {
                     ++fs_emit_failed;
                 }
             }
+            if (!fs_release_detail.empty())
+                BOOST_LOG_TRIVIAL(warning)
+                    << "FibreSeeker3: tail/release not applied on at least one strand: "
+                    << fs_release_detail;
             if (m_config.fs_t0_wrap.value) {
                 gcode += Fiber::emit_toolchange_to_plastic(fs_tc);
                 // Full recovery of the outgoing withdrawal, emitted after T1 is

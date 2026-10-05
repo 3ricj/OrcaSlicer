@@ -32,6 +32,11 @@
 
 #include "FiberRun.hpp"
 #include "FiberStrand.hpp"
+// FiberTailRelease.hpp is included rather than forward-declared: the release
+// plan below is held by pointer, but emit_strand() calls emit_fiber_release()
+// on it, so the type must be complete here. Both TUs are stdlib-only, so this
+// adds no dependency to the fiber emission path.
+#include "FiberTailRelease.hpp"
 
 namespace Slic3r {
 namespace Fiber {
@@ -69,6 +74,14 @@ struct FiberEmitParams
     // Optional entity comments for preview tooling (fs_fiber_verbose_comments).
     // Off by default so the G-code stays lean.
     bool verbose_comments = false;
+    // Optional forward dry release (fs_fiber_release_length_mm). When present and
+    // non-empty the emitter inserts the release block AFTER the tail retract and
+    // BEFORE the Z lift, i.e. inside the M1001 window: the dry move happens at the
+    // deposition Z before anything lifts, and emitting it after M1002 would leave
+    // the firmware with unaccounted travel outside a closed window. Null means the
+    // feature is off, which is the default, so an untouched profile emits
+    // byte-identical output.
+    const ReleasePlan* release = nullptr;
 };
 
 double zone_feed_mm_min(const FiberEmitParams& params, double dist_mm, double total_mm, double fallback_f);

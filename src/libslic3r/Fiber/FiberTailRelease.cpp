@@ -1,10 +1,17 @@
 // License: GNU AGPLv3 or higher
 
 #include "FiberTailRelease.hpp"
+#include "FiberStrand.hpp"
+// FiberEmitter.hpp for FiberEmitParams + zone_feed_mm_min: the activation-block
+// builder below has to mirror emit_strand() move for move, so it reads the same
+// zone-feed function the emitter uses rather than a copy of it.
+#include "FiberEmitter.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <sstream>
 
 namespace Slic3r {
 namespace Fiber {
@@ -560,6 +567,107 @@ bool plan_fiber_release(const std::vector<FiberPoint>& pts,
     return true;
 }
 
+bool plan_closed_strand_release(const FiberStrand& strand,
+                                const TailReleaseParams& p,
+                                ReleasePlan& out,
+                                std::string* error)
+{
+    out = ReleasePlan{};
+    out.closed = true;
+    out.z = strand.z;
+    out.requested_mm = p.release_mm;
+    out.f_mm_min = p.release_speed_mm_s * 60.0;
+
+    std::string perr;
+    if (!validate_tail_release_params(p, &perr)) {
+        out.findings.push_back({FsCode::ReleaseUnsupported, perr});
+        if (error)
+            *error = perr;
+        return false;
+    }
+    // R == 0 is the feature disabled, not a failure.
+    if (p.release_mm <= 0.0) {
+        out.valid = true;
+        out.support = SupportVerdict::NotEvaluated;
+        return true;
+    }
+    if (!strand.finalized || strand.pts.size() < 3) {
+        out.findings.push_back({FsCode::ReleaseUnsupported,
+                                "strand is not finalized or carries fewer than three points"});
+        if (error)
+            *error = "FS_RELEASE_UNSUPPORTED: strand cannot carry a release";
+        return false;
+    }
+
+    // The planner hands a closed strand back with its first vertex repeated, so
+    // find_straight_runs() sees a genuinely closed ring. Only the run that opens
+    // at the strand's start can carry this release: the dry move has to retrace
+    // material this same strand deposited, and that is the opening run.
+    const auto runs = find_straight_runs(strand.pts, true);
+    const double need = p.anchor_mm + p.release_mm + 0.02;
+    bool qualified = false;
+    for (const StraightRun& r : runs) {
+        if (r.first_seg != 0)
+            break; // the opening run is the first one found, by construction
+        if (r.length_mm >= need)
+            qualified = true;
+        else
+            out.findings.push_back({FsCode::ReleaseUnsupported,
+                                    "opening run is " + fmt3("%.3f", r.length_mm) +
+                                    " mm, short of required " + fmt3("%.3f", need) + " mm"});
+        break;
+    }
+    if (!qualified) {
+        if (out.findings.empty())
+            out.findings.push_back({FsCode::ReleaseUnsupported,
+                                    "strand does not open on a straight run"});
+        if (error)
+            *error = "FS_RELEASE_UNSUPPORTED: strand does not open on a straight run of "
+                   + fmt3("%.3f", need) + " mm";
+        return false;
+    }
+
+    // Take the first R mm forward, splitting the containing segment if needed.
+    double remaining = p.release_mm;
+    out.path.push_back(strand.pts.front());
+    for (size_t i = 0; i + 1 < strand.pts.size() && remaining > 1e-9; ++i) {
+        const double len = seg_len(strand.pts[i], strand.pts[i + 1]);
+        if (len <= 1e-9)
+            continue;
+        if (len <= remaining + 1e-9) {
+            out.path.push_back(strand.pts[i + 1]);
+            remaining -= len;
+        } else {
+            const double t = remaining / len;
+            FiberPoint q{strand.pts[i].x + (strand.pts[i + 1].x - strand.pts[i].x) * t,
+                         strand.pts[i].y + (strand.pts[i + 1].y - strand.pts[i].y) * t};
+            out.path.push_back(q);
+            remaining = 0.0;
+        }
+    }
+    if (remaining > 1e-6) {
+        out.findings.push_back({FsCode::ReleaseUnsupported,
+                                "path shorter than the requested release"});
+        if (error)
+            *error = "FS_RELEASE_UNSUPPORTED: strand path shorter than the release";
+        return false;
+    }
+
+    double planned = 0.0;
+    for (size_t i = 0; i + 1 < out.path.size(); ++i)
+        planned += seg_len(out.path[i], out.path[i + 1]);
+    out.valid = true;
+    out.start = out.path.front();
+    out.end = out.path.back();
+    out.planned_mm = planned;
+    // Supported by construction: the dry move lies on material this same strand
+    // deposited at its opening. This is the closed-strand case the spec allows
+    // without a footprint oracle; an OPEN strand still requires one and is refused
+    // by plan_fiber_release() rather than assumed supported.
+    out.support = SupportVerdict::Supported;
+    return true;
+}
+
 std::string emit_fiber_release(const ReleasePlan& plan)
 {
     std::string s;
@@ -837,5 +945,374 @@ std::string evidence_manifest_to_json(const std::vector<TailReleaseEvidence>& re
     return j;
 }
 
+// ---------------------------------------------------------------------------
+// Exporter glue
+// ---------------------------------------------------------------------------
+
+bool apply_tail_margin(const FiberStrand& strand, double margin_mm,
+                       FiberStrand& out, std::string* error)
+{
+    // No margin means no shift: hand back the strand as planned so an untouched
+    // profile keeps byte-identical output.
+    if (margin_mm <= 0.0) {
+        out = strand;
+        return true;
+    }
+    if (!std::isfinite(margin_mm)) {
+        if (error)
+            *error = "apply_tail_margin: margin must be finite";
+        return false;
+    }
+
+    FiberStrand shifted = strand;
+    shifted.tail_length_mm = strand.tail_length_mm - margin_mm;
+    if (!(shifted.tail_length_mm > 0.0)) {
+        if (error)
+            *error = "apply_tail_margin: margin " + fmt3("%.3f", margin_mm) +
+                     " mm exceeds the calibrated tail " + fmt3("%.3f", strand.tail_length_mm) +
+                     " mm (S <= T + M leaves no body)";
+        return false;
+    }
+    // Re-finalize the copy. finalize() clears the move lists on failure, so the
+    // result is only published when it succeeds.
+    std::string ferr;
+    if (!shifted.finalize(&ferr)) {
+        if (error)
+            *error = "apply_tail_margin: shifted strand cannot finalize (" + ferr + ")";
+        return false;
+    }
+    out = std::move(shifted);
+    return true;
+}
+
+std::vector<MotionBlock> strand_activation_blocks(const FiberStrand& strand,
+                                                  const FiberEmitParams& params,
+                                                  const ReleasePlan* release,
+                                                  const FiberPoint* from_xy)
+{
+    std::vector<MotionBlock> b;
+    auto macro = [&b]() { MotionBlock m; m.kind = MotionBlock::Kind::Macro; b.push_back(m); };
+
+    if (!strand.finalized)
+        return b;
+
+    // Comments and the window-open line: zero by contract.
+    if (params.emit_layer_marker)
+        macro();
+    if (params.verbose_comments)
+        macro();
+    macro(); // M1001 L<budget>
+
+    const double restart = FiberRun::round3(params.restart_feed_mm);
+    const double z_hi    = strand.z + std::max(params.restart_z_mm, params.lift_z_mm);
+
+    // Approach: Z to z_hi, then XY to the strand start. The emitter does not know
+    // where the previous window closed, so the XY path length is genuinely
+    // unknown here; it is recorded as Linear with path 0 (zero seconds) rather
+    // than invented, and a caller that knows the incoming position can splice a
+    // real block in front of this list.
+    {
+        MotionBlock z_up;
+        z_up.kind = MotionBlock::Kind::Linear;
+        z_up.path_mm = std::max(0.0, z_hi - strand.z);
+        z_up.feed_mm_min = params.lift_f;
+        b.push_back(z_up);
+    }
+    {
+        MotionBlock xy;
+        xy.kind = MotionBlock::Kind::Linear;
+        // The emitter does not know where the previous window closed, so the
+        // approach length is only knowable when the caller supplies the arrival
+        // position. Without it the block is zero: under-estimated, never invented.
+        xy.path_mm = from_xy ? std::hypot(strand.pts.front().x - from_xy->x,
+                                          strand.pts.front().y - from_xy->y)
+                             : 0.0;
+        xy.feed_mm_min = params.lift_f;
+        b.push_back(xy);
+    }
+    {
+        MotionBlock u;
+        u.kind = MotionBlock::Kind::Stationary;
+        u.max_material_mm = restart;
+        u.feed_mm_min = params.restart_feed_f;
+        b.push_back(u);
+    }
+    {
+        MotionBlock z_dn;
+        z_dn.kind = MotionBlock::Kind::Linear;
+        z_dn.path_mm = std::max(0.0, z_hi - strand.z);
+        z_dn.feed_mm_min = params.lift_f;
+        b.push_back(z_dn);
+    }
+    // Stationary V prime, split exactly as the emitter splits it: the recover of
+    // the previous retract, then the extra anchor prime.
+    {
+        const double recover = FiberRun::round3(params.retract_v_mm);
+        const double extra   = FiberRun::round3(std::max(0.0, params.prime_v_mm - params.retract_v_mm));
+        MotionBlock v;
+        v.kind = MotionBlock::Kind::Stationary;
+        v.feed_mm_min = params.prime_f;
+        v.max_material_mm = recover + extra;
+        if (v.max_material_mm <= 0.0)
+            v.max_material_mm = FiberRun::round3(params.prime_v_mm);
+        b.push_back(v);
+    }
+
+    // Deposition, body then tail, on one continuous distance measure so the
+    // three-zone ramp sees what the emitter sees.
+    const double total = strand.total_path;
+    double dist = 0.0;
+    FiberPoint prev = strand.pts.front();
+    for (size_t i = 0; i < strand.body_u.size(); ++i) {
+        const FiberPoint& pe = strand.body_pts[i];
+        MotionBlock d;
+        d.kind = MotionBlock::Kind::Deposit;
+        d.path_mm = std::hypot(pe.x - prev.x, pe.y - prev.y);
+        d.feed_mm_min = zone_feed_mm_min(params, dist, total, strand.feed_mm_min);
+        b.push_back(d);
+        dist += d.path_mm;
+        prev = pe;
+    }
+
+    macro(); // ; Start to cut
+    macro(); // M2800
+    macro(); // M400
+    macro(); // ;CUT DISTANCE
+
+    for (size_t i = 0; i < strand.tail_v.size(); ++i) {
+        const FiberPoint& pe = strand.tail_pts[i];
+        MotionBlock d;
+        d.kind = MotionBlock::Kind::Deposit;
+        d.path_mm = std::hypot(pe.x - prev.x, pe.y - prev.y);
+        d.feed_mm_min = zone_feed_mm_min(params, dist, total, strand.feed_mm_min);
+        b.push_back(d);
+        dist += d.path_mm;
+        prev = pe;
+    }
+
+    macro(); // ; Cutting completed.
+
+    {
+        MotionBlock v;
+        v.kind = MotionBlock::Kind::Stationary;
+        v.max_material_mm = FiberRun::round3(params.retract_v_mm);
+        v.feed_mm_min = params.retract_f;
+        b.push_back(v);
+    }
+
+    if (release != nullptr && release->valid) {
+        for (size_t i = 0; i + 1 < release->path.size(); ++i) {
+            MotionBlock r;
+            r.kind = MotionBlock::Kind::Linear;
+            r.path_mm = std::hypot(release->path[i + 1].x - release->path[i].x,
+                                   release->path[i + 1].y - release->path[i].y);
+            r.feed_mm_min = release->f_mm_min;
+            b.push_back(r);
+        }
+    }
+
+    {
+        MotionBlock z_up;
+        z_up.kind = MotionBlock::Kind::Linear;
+        z_up.path_mm = std::max(0.0, params.lift_z_mm);
+        z_up.feed_mm_min = params.lift_f;
+        b.push_back(z_up);
+    }
+    macro(); // M1002
+
+    return b;
+}
+
+std::vector<MotionBlock> blocks_from_gcode(const std::string& gcode,
+                                           double initial_z,
+                                           const FiberPoint* initial_xy,
+                                           std::vector<size_t>* line_offsets)
+{
+    std::vector<MotionBlock> out;
+    // Byte offset of the START of the line each block came from, so a caller can
+    // splice a scheduled command in front of that line. Recorded for every block
+    // kind, including Macros, so insert_index indexes the same list either way.
+    auto push_block = [&](const MotionBlock& b, size_t off) {
+        out.push_back(b);
+        if (line_offsets)
+            line_offsets->push_back(off);
+    };
+
+    // Modal feed, in mm/min, as G-code carries it: one F word applies to every
+    // move until the next one.
+    double modal_f = 0.0;
+    // Previous XY position, and whether one is known at all.
+    bool   have_prev = initial_xy != nullptr;
+    double px = initial_xy ? initial_xy->x : 0.0;
+    double py = initial_xy ? initial_xy->y : 0.0;
+    // Previous Z: supplied by the caller when the text cannot carry it.
+    bool   have_z = std::isfinite(initial_z);
+    double z = have_z ? initial_z : 0.0;
+
+    auto flush_line = [&](const std::string& line_in, size_t line_off) {
+        // Strip a trailing comment; the clock reads commands, not prose.
+        const size_t sc = line_in.find(';');
+        std::string line = (sc == std::string::npos) ? line_in : line_in.substr(0, sc);
+        // Upper-case copy so lowercase words still parse.
+        for (char& c : line)
+            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+
+        std::istringstream ss(line);
+        std::string word;
+        if (!(ss >> word))
+            return; // blank
+
+        const bool is_g1 = word == "G1" || word == "G0";
+        const bool is_g4 = word == "G4";
+        const bool is_m109 = word == "M109" || word == "M190" || word == "M191";
+
+        if (!is_g1 && !is_g4 && !is_m109) {
+            // Anything else the clock cannot model is opaque: M2800, M400, the
+            // window markers, tool changes, fan and temperature sets.
+            if (line.size() > 1) {
+                MotionBlock m;
+                m.kind = MotionBlock::Kind::Macro;
+                push_block(m, line_off);
+            }
+            return;
+        }
+
+        double dx = 0.0, dy = 0.0, dz = 0.0;
+        bool   has_x = false, has_y = false;
+        double nx = 0.0, ny = 0.0;
+        double mat = 0.0;      // max(|E|,|U|,|V|)
+        bool   has_mat = false;
+        bool   has_f = false;
+        double f = 0.0;
+        bool   has_p = false, has_s = false;
+        double p_val = 0.0, s_val = 0.0;
+
+        while (ss >> word) {
+            if (word.size() < 2)
+                continue;
+            const char axis = word[0];
+            const double val = std::atof(word.c_str() + 1);
+            if (!std::isfinite(val))
+                continue;
+            switch (axis) {
+            // A move's path is only knowable once the previous position is too.
+            // The first XY of the slice has no known predecessor, so its length
+            // is unknown and recorded as zero rather than invented from origin.
+            case 'X': nx = val; has_x = true; break;
+            case 'Y': ny = val; has_y = true; break;
+            case 'Z': dz = val - (have_z ? z : val); z = val; have_z = true; break;
+            case 'E': case 'U': case 'V':
+                mat = std::max(mat, std::abs(val)); has_mat = true; break;
+            case 'F': f = val; has_f = true; break;
+            case 'P': p_val = val; has_p = true; break;
+            case 'S': s_val = val; has_s = true; break;
+            default: break;
+            }
+        }
+
+        if (has_f && f > 0.0)
+            modal_f = f;
+
+        MotionBlock b;
+        if (is_g4) {
+            b.kind = MotionBlock::Kind::Dwell;
+            // G4 P is milliseconds, S is seconds.
+            b.dwell_s = has_p ? p_val / 1000.0 : (has_s ? s_val : 0.0);
+            push_block(b, line_off);
+            return;
+        }
+        if (is_m109) {
+            b.kind = MotionBlock::Kind::TempWait; // zero by contract
+            push_block(b, line_off);
+            return;
+        }
+
+        const bool had_prev = have_prev;
+        if (has_x && has_y) {
+            // A move's path is only knowable once the previous position is too.
+            // The first XY of the slice has no known predecessor, so its length
+            // is recorded as zero rather than invented from origin.
+            dx = had_prev ? (nx - px) : 0.0;
+            dy = had_prev ? (ny - py) : 0.0;
+            px = nx;
+            py = ny;
+            have_prev = true; // only a full XY pair ever establishes a position
+        }
+        const double xy_path = std::sqrt(dx * dx + dy * dy);
+        const bool moved_xy = xy_path > 1e-9;
+        const bool moved_z = std::abs(dz) > 1e-9;
+
+        if (moved_xy && has_mat) {
+            b.kind = MotionBlock::Kind::Deposit;
+            b.path_mm = xy_path;
+        } else if (moved_xy || moved_z) {
+            b.kind = MotionBlock::Kind::Linear;
+            b.path_mm = moved_xy ? xy_path : std::abs(dz);
+        } else if (has_mat) {
+            b.kind = MotionBlock::Kind::Stationary;
+            b.max_material_mm = mat;
+        } else {
+            return; // a no-op line
+        }
+        b.feed_mm_min = modal_f;
+        push_block(b, line_off);
+    };
+
+    // Walk the text by byte offset rather than with a stream, so every block
+    // can carry the offset its command starts at. That is what lets the caller
+    // splice a scheduled M104 into content that has already been emitted.
+    size_t off = 0;
+    for (;; ) {
+        const size_t nl = gcode.find('\n', off);
+        const size_t end = (nl == std::string::npos) ? gcode.size() : nl;
+        std::string line = gcode.substr(off, end - off);
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+        flush_line(line, off);
+        if (nl == std::string::npos)
+            break;
+        off = nl + 1;
+    }
+    return out;
+}
+
+
+std::string schedule_preheat_into_plastic(const std::string& outgoing_plastic_gcode,
+                                          int incoming_tool,
+                                          int incoming_target_c,
+                                          double lead_s,
+                                          PreheatPlan& plan,
+                                          double initial_z,
+                                          const FiberPoint* initial_xy)
+{
+    std::vector<size_t> offsets;
+    const std::vector<MotionBlock> blocks =
+        blocks_from_gcode(outgoing_plastic_gcode, initial_z, initial_xy, &offsets);
+
+    plan = plan_tool_preheat(blocks, incoming_tool, incoming_target_c, lead_s);
+    if (!plan.valid || !plan.inserted)
+        return outgoing_plastic_gcode;
+
+    const std::string line = emit_tool_preheat(plan);
+    if (line.empty())
+        return outgoing_plastic_gcode;
+
+    // insert_index == size() means the target landed at the very end of the
+    // activation: the command goes after the last line rather than before it.
+    if (plan.insert_index >= offsets.size()) {
+        // Append after the final newline, keeping the text's own terminator.
+        if (outgoing_plastic_gcode.empty())
+            return line;
+        const size_t last_nl = outgoing_plastic_gcode.rfind('\n');
+        if (last_nl == std::string::npos)
+            return outgoing_plastic_gcode + '\n' + line;
+        return outgoing_plastic_gcode.substr(0, last_nl + 1) + line +
+               outgoing_plastic_gcode.substr(last_nl + 1);
+    }
+
+    const size_t off = offsets[plan.insert_index];
+    return outgoing_plastic_gcode.substr(0, off) + line +
+           outgoing_plastic_gcode.substr(off);
+}
 } // namespace Fiber
 } // namespace Slic3r
