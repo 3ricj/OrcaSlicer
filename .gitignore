@@ -60,3 +60,7 @@ ctest_results.xml
 /Testing/
 # Local agent/tool sandboxes
 /sandboxes/
+
+# Scratch/build output: never committable. Binaries and throwaway probes
+# landed in history three times from here.
+/tmp/

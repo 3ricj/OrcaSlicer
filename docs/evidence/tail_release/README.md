@@ -76,10 +76,14 @@ them.
 The generator and both verifiers are dependency-free, so they build and run with
 no CMake tree and no Boost.
 
+The two C++ suites need a Catch2 main. The real build uses the vendored one; the
+dependency-free stand-in at `tests/fibreseeker/shim/` exists so the shipped code
+can be compiled and **run** in a worktree with no CMake tree and no Boost. It is
+tracked on purpose: without it a clean checkout cannot reproduce any of this.
+
 ```sh
 # 1. Build the generator (Linux/WSL g++; MSVC needs the same five TUs).
-g++ -std=c++17 -O1 -w -I src -o /tmp/gen \
-    src/libslic3r/Fiber/FiberTailRelease.cpp \
+g++ -std=c++17 -O1 -w -I src -o /tmp/gen \    src/libslic3r/Fiber/FiberTailRelease.cpp \
     src/libslic3r/Fiber/FiberEmitter.cpp \
     src/libslic3r/Fiber/FiberRun.cpp \
     src/libslic3r/Fiber/FiberStrand.cpp \
@@ -112,4 +116,35 @@ python3 tests/fibreseeker/fs_verify_release_geometry.py \
 an input to seam ranking, so B and C must agree on the seam and differ only in
 `M`. If a change makes that line print `FAIL`, the margin has leaked into the
 seam policy.
+
+## Unit suites
+
+Both suites are dependency-free apart from the shim, and both are registered in
+`tests/libslic3r/CMakeLists.txt` for the real CMake build. The commands below are
+the no-CMake equivalent.
+
+```sh
+# Tail release + preheat splicing: expected "PASSED 30/30 cases, 276 assertions"
+g++ -std=c++17 -O0 -w -I src -I tests/fibreseeker/shim -o /tmp/tailrel \
+    src/libslic3r/Fiber/FiberTailRelease.cpp \
+    src/libslic3r/Fiber/FiberEmitter.cpp \
+    src/libslic3r/Fiber/FiberRun.cpp \
+    src/libslic3r/Fiber/FiberStrand.cpp \
+    tests/libslic3r/test_fiber_tail_release.cpp \
+    tests/fibreseeker/shim/main_runner.cpp
+/tmp/tailrel
+
+# Tool-change ordering: expected "PASSED 14/14 cases, 163 assertions".
+# FiberTailRelease.cpp is required in this link too -- FiberEmitter references
+# emit_fiber_release, so the two suites share the tail-release TU.
+g++ -std=c++17 -O0 -w -I src -I tests/fibreseeker/shim -o /tmp/tc \
+    src/libslic3r/Fiber/FiberTailRelease.cpp \
+    src/libslic3r/Fiber/FiberEmitter.cpp \
+    src/libslic3r/Fiber/FiberRun.cpp \
+    src/libslic3r/Fiber/FiberStrand.cpp \
+    src/libslic3r/Fiber/FiberToolChange.cpp \
+    tests/libslic3r/test_fiber_toolchange.cpp \
+    tests/fibreseeker/shim/main_runner.cpp
+/tmp/tc
+```
 
