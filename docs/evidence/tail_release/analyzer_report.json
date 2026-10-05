@@ -1,0 +1,351 @@
+{
+  "fixtures": [
+    {
+      "variant": "good_station_wait.gcode",
+      "findings": [
+        "WARN|FS_MACRO_CONTRACT_UNVERIFIED|line 1|macro definitions unavailable; motion-macro durations are unknown and contribute zero to the nominal clock"
+      ],
+      "code_counts": {
+        "FS_MACRO_CONTRACT_UNVERIFIED": 1
+      },
+      "stats": {
+        "windows": 1,
+        "releases_executed": 1,
+        "waits_at_station": 1,
+        "waits_outside_station": 0,
+        "preheats": 0,
+        "post_cut_turns_gt_60": 0,
+        "max_post_cut_turn_deg": 0.0,
+        "support": "NOT_EVALUATED"
+      },
+      "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero; acceleration and heater behaviour not modelled",
+      "durations_measured": false,
+      "support": "NOT_EVALUATED",
+      "physical_tail_clearance": "unmeasured",
+      "macro_contract": "MACRO_CONTRACT_UNVERIFIED",
+      "print_quality": "UNTESTED"
+    },
+    {
+      "variant": "neg_cool_before_clean.gcode",
+      "findings": [
+        "ERROR|FS_COOL_BEFORE_CLEAN|line 14|T0 cooled to S200 before its cleaning pass",
+        "WARN|FS_MACRO_CONTRACT_UNVERIFIED|line 1|macro definitions unavailable; motion-macro durations are unknown and contribute zero to the nominal clock"
+      ],
+      "code_counts": {
+        "FS_COOL_BEFORE_CLEAN": 1,
+        "FS_MACRO_CONTRACT_UNVERIFIED": 1
+      },
+      "stats": {
+        "windows": 1,
+        "releases_executed": 0,
+        "waits_at_station": 1,
+        "waits_outside_station": 0,
+        "preheats": 0,
+        "post_cut_turns_gt_60": 0,
+        "max_post_cut_turn_deg": 0.0,
+        "support": "NOT_EVALUATED"
+      },
+      "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero; acceleration and heater behaviour not modelled",
+      "durations_measured": false,
+      "support": "NOT_EVALUATED",
+      "physical_tail_clearance": "unmeasured",
+      "macro_contract": "MACRO_CONTRACT_UNVERIFIED",
+      "print_quality": "UNTESTED"
+    },
+    {
+      "variant": "neg_e_recovery_location.gcode",
+      "findings": [
+        "ERROR|FS_E_RECOVERY_LOCATION|line 22|plastic recovery inside a brush-station visit (recovery belongs at the next deposition start)",
+        "WARN|FS_MACRO_CONTRACT_UNVERIFIED|line 1|macro definitions unavailable; motion-macro durations are unknown and contribute zero to the nominal clock"
+      ],
+      "code_counts": {
+        "FS_E_RECOVERY_LOCATION": 1,
+        "FS_MACRO_CONTRACT_UNVERIFIED": 1
+      },
+      "stats": {
+        "windows": 1,
+        "releases_executed": 1,
+        "waits_at_station": 1,
+        "waits_outside_station": 0,
+        "preheats": 0,
+        "post_cut_turns_gt_60": 0,
+        "max_post_cut_turn_deg": 0.0,
+        "support": "NOT_EVALUATED"
+      },
+      "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero; acceleration and heater behaviour not modelled",
+      "durations_measured": false,
+      "support": "NOT_EVALUATED",
+      "physical_tail_clearance": "unmeasured",
+      "macro_contract": "MACRO_CONTRACT_UNVERIFIED",
+      "print_quality": "UNTESTED"
+    },
+    {
+      "variant": "neg_nonblocking_heat_unsupported.gcode",
+      "findings": [
+        "ERROR|FS_NONBLOCKING_HEAT_UNSUPPORTED|line 1|FS_NONBLOCKING_HEAT_UNSUPPORTED M104 override blocks on this backend",
+        "WARN|FS_MACRO_CONTRACT_UNVERIFIED|line 1|macro definitions unavailable; motion-macro durations are unknown and contribute zero to the nominal clock"
+      ],
+      "code_counts": {
+        "FS_NONBLOCKING_HEAT_UNSUPPORTED": 1,
+        "FS_MACRO_CONTRACT_UNVERIFIED": 1
+      },
+      "stats": {
+        "windows": 0,
+        "releases_executed": 1,
+        "waits_at_station": 1,
+        "waits_outside_station": 0,
+        "preheats": 0,
+        "post_cut_turns_gt_60": 0,
+        "max_post_cut_turn_deg": 0.0,
+        "support": "NOT_EVALUATED"
+      },
+      "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero; acceleration and heater behaviour not modelled",
+      "durations_measured": false,
+      "support": "NOT_EVALUATED",
+      "physical_tail_clearance": "unmeasured",
+      "macro_contract": "MACRO_CONTRACT_UNVERIFIED",
+      "print_quality": "UNTESTED"
+    },
+    {
+      "variant": "neg_preheat_clobbered.gcode",
+      "findings": [
+        "ERROR|FS_PREHEAT_CLOBBERED|line 4|M104 S150 T1 overrides the pending preheat of T1",
+        "WARN|FS_MACRO_CONTRACT_UNVERIFIED|line 1|macro definitions unavailable; motion-macro durations are unknown and contribute zero to the nominal clock"
+      ],
+      "code_counts": {
+        "FS_PREHEAT_CLOBBERED": 1,
+        "FS_MACRO_CONTRACT_UNVERIFIED": 1
+      },
+      "stats": {
+        "windows": 1,
+        "releases_executed": 0,
+        "waits_at_station": 1,
+        "waits_outside_station": 0,
+        "preheats": 1,
+        "post_cut_turns_gt_60": 0,
+        "max_post_cut_turn_deg": 0.0,
+        "support": "NOT_EVALUATED"
+      },
+      "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero; acceleration and heater behaviour not modelled",
+      "durations_measured": false,
+      "support": "NOT_EVALUATED",
+      "physical_tail_clearance": "unmeasured",
+      "macro_contract": "MACRO_CONTRACT_UNVERIFIED",
+      "print_quality": "UNTESTED"
+    },
+    {
+      "variant": "neg_purge_release_out_of_bounds.gcode",
+      "findings": [
+        "ERROR|FS_PURGE_RELEASE_OUT_OF_BOUNDS|line 1|FS_PURGE_RELEASE_OUT_OF_BOUNDS release end X96.800 exceeds purge bounds",
+        "WARN|FS_MACRO_CONTRACT_UNVERIFIED|line 1|macro definitions unavailable; motion-macro durations are unknown and contribute zero to the nominal clock"
+      ],
+      "code_counts": {
+        "FS_PURGE_RELEASE_OUT_OF_BOUNDS": 1,
+        "FS_MACRO_CONTRACT_UNVERIFIED": 1
+      },
+      "stats": {
+        "windows": 0,
+        "releases_executed": 1,
+        "waits_at_station": 1,
+        "waits_outside_station": 0,
+        "preheats": 0,
+        "post_cut_turns_gt_60": 0,
+        "max_post_cut_turn_deg": 0.0,
+        "support": "NOT_EVALUATED"
+      },
+      "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero; acceleration and heater behaviour not modelled",
+      "durations_measured": false,
+      "support": "NOT_EVALUATED",
+      "physical_tail_clearance": "unmeasured",
+      "macro_contract": "MACRO_CONTRACT_UNVERIFIED",
+      "print_quality": "UNTESTED"
+    },
+    {
+      "variant": "neg_release_extrusion.gcode",
+      "findings": [
+        "ERROR|FS_RELEASE_EXTRUSION|line 10|U word inside the release block (release must be dry)"
+      ],
+      "code_counts": {
+        "FS_RELEASE_EXTRUSION": 1
+      },
+      "stats": {
+        "windows": 1,
+        "releases_executed": 1,
+        "waits_at_station": 1,
+        "waits_outside_station": 0,
+        "preheats": 0,
+        "post_cut_turns_gt_60": 0,
+        "max_post_cut_turn_deg": 0.0,
+        "support": "NOT_EVALUATED"
+      },
+      "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero; acceleration and heater behaviour not modelled",
+      "durations_measured": false,
+      "support": "NOT_EVALUATED",
+      "physical_tail_clearance": "unmeasured",
+      "macro_contract": "VERIFIED",
+      "print_quality": "UNTESTED"
+    },
+    {
+      "variant": "neg_release_not_executed.gcode",
+      "findings": [
+        "ERROR|FS_RELEASE_NOT_EXECUTED|line 1|release configured at 6.800 mm but no release block was emitted"
+      ],
+      "code_counts": {
+        "FS_RELEASE_NOT_EXECUTED": 1
+      },
+      "stats": {
+        "windows": 1,
+        "releases_executed": 0,
+        "waits_at_station": 1,
+        "waits_outside_station": 0,
+        "preheats": 0,
+        "post_cut_turns_gt_60": 0,
+        "max_post_cut_turn_deg": 0.0,
+        "support": "NOT_EVALUATED"
+      },
+      "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero; acceleration and heater behaviour not modelled",
+      "durations_measured": false,
+      "support": "NOT_EVALUATED",
+      "physical_tail_clearance": "unmeasured",
+      "macro_contract": "VERIFIED",
+      "print_quality": "UNTESTED"
+    },
+    {
+      "variant": "neg_release_unsupported.gcode",
+      "findings": [
+        "ERROR|FS_RELEASE_UNSUPPORTED|line 1|FS_RELEASE_UNSUPPORTED no straight run of 14.820 mm available",
+        "WARN|FS_MACRO_CONTRACT_UNVERIFIED|line 1|macro definitions unavailable; motion-macro durations are unknown and contribute zero to the nominal clock"
+      ],
+      "code_counts": {
+        "FS_RELEASE_UNSUPPORTED": 1,
+        "FS_MACRO_CONTRACT_UNVERIFIED": 1
+      },
+      "stats": {
+        "windows": 0,
+        "releases_executed": 1,
+        "waits_at_station": 1,
+        "waits_outside_station": 0,
+        "preheats": 0,
+        "post_cut_turns_gt_60": 0,
+        "max_post_cut_turn_deg": 0.0,
+        "support": "NOT_EVALUATED"
+      },
+      "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero; acceleration and heater behaviour not modelled",
+      "durations_measured": false,
+      "support": "NOT_EVALUATED",
+      "physical_tail_clearance": "unmeasured",
+      "macro_contract": "MACRO_CONTRACT_UNVERIFIED",
+      "print_quality": "UNTESTED"
+    },
+    {
+      "variant": "neg_tail_distance_mismatch.gcode",
+      "findings": [
+        "ERROR|FS_TAIL_DISTANCE_MISMATCH|line 9|release travelled 5.000 mm, planned 6.800 mm (tolerance 0.050)"
+      ],
+      "code_counts": {
+        "FS_TAIL_DISTANCE_MISMATCH": 1
+      },
+      "stats": {
+        "windows": 1,
+        "releases_executed": 1,
+        "waits_at_station": 1,
+        "waits_outside_station": 0,
+        "preheats": 0,
+        "post_cut_turns_gt_60": 0,
+        "max_post_cut_turn_deg": 0.0,
+        "support": "NOT_EVALUATED"
+      },
+      "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero; acceleration and heater behaviour not modelled",
+      "durations_measured": false,
+      "support": "NOT_EVALUATED",
+      "physical_tail_clearance": "unmeasured",
+      "macro_contract": "VERIFIED",
+      "print_quality": "UNTESTED"
+    },
+    {
+      "variant": "neg_thermal_management_disabled.gcode",
+      "findings": [
+        "ERROR|THERMAL_MANAGEMENT_DISABLED|line 1|THERMAL_MANAGEMENT_DISABLED fs_t0_temp = 0, machine gcode owns T0",
+        "WARN|FS_MACRO_CONTRACT_UNVERIFIED|line 1|macro definitions unavailable; motion-macro durations are unknown and contribute zero to the nominal clock"
+      ],
+      "code_counts": {
+        "THERMAL_MANAGEMENT_DISABLED": 1,
+        "FS_MACRO_CONTRACT_UNVERIFIED": 1
+      },
+      "stats": {
+        "windows": 0,
+        "releases_executed": 1,
+        "waits_at_station": 1,
+        "waits_outside_station": 0,
+        "preheats": 0,
+        "post_cut_turns_gt_60": 0,
+        "max_post_cut_turn_deg": 0.0,
+        "support": "NOT_EVALUATED"
+      },
+      "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero; acceleration and heater behaviour not modelled",
+      "durations_measured": false,
+      "support": "NOT_EVALUATED",
+      "physical_tail_clearance": "unmeasured",
+      "macro_contract": "MACRO_CONTRACT_UNVERIFIED",
+      "print_quality": "UNTESTED"
+    },
+    {
+      "variant": "neg_wait_outside_station.gcode",
+      "findings": [
+        "ERROR|FS_WAIT_OUTSIDE_STATION|line 9|blocking M109 S250 T1 outside a brush-station visit",
+        "WARN|FS_MACRO_CONTRACT_UNVERIFIED|line 1|macro definitions unavailable; motion-macro durations are unknown and contribute zero to the nominal clock"
+      ],
+      "code_counts": {
+        "FS_WAIT_OUTSIDE_STATION": 1,
+        "FS_MACRO_CONTRACT_UNVERIFIED": 1
+      },
+      "stats": {
+        "windows": 1,
+        "releases_executed": 0,
+        "waits_at_station": 0,
+        "waits_outside_station": 1,
+        "preheats": 0,
+        "post_cut_turns_gt_60": 0,
+        "max_post_cut_turn_deg": 0.0,
+        "support": "NOT_EVALUATED"
+      },
+      "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero; acceleration and heater behaviour not modelled",
+      "durations_measured": false,
+      "support": "NOT_EVALUATED",
+      "physical_tail_clearance": "unmeasured",
+      "macro_contract": "MACRO_CONTRACT_UNVERIFIED",
+      "print_quality": "UNTESTED"
+    },
+    {
+      "variant": "warn_tail_sharp_turn.gcode",
+      "findings": [
+        "WARN|FS_TAIL_SHARP_TURN|line 1|1 post-cut direction change(s) over 60 degrees, max 90.0",
+        "WARN|FS_MACRO_CONTRACT_UNVERIFIED|line 1|macro definitions unavailable; motion-macro durations are unknown and contribute zero to the nominal clock"
+      ],
+      "code_counts": {
+        "FS_TAIL_SHARP_TURN": 1,
+        "FS_MACRO_CONTRACT_UNVERIFIED": 1
+      },
+      "stats": {
+        "windows": 1,
+        "releases_executed": 0,
+        "waits_at_station": 1,
+        "waits_outside_station": 0,
+        "preheats": 0,
+        "post_cut_turns_gt_60": 1,
+        "max_post_cut_turn_deg": 90.0,
+        "support": "NOT_EVALUATED"
+      },
+      "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero; acceleration and heater behaviour not modelled",
+      "durations_measured": false,
+      "support": "NOT_EVALUATED",
+      "physical_tail_clearance": "unmeasured",
+      "macro_contract": "MACRO_CONTRACT_UNVERIFIED",
+      "print_quality": "UNTESTED"
+    }
+  ],
+  "clock_definition": "nominal commanded motion; temperature waits and opaque macros contribute zero",
+  "durations_measured": false,
+  "support": "NOT_EVALUATED",
+  "print_quality": "UNTESTED"
+}

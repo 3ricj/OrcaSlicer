@@ -1535,6 +1535,11 @@ static std::vector<std::string> s_Preset_printer_options {
     "fs_t0_standby_temp", "fs_t1_standby_temp",
     "fs_toolchange_retract_v", "fs_toolchange_retract_v_speed",
     "fs_brush_on_toolchange", "fs_aux_fans_on_toolchange",
+    // Tail-release and preheat ordering (owner spec v1.0). Printer-owned: the
+    // release geometry is a property of the machine's tail behaviour, not of a
+    // particular model.
+    "fs_tool_preheat_lead_s", "fs_fiber_tail_margin_mm",
+    "fs_fiber_release_length_mm", "fs_fiber_release_speed_mm_s", "fs_fiber_release_anchor_mm",
     "fs_fiber_reserve", "fs_fiber_bond_overlap",
     "printer_plugin_config_overrides"
     };

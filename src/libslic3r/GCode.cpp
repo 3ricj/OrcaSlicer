@@ -7859,6 +7859,8 @@ void GCode::append_full_config(const Print &print, std::string &str)
         "fs_fiber_verbose_comments"sv, "fs_fiber_max_arc_seg"sv,
         "fs_fiber_speed_start"sv, "fs_fiber_speed_start_length"sv, "fs_fiber_speed_normal"sv,
         "fs_fiber_speed_finish"sv, "fs_fiber_speed_finish_length"sv,
+        "fs_tool_preheat_lead_s"sv, "fs_fiber_tail_margin_mm"sv, "fs_fiber_release_length_mm"sv,
+        "fs_fiber_release_speed_mm_s"sv, "fs_fiber_release_anchor_mm"sv,
         "compatible_printers"sv,
         "compatible_prints"sv,
         "filament_colour_type"sv,

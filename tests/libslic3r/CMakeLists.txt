@@ -56,6 +56,8 @@ add_executable(${_TEST_NAME}_tests
     test_fiber_reserve.cpp
     # Paired composite tool-change sequence (standby / wait / brush / fans / V ledger).
     test_fiber_toolchange.cpp
+    # Tail cut/margin, forward dry release, seam policy, preheat clock, E ledger.
+    test_fiber_tail_release.cpp
     test_utils.cpp
     test_miniz_extension.cpp
     test_timeutils.cpp

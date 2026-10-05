@@ -53,6 +53,11 @@ const std::vector<std::pair<std::string, std::string>> fs_vendor_expectations = 
     {"fs_t0_standby_temp", "180"}, {"fs_t1_standby_temp", "150"},
     {"fs_toolchange_retract_v", "4"}, {"fs_toolchange_retract_v_speed", "600"},
     {"fs_brush_on_toolchange", "1"},
+    // Tail-release and preheat ordering (owner spec v1.0). Values deliberately
+    // differ from the declared defaults so the round trip proves they travelled.
+    {"fs_tool_preheat_lead_s", "20"}, {"fs_fiber_tail_margin_mm", "1"},
+    {"fs_fiber_release_length_mm", "6.8"}, {"fs_fiber_release_speed_mm_s", "12"},
+    {"fs_fiber_release_anchor_mm", "10"},
 };
 
 // Declared defaults from PrintConfig.cpp (must stay in sync with the defs).
@@ -83,6 +88,14 @@ const std::vector<std::pair<std::string, std::string>> fs_default_expectations =
     {"fs_t0_standby_temp", "180"}, {"fs_t1_standby_temp", "150"},
     {"fs_toolchange_retract_v", "4"}, {"fs_toolchange_retract_v_speed", "600"},
     {"fs_brush_on_toolchange", "1"},
+    // Migration invariant for the tail-release work: a legacy project gains no
+    // predictive preheat lead and, more importantly, NO dry release. The release
+    // length default is 0, which disables the feature outright, so an existing
+    // plate exports exactly as before. The lead default is 15 s but is inert while
+    // the paired tool-change sequence itself is not emitted.
+    {"fs_tool_preheat_lead_s", "15"}, {"fs_fiber_tail_margin_mm", "0"},
+    {"fs_fiber_release_length_mm", "0"}, {"fs_fiber_release_speed_mm_s", "10"},
+    {"fs_fiber_release_anchor_mm", "8"},
 };
 
 struct Scene {

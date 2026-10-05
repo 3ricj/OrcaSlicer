@@ -4711,6 +4711,56 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionBool(true));
 
+    // Tail-release and preheat-ordering keys (owner specification v1.0). The
+    // ranges are the spec's and are enforced here as well as in the planner, so a
+    // bad preset is a load-time error rather than a slice-time surprise. Defaults
+    // are the neutral ones: both features are off until asked for, so an existing
+    // project is byte-identical after the upgrade.
+    def = this->add("fs_tool_preheat_lead_s", coFloat);
+    def->label = L("Incoming head preheat lead");
+    def->tooltip = L("Nominal seconds before the end of the outgoing head's deposition and release at which the incoming head is given its working temperature with a nonblocking M104, clamped to the outgoing head's own activation interval. 0 means no predictive lead, not no temperature protection: the incoming target is still set and the blocking M109 at the brush station stays mandatory. The clock is nominal: temperature waits and opaque macro calls contribute zero, and acceleration and heater behaviour are not modelled.");
+    def->sidetext = L("s");
+    def->min = 0;
+    def->max = 120;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(15.0));
+
+    def = this->add("fs_fiber_tail_margin_mm", coFloat);
+    def->label = L("Fiber tail margin");
+    def->tooltip = L("Extra deposition distance after the nominal cut-to-nozzle tail length, mm. The margin moves the blade cut EARLIER by this amount and never extends the deposited footprint past the planned strand end, so the extra length is deposited under matrix drag rather than pushed outboard. 0 keeps the nominal cut position.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 3;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.0));
+
+    def = this->add("fs_fiber_release_length_mm", coFloat);
+    def->label = L("Fiber forward dry release length");
+    def->tooltip = L("Unextruded forward travel after the tail retract, mm. The release continues the deposition direction with no U, V or E at all, so the severed tail is carried clear of the nozzle before the tool change instead of being left to droop. 0 disables the feature. A closed strand is rotated to a deterministic seam so the release retraces already deposited material; an open strand releases only over material deposited in the same layer. When no candidate satisfies the support and straightness rules the export FAILS rather than shortening this value or falling back to zero.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 10;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.0));
+
+    def = this->add("fs_fiber_release_speed_mm_s", coFloat);
+    def->label = L("Fiber dry release speed");
+    def->tooltip = L("Feedrate of the unextruded forward release move, mm/s. 10.0 emits F600.");
+    def->sidetext = L("mm/s");
+    def->min = 1;
+    def->max = 20;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(10.0));
+
+    def = this->add("fs_fiber_release_anchor_mm", coFloat);
+    def->label = L("Fiber release anchor length");
+    def->tooltip = L("Straight supported deposition required immediately before a release may start, mm. The anchor and the whole release must lie inside one straight run, which is what keeps the dry move from turning into a sharp turn or an open-air bridge.");
+    def->sidetext = L("mm");
+    def->min = 2;
+    def->max = 20;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(8.0));
+
     def = this->add("fs_aux_fans_on_toolchange", coBool);
     def->label = L("Auxiliary fans at fiber tool changes");
     def->tooltip = L("Drive the auxiliary fan ports P3 and P5 to full speed while the composite head deposits and back to zero when plastic resumes. Applies at every fiber tool change and to the composite priming window, which the start sequence now enters and leaves through the same paired sequence. The machine start gcode leaves both ports at zero and the vendor machine raises them for the fiber pass, so without this they never run. The value is the vendor constant, not the part-cooling demand.");

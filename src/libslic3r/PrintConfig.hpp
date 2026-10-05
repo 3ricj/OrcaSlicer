@@ -1911,6 +1911,16 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloat, fs_toolchange_retract_v_speed))
     ((ConfigOptionBool, fs_brush_on_toolchange))
     ((ConfigOptionBool, fs_aux_fans_on_toolchange))
+    // FibreSeeker3 tail-release and preheat-ordering keys (owner specification
+    // v1.0). Same block as the tool-change set above for the same reason: the
+    // GCodeConfig sequence sits at 226 of the 227-entry MSVC BOOST_PP ceiling, while
+    // PrintConfig has room (192 -> 197). PrintConfig derives from GCodeConfig, so
+    // m_config.fs_* access and the printer-preset membership are unchanged.
+    ((ConfigOptionFloat, fs_tool_preheat_lead_s))
+    ((ConfigOptionFloat, fs_fiber_tail_margin_mm))
+    ((ConfigOptionFloat, fs_fiber_release_length_mm))
+    ((ConfigOptionFloat, fs_fiber_release_speed_mm_s))
+    ((ConfigOptionFloat, fs_fiber_release_anchor_mm))
     ((ConfigOptionPoints,             printable_area))
     ((ConfigOptionPointsGroups,       extruder_printable_area))
     ((ConfigOptionBool,               support_parallel_printheads))
