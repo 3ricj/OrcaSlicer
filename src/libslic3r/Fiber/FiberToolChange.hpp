@@ -153,6 +153,20 @@ struct FiberToolChangeParams
     // this sequence exists to prevent. The brush visit and the fan routing are
     // likewise ungated: the pairing is per window, not per plate.
     bool emit_readiness_wait = true;
+    // Whether the scheduler already commanded a nonblocking preheat (M104 with
+    // an FS_PREHEAT marker) for the head this block is about to activate. When
+    // it is true, the activated head's STANDBY line is suppressed.
+    //
+    // That line is already documented as a measured no-op: the head is parked at
+    // exactly that temperature, and the working-temperature pre-charge two lines
+    // later overrides it anyway. Once the scheduler preheats the head to its
+    // WORKING target ahead of the switch, though, the standby line stops being a
+    // no-op and becomes a clobber: it drops the head from the preheat target back
+    // to standby, throwing away the lead the scheduler paid for, and the analyzer
+    // reports FS_PREHEAT_CLOBBERED. Suppressing it costs nothing, because the
+    // both-heads clause is still satisfied - the pre-charge line is a target for
+    // the activated head, and a working-temperature one.
+    bool incoming_preheat_pending = false;
 };
 
 // The plastic -> fibre (T1 -> T0) half of the sequence, everything except the

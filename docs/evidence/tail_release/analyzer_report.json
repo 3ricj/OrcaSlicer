@@ -13,7 +13,7 @@
       "stats": {
         "windows": 1,
         "releases_executed": 0,
-        "waits_at_station": 1,
+        "waits_at_station": 2,
         "waits_outside_station": 0,
         "preheats": 1,
         "post_cut_turns_gt_60": 1,
@@ -40,7 +40,7 @@
       "stats": {
         "windows": 1,
         "releases_executed": 1,
-        "waits_at_station": 1,
+        "waits_at_station": 2,
         "waits_outside_station": 0,
         "preheats": 1,
         "post_cut_turns_gt_60": 1,
@@ -67,7 +67,7 @@
       "stats": {
         "windows": 1,
         "releases_executed": 1,
-        "waits_at_station": 1,
+        "waits_at_station": 2,
         "waits_outside_station": 0,
         "preheats": 1,
         "post_cut_turns_gt_60": 1,
@@ -92,9 +92,9 @@
       "stats": {
         "windows": 5,
         "releases_executed": 5,
-        "waits_at_station": 5,
+        "waits_at_station": 10,
         "waits_outside_station": 0,
-        "preheats": 0,
+        "preheats": 5,
         "post_cut_turns_gt_60": 0,
         "max_post_cut_turn_deg": 0.0,
         "support": "NOT_EVALUATED"
@@ -117,9 +117,9 @@
       "stats": {
         "windows": 5,
         "releases_executed": 5,
-        "waits_at_station": 5,
+        "waits_at_station": 10,
         "waits_outside_station": 0,
-        "preheats": 0,
+        "preheats": 5,
         "post_cut_turns_gt_60": 0,
         "max_post_cut_turn_deg": 0.0,
         "support": "NOT_EVALUATED"
@@ -142,9 +142,9 @@
       "stats": {
         "windows": 5,
         "releases_executed": 5,
-        "waits_at_station": 5,
+        "waits_at_station": 10,
         "waits_outside_station": 0,
-        "preheats": 0,
+        "preheats": 5,
         "post_cut_turns_gt_60": 0,
         "max_post_cut_turn_deg": 0.0,
         "support": "NOT_EVALUATED"
@@ -167,9 +167,9 @@
       "stats": {
         "windows": 5,
         "releases_executed": 5,
-        "waits_at_station": 5,
+        "waits_at_station": 10,
         "waits_outside_station": 0,
-        "preheats": 0,
+        "preheats": 5,
         "post_cut_turns_gt_60": 0,
         "max_post_cut_turn_deg": 0.0,
         "support": "NOT_EVALUATED"
@@ -192,9 +192,9 @@
       "stats": {
         "windows": 5,
         "releases_executed": 5,
-        "waits_at_station": 5,
+        "waits_at_station": 10,
         "waits_outside_station": 0,
-        "preheats": 0,
+        "preheats": 5,
         "post_cut_turns_gt_60": 0,
         "max_post_cut_turn_deg": 0.0,
         "support": "NOT_EVALUATED"

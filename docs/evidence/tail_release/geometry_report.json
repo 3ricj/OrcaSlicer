@@ -1,0 +1,975 @@
+{
+  "exports": [
+    {
+      "file": "shook_A_park_wait.gcode",
+      "windows": [
+        {
+          "window": 1,
+          "window_begin_line": 38,
+          "window_end_line": 52,
+          "cut_line": 45,
+          "cut_xy": [
+            50.8,
+            54.0
+          ],
+          "release_executed": false,
+          "release_move_count": 0,
+          "release_start_xy": null,
+          "release_moves": [],
+          "release_end_xy": null,
+          "release_measured_xy_mm": 0.0,
+          "first_z_move_line": 51,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": null,
+          "planned_release_mm": null
+        }
+      ],
+      "window_count": 1,
+      "releases_executed": 0,
+      "blocking_waits": 2,
+      "waits_outside_station": 0,
+      "problems": []
+    },
+    {
+      "file": "shook_B_forward_release.gcode",
+      "windows": [
+        {
+          "window": 1,
+          "window_begin_line": 38,
+          "window_end_line": 56,
+          "cut_line": 46,
+          "cut_xy": [
+            20.0,
+            31.61
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            73.19,
+            30.0
+          ],
+          "release_moves": [
+            [
+              53,
+              79.99,
+              30.0
+            ]
+          ],
+          "release_end_xy": [
+            79.99,
+            30.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 55,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": 6.8,
+          "distance_matches_plan": true
+        }
+      ],
+      "window_count": 1,
+      "releases_executed": 1,
+      "blocking_waits": 2,
+      "waits_outside_station": 0,
+      "problems": []
+    },
+    {
+      "file": "shook_C_release_margin_1mm.gcode",
+      "windows": [
+        {
+          "window": 1,
+          "window_begin_line": 38,
+          "window_end_line": 56,
+          "cut_line": 46,
+          "cut_xy": [
+            20.0,
+            32.61
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            73.19,
+            30.0
+          ],
+          "release_moves": [
+            [
+              53,
+              79.99,
+              30.0
+            ]
+          ],
+          "release_end_xy": [
+            79.99,
+            30.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 55,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": 6.8,
+          "distance_matches_plan": true
+        }
+      ],
+      "window_count": 1,
+      "releases_executed": 1,
+      "blocking_waits": 2,
+      "waits_outside_station": 0,
+      "problems": []
+    },
+    {
+      "file": "straight_tail_margin_0p0.gcode",
+      "windows": [
+        {
+          "window": 1,
+          "window_begin_line": 36,
+          "window_end_line": 49,
+          "cut_line": 40,
+          "cut_xy": [
+            45.2,
+            10.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            10.0
+          ],
+          "release_moves": [
+            [
+              46,
+              106.8,
+              10.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            10.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 48,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 2,
+          "window_begin_line": 89,
+          "window_end_line": 102,
+          "cut_line": 93,
+          "cut_xy": [
+            45.2,
+            16.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            16.0
+          ],
+          "release_moves": [
+            [
+              99,
+              106.8,
+              16.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            16.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 101,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 3,
+          "window_begin_line": 142,
+          "window_end_line": 155,
+          "cut_line": 146,
+          "cut_xy": [
+            45.2,
+            22.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            22.0
+          ],
+          "release_moves": [
+            [
+              152,
+              106.8,
+              22.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            22.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 154,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 4,
+          "window_begin_line": 195,
+          "window_end_line": 208,
+          "cut_line": 199,
+          "cut_xy": [
+            45.2,
+            28.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            28.0
+          ],
+          "release_moves": [
+            [
+              205,
+              106.8,
+              28.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            28.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 207,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 5,
+          "window_begin_line": 248,
+          "window_end_line": 261,
+          "cut_line": 252,
+          "cut_xy": [
+            45.2,
+            34.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            34.0
+          ],
+          "release_moves": [
+            [
+              258,
+              106.8,
+              34.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            34.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 260,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        }
+      ],
+      "window_count": 5,
+      "releases_executed": 5,
+      "blocking_waits": 10,
+      "waits_outside_station": 0,
+      "problems": []
+    },
+    {
+      "file": "straight_tail_margin_0p5.gcode",
+      "windows": [
+        {
+          "window": 1,
+          "window_begin_line": 36,
+          "window_end_line": 49,
+          "cut_line": 40,
+          "cut_xy": [
+            44.7,
+            10.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            10.0
+          ],
+          "release_moves": [
+            [
+              46,
+              106.8,
+              10.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            10.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 48,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 2,
+          "window_begin_line": 89,
+          "window_end_line": 102,
+          "cut_line": 93,
+          "cut_xy": [
+            44.7,
+            16.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            16.0
+          ],
+          "release_moves": [
+            [
+              99,
+              106.8,
+              16.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            16.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 101,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 3,
+          "window_begin_line": 142,
+          "window_end_line": 155,
+          "cut_line": 146,
+          "cut_xy": [
+            44.7,
+            22.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            22.0
+          ],
+          "release_moves": [
+            [
+              152,
+              106.8,
+              22.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            22.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 154,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 4,
+          "window_begin_line": 195,
+          "window_end_line": 208,
+          "cut_line": 199,
+          "cut_xy": [
+            44.7,
+            28.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            28.0
+          ],
+          "release_moves": [
+            [
+              205,
+              106.8,
+              28.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            28.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 207,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 5,
+          "window_begin_line": 248,
+          "window_end_line": 261,
+          "cut_line": 252,
+          "cut_xy": [
+            44.7,
+            34.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            34.0
+          ],
+          "release_moves": [
+            [
+              258,
+              106.8,
+              34.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            34.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 260,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        }
+      ],
+      "window_count": 5,
+      "releases_executed": 5,
+      "blocking_waits": 10,
+      "waits_outside_station": 0,
+      "problems": []
+    },
+    {
+      "file": "straight_tail_margin_1p0.gcode",
+      "windows": [
+        {
+          "window": 1,
+          "window_begin_line": 36,
+          "window_end_line": 49,
+          "cut_line": 40,
+          "cut_xy": [
+            44.2,
+            10.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            10.0
+          ],
+          "release_moves": [
+            [
+              46,
+              106.8,
+              10.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            10.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 48,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 2,
+          "window_begin_line": 89,
+          "window_end_line": 102,
+          "cut_line": 93,
+          "cut_xy": [
+            44.2,
+            16.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            16.0
+          ],
+          "release_moves": [
+            [
+              99,
+              106.8,
+              16.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            16.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 101,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 3,
+          "window_begin_line": 142,
+          "window_end_line": 155,
+          "cut_line": 146,
+          "cut_xy": [
+            44.2,
+            22.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            22.0
+          ],
+          "release_moves": [
+            [
+              152,
+              106.8,
+              22.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            22.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 154,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 4,
+          "window_begin_line": 195,
+          "window_end_line": 208,
+          "cut_line": 199,
+          "cut_xy": [
+            44.2,
+            28.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            28.0
+          ],
+          "release_moves": [
+            [
+              205,
+              106.8,
+              28.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            28.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 207,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 5,
+          "window_begin_line": 248,
+          "window_end_line": 261,
+          "cut_line": 252,
+          "cut_xy": [
+            44.2,
+            34.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            34.0
+          ],
+          "release_moves": [
+            [
+              258,
+              106.8,
+              34.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            34.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 260,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        }
+      ],
+      "window_count": 5,
+      "releases_executed": 5,
+      "blocking_waits": 10,
+      "waits_outside_station": 0,
+      "problems": []
+    },
+    {
+      "file": "straight_tail_margin_1p5.gcode",
+      "windows": [
+        {
+          "window": 1,
+          "window_begin_line": 36,
+          "window_end_line": 49,
+          "cut_line": 40,
+          "cut_xy": [
+            43.7,
+            10.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            10.0
+          ],
+          "release_moves": [
+            [
+              46,
+              106.8,
+              10.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            10.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 48,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 2,
+          "window_begin_line": 89,
+          "window_end_line": 102,
+          "cut_line": 93,
+          "cut_xy": [
+            43.7,
+            16.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            16.0
+          ],
+          "release_moves": [
+            [
+              99,
+              106.8,
+              16.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            16.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 101,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 3,
+          "window_begin_line": 142,
+          "window_end_line": 155,
+          "cut_line": 146,
+          "cut_xy": [
+            43.7,
+            22.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            22.0
+          ],
+          "release_moves": [
+            [
+              152,
+              106.8,
+              22.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            22.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 154,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 4,
+          "window_begin_line": 195,
+          "window_end_line": 208,
+          "cut_line": 199,
+          "cut_xy": [
+            43.7,
+            28.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            28.0
+          ],
+          "release_moves": [
+            [
+              205,
+              106.8,
+              28.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            28.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 207,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 5,
+          "window_begin_line": 248,
+          "window_end_line": 261,
+          "cut_line": 252,
+          "cut_xy": [
+            43.7,
+            34.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            34.0
+          ],
+          "release_moves": [
+            [
+              258,
+              106.8,
+              34.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            34.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 260,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        }
+      ],
+      "window_count": 5,
+      "releases_executed": 5,
+      "blocking_waits": 10,
+      "waits_outside_station": 0,
+      "problems": []
+    },
+    {
+      "file": "straight_tail_margin_2p0.gcode",
+      "windows": [
+        {
+          "window": 1,
+          "window_begin_line": 36,
+          "window_end_line": 49,
+          "cut_line": 40,
+          "cut_xy": [
+            43.2,
+            10.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            10.0
+          ],
+          "release_moves": [
+            [
+              46,
+              106.8,
+              10.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            10.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 48,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 2,
+          "window_begin_line": 89,
+          "window_end_line": 102,
+          "cut_line": 93,
+          "cut_xy": [
+            43.2,
+            16.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            16.0
+          ],
+          "release_moves": [
+            [
+              99,
+              106.8,
+              16.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            16.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 101,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 3,
+          "window_begin_line": 142,
+          "window_end_line": 155,
+          "cut_line": 146,
+          "cut_xy": [
+            43.2,
+            22.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            22.0
+          ],
+          "release_moves": [
+            [
+              152,
+              106.8,
+              22.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            22.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 154,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 4,
+          "window_begin_line": 195,
+          "window_end_line": 208,
+          "cut_line": 199,
+          "cut_xy": [
+            43.2,
+            28.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            28.0
+          ],
+          "release_moves": [
+            [
+              205,
+              106.8,
+              28.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            28.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 207,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        },
+        {
+          "window": 5,
+          "window_begin_line": 248,
+          "window_end_line": 261,
+          "cut_line": 252,
+          "cut_xy": [
+            43.2,
+            34.0
+          ],
+          "release_executed": true,
+          "release_move_count": 1,
+          "release_start_xy": [
+            100.0,
+            34.0
+          ],
+          "release_moves": [
+            [
+              258,
+              106.8,
+              34.0
+            ]
+          ],
+          "release_end_xy": [
+            106.8,
+            34.0
+          ],
+          "release_measured_xy_mm": 6.8,
+          "first_z_move_line": 260,
+          "first_z_target": 0.8,
+          "release_before_first_z_lift": true,
+          "planned_release_mm": null
+        }
+      ],
+      "window_count": 5,
+      "releases_executed": 5,
+      "blocking_waits": 10,
+      "waits_outside_station": 0,
+      "problems": []
+    }
+  ],
+  "method": "distances computed from commanded G0/G1 XY coordinates, chained from the position each move started from; comments and configuration values are not consulted",
+  "tolerance_mm": 0.05,
+  "durations_measured": false,
+  "physical_tail_clearance": "unmeasured",
+  "print_quality": "UNTESTED"
+}

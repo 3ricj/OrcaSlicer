@@ -152,34 +152,76 @@ void walk_deposit(std::string& s,
     s += "G1 F600 V-1.000 ; Retract\n";
 }
 
-// The ordered transition block: sync, the one V-4 for the real departure, the
-// lift, then the station visit with the blocking wait INSIDE it, then the switch
-// and the E recovery at the next deposition start.
-std::string transition_block(double z)
+// Both transition halves come from the SHIPPED emitter, not from text written
+// by hand here. The previous version of this file spelled the order itself,
+// and that is exactly how the exports came to advertise a station-internal
+// wait the real exporter did not produce: the artifact asserted an order the
+// code never emitted. Anything the evidence claims must come from the code.
+
+// Tool-change parameters for these exports, with the suppression flag driven
+// by the plan the scheduler actually produced rather than by a constant.
+FiberToolChangeParams tc_for(const PreheatPlan& pre)
+{
+    FiberToolChangeParams tc;
+    tc.t0_temp_c      = 250;
+    tc.t0_standby_c   = 180;
+    tc.t1_standby_c   = 150;
+    tc.t1_working_c   = 250;
+    tc.part_cooling_pct = 0;
+    tc.emit_readiness_wait = true;
+    tc.incoming_preheat_pending = pre.valid && pre.inserted;
+    return tc;
+}
+
+// The caller-side half of a switch, which the exporter owns rather than
+// FiberToolChange: the planner flush, the outgoing withdrawal on the E channel
+// (the writer's retract, illegal on V while the other head is selected) and
+// the clearance lift. Identical on both halves, so the comparison variants
+// differ only in the things actually under test.
+std::string caller_side_exit(double z)
 {
     char buf[96];
     std::string s;
     s += "M400\n";
-    s += "G1 F600 V-4.000 ; Toolchange matrix retract\n";
-    std::snprintf(buf, sizeof(buf), "G1 Z%.3f F1200\n", z + 0.6);
+    s += "G1 F1200 E-5.000 ; outgoing plastic withdrawal (writer retract)\n";
+    std::snprintf(buf, sizeof(buf), "G1 Z%.3f F1200 ; clearance lift\n", z + 0.6);
     s += std::string(buf);
-    s += "MOVE_TO_BRUSH_STATION\n";
-    s += "M400\n";
-    s += "; FS_STATION_ENTER tool=0\n";
-    s += "CLEAN_NOZZLE\n";
-    s += "M104 S180 T0 ; standby\n";
-    s += "M104 S250 T1 ; pre-charge\n";
-    s += "; FS_WAIT_BEGIN tool=1 target_c=250 location=brush_station\n";
-    s += "M109 S250 T1\n";
-    s += "; FS_WAIT_END tool=1\n";
-    s += "MOVE_OUT_BRUSH_STATION\n";
-    s += "; FS_STATION_EXIT\n";
-    s += "T1 ; switch extruder type to:PLASTIC\n";
+    return s;
+}
+
+// plastic -> fibre: opening a window. Real emit_toolchange_to_fiber.
+std::string enter_from_plastic(double z, const FiberToolChangeParams& tc)
+{
+    std::string s = caller_side_exit(z);
+    s += emit_toolchange_to_fiber(tc);
+    s += "G91\nM83\n";
+    return s;
+}
+
+// fibre -> plastic: leaving a window. Real emit_toolchange_to_plastic, then
+// the E recovery at the next deposition start - deliberately NOT inside the
+// station visit, which the analyzer checks for as FS_E_RECOVERY_LOCATION.
+std::string exit_to_plastic(double z, const FiberToolChangeParams& tc)
+{
+    char buf[96];
+    std::string s = caller_side_exit(z);
+    s += emit_toolchange_to_plastic(tc);
     s += "G90\nM83\n";
     std::snprintf(buf, sizeof(buf), "G1 X20.000 Y30.000 Z%.3f F3000\n", z);
     s += std::string(buf);
     s += "G1 E10.000 U0.000 F1500 ; recovery at the next deposition start\n";
     return s;
+}
+
+// A slice of plastic content: the outgoing activation a preheat lead is
+// measured against. Two 40 mm deposits at F3000, so 0.8 s each and 1.6 s of
+// real commanded deposition rather than a number typed into the generator.
+std::string plastic_activation(double y)
+{
+    char buf[96];
+    std::snprintf(buf, sizeof(buf),
+                  "G1 F3000 X20.000 Y%.3f E1.000\n"                  "G1 F3000 X60.000 Y%.3f E1.000\n", y, y);
+    return std::string(buf);
 }
 
 bool write_file(const std::string& path, const std::string& content)
@@ -230,14 +272,22 @@ std::string straight_fixture(const TailReleaseParams& tp, const std::string& var
             s += "; FS_RELEASE_UNSUPPORTED " + err + "\n";
             continue;
         }
+        // A plastic pass precedes every window, and the preheat spliced into it
+        // is what makes the lead a measured quantity rather than a claim.
+        std::string plastic = plastic_activation(y);
+        PreheatPlan pre;
+        plastic = schedule_preheat_into_plastic(plastic, 0, 250, 0.8, pre, 0.2);
+        s += plastic;
+        s += enter_from_plastic(0.2, tc_for(pre));
         s += "M1001 L120\n";
         std::snprintf(buf, sizeof(buf), "; STRAND %d cut_x=%.3f post_cut_deposit=%.3f\n",
                       w, d.cut_distance_mm, d.post_cut_deposit_mm);
         s += std::string(buf);
         walk_deposit(s, pts, d.cut_distance_mm, d.post_cut_deposit_mm, 2.0, 0.5, 3000.0);
         s += emit_fiber_release(rel);
+        s += "G1 F1200 Z0.800 ; Z lift after the release\n";
         s += "M1002\n";
-        s += transition_block(0.2);
+        s += exit_to_plastic(0.2, tc_for(pre));
     }
     return s;
 }
@@ -322,12 +372,20 @@ int main(int argc, char** argv)
         std::snprintf(buf, sizeof(buf), "; preheat_insert_index=%zu nominal_lead_s=%.3f clamped=%d\n",
                       pre.insert_index, pre.nominal_lead_s, pre.clamped_to_activation ? 1 : 0);
         out += std::string(buf);
+        // The preheat is spliced into real plastic text rather than appended as
+        // a bare line, so the export shows WHERE the command landed and lets the
+        // analyzer see the lead against actual deposition.
+        std::string plastic = plastic_activation(30.0);
+        PreheatPlan spliced;
+        plastic = schedule_preheat_into_plastic(plastic, 0, 250, 15.0, spliced, 0.2);
+        out += plastic;
+        out += enter_from_plastic(0.2, tc_for(spliced));
         out += "M1001 L120\n";
-        out += emit_tool_preheat(pre);
         walk_deposit(out, path, d.cut_distance_mm, d.post_cut_deposit_mm, ratio_p, fiber_rate, feed);
         out += emit_fiber_release(rel);
+        out += "G1 F1200 Z0.800 ; Z lift after the release\n";
         out += "M1002\n";
-        out += transition_block(0.2);
+        out += exit_to_plastic(0.2, tc_for(spliced));
 
         const std::string fname = dir + "/" + name + ".gcode";
         if (!write_file(fname, out))

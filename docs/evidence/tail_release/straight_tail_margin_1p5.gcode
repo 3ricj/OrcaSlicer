@@ -14,6 +14,25 @@ M83
 G90
 ; margin_mm=1.500000
 ; release_mm=6.800000
+G1 F3000 X20.000 Y10.000 E1.000
+M104 S250 T0 ; FS_PREHEAT next_tool=0 lead_s=1
+G1 F3000 X60.000 Y10.000 E1.000
+M400
+G1 F1200 E-5.000 ; outgoing plastic withdrawal (writer retract)
+G1 Z0.800 F1200 ; clearance lift
+MOVE_TO_BRUSH_STATION
+CLEAN_NOZZLE
+M104 S150 T1 ; standby
+M104 S250 T0 ; pre-charge
+M109 S250 T0
+MOVE_OUT_BRUSH_STATION
+M106 P2 S0 ; fibre-side cooling, fan4, owned by T0 (depositing)
+M106 P1 S0 ; part-cooling, fan3, owned by T1 (idle)
+M106 P3 S255 ; auxiliary fan on while T0 deposits
+M106 P5 S255 ; exhaust fan on while T0 deposits
+T0 ; switch extruder type to:FIBER
+G91
+M83
 M1001 L120
 ; STRAND 0 cut_x=43.700 post_cut_deposit=56.300
 G1 X43.700 Y10.000 U21.850 V43.700 F3000
@@ -26,26 +45,47 @@ G1 F600 V-1.000 ; Retract
 ; FS_RELEASE_BEGIN length_mm=6.800 speed_mm_s=10.000
 G1 X106.800 Y10.000 F600
 ; FS_RELEASE_END physical_clearance=unmeasured
+G1 F1200 Z0.800 ; Z lift after the release
 M1002
 M400
-G1 F600 V-4.000 ; Toolchange matrix retract
-G1 Z0.800 F1200
-MOVE_TO_BRUSH_STATION
+G1 F1200 E-5.000 ; outgoing plastic withdrawal (writer retract)
+G1 Z0.800 F1200 ; clearance lift
 M400
-; FS_STATION_ENTER tool=0
+G1 F600 V-4.000 ; Toolchange matrix retract
+MOVE_TO_BRUSH_STATION
 CLEAN_NOZZLE
-M104 S180 T0 ; standby
 M104 S250 T1 ; pre-charge
-; FS_WAIT_BEGIN tool=1 target_c=250 location=brush_station
 M109 S250 T1
-; FS_WAIT_END tool=1
+M104 S180 T0 ; standby
 MOVE_OUT_BRUSH_STATION
-; FS_STATION_EXIT
+M106 P2 S0 ; fibre-side cooling, fan4, owned by T0 (idle)
+M106 P1 S0 ; part-cooling, fan3, owned by T1 (depositing)
+M106 P3 S0 ; auxiliary fan off while T1 deposits
+M106 P5 S0 ; exhaust fan off while T1 deposits
 T1 ; switch extruder type to:PLASTIC
 G90
 M83
 G1 X20.000 Y30.000 Z0.200 F3000
 G1 E10.000 U0.000 F1500 ; recovery at the next deposition start
+G1 F3000 X20.000 Y16.000 E1.000
+M104 S250 T0 ; FS_PREHEAT next_tool=0 lead_s=1
+G1 F3000 X60.000 Y16.000 E1.000
+M400
+G1 F1200 E-5.000 ; outgoing plastic withdrawal (writer retract)
+G1 Z0.800 F1200 ; clearance lift
+MOVE_TO_BRUSH_STATION
+CLEAN_NOZZLE
+M104 S150 T1 ; standby
+M104 S250 T0 ; pre-charge
+M109 S250 T0
+MOVE_OUT_BRUSH_STATION
+M106 P2 S0 ; fibre-side cooling, fan4, owned by T0 (depositing)
+M106 P1 S0 ; part-cooling, fan3, owned by T1 (idle)
+M106 P3 S255 ; auxiliary fan on while T0 deposits
+M106 P5 S255 ; exhaust fan on while T0 deposits
+T0 ; switch extruder type to:FIBER
+G91
+M83
 M1001 L120
 ; STRAND 1 cut_x=43.700 post_cut_deposit=56.300
 G1 X43.700 Y16.000 U21.850 V43.700 F3000
@@ -58,26 +98,47 @@ G1 F600 V-1.000 ; Retract
 ; FS_RELEASE_BEGIN length_mm=6.800 speed_mm_s=10.000
 G1 X106.800 Y16.000 F600
 ; FS_RELEASE_END physical_clearance=unmeasured
+G1 F1200 Z0.800 ; Z lift after the release
 M1002
 M400
-G1 F600 V-4.000 ; Toolchange matrix retract
-G1 Z0.800 F1200
-MOVE_TO_BRUSH_STATION
+G1 F1200 E-5.000 ; outgoing plastic withdrawal (writer retract)
+G1 Z0.800 F1200 ; clearance lift
 M400
-; FS_STATION_ENTER tool=0
+G1 F600 V-4.000 ; Toolchange matrix retract
+MOVE_TO_BRUSH_STATION
 CLEAN_NOZZLE
-M104 S180 T0 ; standby
 M104 S250 T1 ; pre-charge
-; FS_WAIT_BEGIN tool=1 target_c=250 location=brush_station
 M109 S250 T1
-; FS_WAIT_END tool=1
+M104 S180 T0 ; standby
 MOVE_OUT_BRUSH_STATION
-; FS_STATION_EXIT
+M106 P2 S0 ; fibre-side cooling, fan4, owned by T0 (idle)
+M106 P1 S0 ; part-cooling, fan3, owned by T1 (depositing)
+M106 P3 S0 ; auxiliary fan off while T1 deposits
+M106 P5 S0 ; exhaust fan off while T1 deposits
 T1 ; switch extruder type to:PLASTIC
 G90
 M83
 G1 X20.000 Y30.000 Z0.200 F3000
 G1 E10.000 U0.000 F1500 ; recovery at the next deposition start
+G1 F3000 X20.000 Y22.000 E1.000
+M104 S250 T0 ; FS_PREHEAT next_tool=0 lead_s=1
+G1 F3000 X60.000 Y22.000 E1.000
+M400
+G1 F1200 E-5.000 ; outgoing plastic withdrawal (writer retract)
+G1 Z0.800 F1200 ; clearance lift
+MOVE_TO_BRUSH_STATION
+CLEAN_NOZZLE
+M104 S150 T1 ; standby
+M104 S250 T0 ; pre-charge
+M109 S250 T0
+MOVE_OUT_BRUSH_STATION
+M106 P2 S0 ; fibre-side cooling, fan4, owned by T0 (depositing)
+M106 P1 S0 ; part-cooling, fan3, owned by T1 (idle)
+M106 P3 S255 ; auxiliary fan on while T0 deposits
+M106 P5 S255 ; exhaust fan on while T0 deposits
+T0 ; switch extruder type to:FIBER
+G91
+M83
 M1001 L120
 ; STRAND 2 cut_x=43.700 post_cut_deposit=56.300
 G1 X43.700 Y22.000 U21.850 V43.700 F3000
@@ -90,26 +151,47 @@ G1 F600 V-1.000 ; Retract
 ; FS_RELEASE_BEGIN length_mm=6.800 speed_mm_s=10.000
 G1 X106.800 Y22.000 F600
 ; FS_RELEASE_END physical_clearance=unmeasured
+G1 F1200 Z0.800 ; Z lift after the release
 M1002
 M400
-G1 F600 V-4.000 ; Toolchange matrix retract
-G1 Z0.800 F1200
-MOVE_TO_BRUSH_STATION
+G1 F1200 E-5.000 ; outgoing plastic withdrawal (writer retract)
+G1 Z0.800 F1200 ; clearance lift
 M400
-; FS_STATION_ENTER tool=0
+G1 F600 V-4.000 ; Toolchange matrix retract
+MOVE_TO_BRUSH_STATION
 CLEAN_NOZZLE
-M104 S180 T0 ; standby
 M104 S250 T1 ; pre-charge
-; FS_WAIT_BEGIN tool=1 target_c=250 location=brush_station
 M109 S250 T1
-; FS_WAIT_END tool=1
+M104 S180 T0 ; standby
 MOVE_OUT_BRUSH_STATION
-; FS_STATION_EXIT
+M106 P2 S0 ; fibre-side cooling, fan4, owned by T0 (idle)
+M106 P1 S0 ; part-cooling, fan3, owned by T1 (depositing)
+M106 P3 S0 ; auxiliary fan off while T1 deposits
+M106 P5 S0 ; exhaust fan off while T1 deposits
 T1 ; switch extruder type to:PLASTIC
 G90
 M83
 G1 X20.000 Y30.000 Z0.200 F3000
 G1 E10.000 U0.000 F1500 ; recovery at the next deposition start
+G1 F3000 X20.000 Y28.000 E1.000
+M104 S250 T0 ; FS_PREHEAT next_tool=0 lead_s=1
+G1 F3000 X60.000 Y28.000 E1.000
+M400
+G1 F1200 E-5.000 ; outgoing plastic withdrawal (writer retract)
+G1 Z0.800 F1200 ; clearance lift
+MOVE_TO_BRUSH_STATION
+CLEAN_NOZZLE
+M104 S150 T1 ; standby
+M104 S250 T0 ; pre-charge
+M109 S250 T0
+MOVE_OUT_BRUSH_STATION
+M106 P2 S0 ; fibre-side cooling, fan4, owned by T0 (depositing)
+M106 P1 S0 ; part-cooling, fan3, owned by T1 (idle)
+M106 P3 S255 ; auxiliary fan on while T0 deposits
+M106 P5 S255 ; exhaust fan on while T0 deposits
+T0 ; switch extruder type to:FIBER
+G91
+M83
 M1001 L120
 ; STRAND 3 cut_x=43.700 post_cut_deposit=56.300
 G1 X43.700 Y28.000 U21.850 V43.700 F3000
@@ -122,26 +204,47 @@ G1 F600 V-1.000 ; Retract
 ; FS_RELEASE_BEGIN length_mm=6.800 speed_mm_s=10.000
 G1 X106.800 Y28.000 F600
 ; FS_RELEASE_END physical_clearance=unmeasured
+G1 F1200 Z0.800 ; Z lift after the release
 M1002
 M400
-G1 F600 V-4.000 ; Toolchange matrix retract
-G1 Z0.800 F1200
-MOVE_TO_BRUSH_STATION
+G1 F1200 E-5.000 ; outgoing plastic withdrawal (writer retract)
+G1 Z0.800 F1200 ; clearance lift
 M400
-; FS_STATION_ENTER tool=0
+G1 F600 V-4.000 ; Toolchange matrix retract
+MOVE_TO_BRUSH_STATION
 CLEAN_NOZZLE
-M104 S180 T0 ; standby
 M104 S250 T1 ; pre-charge
-; FS_WAIT_BEGIN tool=1 target_c=250 location=brush_station
 M109 S250 T1
-; FS_WAIT_END tool=1
+M104 S180 T0 ; standby
 MOVE_OUT_BRUSH_STATION
-; FS_STATION_EXIT
+M106 P2 S0 ; fibre-side cooling, fan4, owned by T0 (idle)
+M106 P1 S0 ; part-cooling, fan3, owned by T1 (depositing)
+M106 P3 S0 ; auxiliary fan off while T1 deposits
+M106 P5 S0 ; exhaust fan off while T1 deposits
 T1 ; switch extruder type to:PLASTIC
 G90
 M83
 G1 X20.000 Y30.000 Z0.200 F3000
 G1 E10.000 U0.000 F1500 ; recovery at the next deposition start
+G1 F3000 X20.000 Y34.000 E1.000
+M104 S250 T0 ; FS_PREHEAT next_tool=0 lead_s=1
+G1 F3000 X60.000 Y34.000 E1.000
+M400
+G1 F1200 E-5.000 ; outgoing plastic withdrawal (writer retract)
+G1 Z0.800 F1200 ; clearance lift
+MOVE_TO_BRUSH_STATION
+CLEAN_NOZZLE
+M104 S150 T1 ; standby
+M104 S250 T0 ; pre-charge
+M109 S250 T0
+MOVE_OUT_BRUSH_STATION
+M106 P2 S0 ; fibre-side cooling, fan4, owned by T0 (depositing)
+M106 P1 S0 ; part-cooling, fan3, owned by T1 (idle)
+M106 P3 S255 ; auxiliary fan on while T0 deposits
+M106 P5 S255 ; exhaust fan on while T0 deposits
+T0 ; switch extruder type to:FIBER
+G91
+M83
 M1001 L120
 ; STRAND 4 cut_x=43.700 post_cut_deposit=56.300
 G1 X43.700 Y34.000 U21.850 V43.700 F3000
@@ -154,21 +257,23 @@ G1 F600 V-1.000 ; Retract
 ; FS_RELEASE_BEGIN length_mm=6.800 speed_mm_s=10.000
 G1 X106.800 Y34.000 F600
 ; FS_RELEASE_END physical_clearance=unmeasured
+G1 F1200 Z0.800 ; Z lift after the release
 M1002
 M400
-G1 F600 V-4.000 ; Toolchange matrix retract
-G1 Z0.800 F1200
-MOVE_TO_BRUSH_STATION
+G1 F1200 E-5.000 ; outgoing plastic withdrawal (writer retract)
+G1 Z0.800 F1200 ; clearance lift
 M400
-; FS_STATION_ENTER tool=0
+G1 F600 V-4.000 ; Toolchange matrix retract
+MOVE_TO_BRUSH_STATION
 CLEAN_NOZZLE
-M104 S180 T0 ; standby
 M104 S250 T1 ; pre-charge
-; FS_WAIT_BEGIN tool=1 target_c=250 location=brush_station
 M109 S250 T1
-; FS_WAIT_END tool=1
+M104 S180 T0 ; standby
 MOVE_OUT_BRUSH_STATION
-; FS_STATION_EXIT
+M106 P2 S0 ; fibre-side cooling, fan4, owned by T0 (idle)
+M106 P1 S0 ; part-cooling, fan3, owned by T1 (depositing)
+M106 P3 S0 ; auxiliary fan off while T1 deposits
+M106 P5 S0 ; exhaust fan off while T1 deposits
 T1 ; switch extruder type to:PLASTIC
 G90
 M83

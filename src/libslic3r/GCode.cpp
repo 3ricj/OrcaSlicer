@@ -7569,8 +7569,11 @@ LayerResult GCode::process_layer(
             // blocking readiness M109 stays exactly where FiberToolChange puts it
             // at the station: this adds only the nonblocking M104 ahead of it,
             // which is the station-only-wait rule.
+            // Declared out here so the tool-change block below can ask whether a
+            // preheat is actually standing, and suppress the standby line that
+            // would otherwise cancel it.
+            Fiber::PreheatPlan fs_pp;
             if (m_config.fs_t0_temp.value > 0) {
-                Fiber::PreheatPlan fs_pp;
                 const std::string fs_plastic = gcode;
                 gcode = Fiber::schedule_preheat_into_plastic(fs_plastic, 0,
                                                              m_config.fs_t0_temp.value,
@@ -7607,6 +7610,12 @@ LayerResult GCode::process_layer(
             fs_tc.toolchange_retract_v_f  = m_config.fs_toolchange_retract_v_speed.value;
             fs_tc.brush_on_toolchange     = m_config.fs_brush_on_toolchange.value;
             fs_tc.aux_fans_on_toolchange  = m_config.fs_aux_fans_on_toolchange.value;
+            // A preheat command for the head about to be activated is standing in
+            // the plastic content above. The activated head's standby line would
+            // drop it back to standby and throw the lead away, so the emitter is
+            // told to leave that line out.
+            fs_tc.incoming_preheat_pending = fs_pp.valid && fs_pp.inserted;
+
             // Part-cooling demand comes from the cooling buffer, which is the only
             // fan emitter on this profile (fan_speedup_time and fan_kickstart are 0,
             // so FanMover is not instantiated). The fibre block is emitted before this

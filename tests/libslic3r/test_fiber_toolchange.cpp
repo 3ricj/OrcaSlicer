@@ -56,6 +56,25 @@ int count_line_start(const std::string& hay, const std::string& prefix)
     return n;
 }
 
+// Index of the first LINE that starts with a prefix, or npos. Line-anchored
+// for the same reason count_line_start is: a plain substring search for
+// "T1 ;" also matches the T word of "M104 S250 T1 ; pre-charge", which
+// silently inverts any ordering assertion built on it.
+static size_t first_line_with(const std::string& hay, const std::string& prefix)
+{
+    size_t pos = 0;
+    while (pos < hay.size()) {
+        const size_t eol = hay.find(0x0A /* LF */, pos);
+        const size_t end = eol == std::string::npos ? hay.size() : eol;
+        if (hay.compare(pos, prefix.size(), prefix) == 0)
+            return pos;
+        if (eol == std::string::npos)
+            break;
+        pos = eol + 1;
+    }
+    return std::string::npos;
+}
+
 // True when the block ends with `line` plus exactly one newline.
 bool ends_with_line(const std::string& hay, const std::string& line)
 {
@@ -133,9 +152,14 @@ TEST_CASE("FiberToolChange: fibre -> plastic emits the matching return sequence"
     CHECK(count_sub(s, "CLEAN_NOZZLE") == 1);
     REQUIRE(!s.empty());
     CHECK(ends_with_line(s, "T1 ; switch extruder type to:PLASTIC"));
-    // The withdrawal comes BEFORE the tool line: V is a T0-channel axis.
-    CHECK(s.find("Toolchange matrix retract") < s.find("T1 ;"));
-    CHECK(s.find("M104 S180 T0") < s.find("T1 ;"));
+    // The withdrawal comes BEFORE the tool line: V is a T0-channel axis. The
+    // tool line is located line-anchored, because a substring search for "T1 ;"
+    // also matches "M104 S250 T1 ; pre-charge" and would compare against the
+    // wrong line entirely.
+    const size_t tsel = first_line_with(s, "T1 ;");
+    REQUIRE(tsel != std::string::npos);
+    CHECK(s.find("Toolchange matrix retract") < tsel);
+    CHECK(s.find("M104 S180 T0") < tsel);
 }
 
 TEST_CASE("FiberToolChange: fan outputs are routed per head with an explicit P word", "[Fiber][FiberToolChange]")
@@ -471,4 +495,153 @@ TEST_CASE("FiberToolChange: the startup purge pays both halves of the sequence",
     const std::string re = emit_toolchange_to_fiber(rearmed);
     CHECK(re.find("M104 S270 T0 ; pre-charge") != std::string::npos);
     CHECK(re.find("M109 S270 T0") != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// Transition ORDERING, not just presence (owner ruling 2026-10-05).
+//
+// The cases above pin that each clause of the sequence EXISTS. They cannot see
+// this defect: the shipped fibre->plastic half emitted its blocking M109 BEFORE
+// MOVE_TO_BRUSH_STATION, so every temperature wait preceded station entry and
+// the wait was paid standing in the printing area. Presence checks passed; the
+// print behaviour was wrong. These cases pin the ORDER, which is the actual
+// requirement, and they are the reason the comparison exports failed variant A.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("FiberToolChange: the blocking wait happens INSIDE the station visit",
+          "[Fiber][FiberToolChange][ordering]")
+{
+    // The rule, stated once: a blocking temperature wait is only ever paid while
+    // the carriage is parked at the brush station. That means the wait must come
+    // AFTER MOVE_TO_BRUSH_STATION and BEFORE MOVE_OUT_BRUSH_STATION. Waiting
+    // before entry means the head heats while it is still over the part.
+    const FiberToolChangeParams p = profile_params();
+
+    const std::string out = emit_toolchange_to_plastic(p);
+    const size_t enter = first_line_with(out, "MOVE_TO_BRUSH_STATION");
+    const size_t exit_ = first_line_with(out, "MOVE_OUT_BRUSH_STATION");
+    const size_t wait  = first_line_with(out, "M109");
+
+    REQUIRE(enter != std::string::npos);
+    REQUIRE(exit_ != std::string::npos);
+    REQUIRE(wait  != std::string::npos);
+
+    // The load-bearing assertions: enter < wait < exit.
+    CHECK(enter < wait);
+    CHECK(wait < exit_);
+
+    // The clean is what the station visit is FOR, and it is emitted against the
+    // head being put away, so it also has to precede the switch line.
+    const size_t clean = first_line_with(out, "CLEAN_NOZZLE");
+    const size_t tsel  = first_line_with(out, "T1 ;");
+    REQUIRE(clean != std::string::npos);
+    REQUIRE(tsel  != std::string::npos);
+    CHECK(enter < clean);
+    CHECK(clean < tsel);
+
+    // Same contract on the plastic->fibre half: the composite head's readiness
+    // wait is paid at the station, not on the way to it.
+    FiberToolChangeParams inb = p;
+    inb.emit_readiness_wait = true;
+    const std::string inb_s = emit_toolchange_to_fiber(inb);
+    const size_t i_enter = first_line_with(inb_s, "MOVE_TO_BRUSH_STATION");
+    const size_t i_wait  = first_line_with(inb_s, "M109");
+    const size_t i_exit  = first_line_with(inb_s, "MOVE_OUT_BRUSH_STATION");
+    REQUIRE(i_enter != std::string::npos);
+    REQUIRE(i_wait  != std::string::npos);
+    REQUIRE(i_exit  != std::string::npos);
+    CHECK(i_enter < i_wait);
+    CHECK(i_wait < i_exit);
+}
+
+TEST_CASE("FiberToolChange: no blocking wait is emitted outside a station visit",
+          "[Fiber][FiberToolChange][ordering]")
+{
+    // Walk the block line by line and assert the invariant directly, the way an
+    // analyzer would: M109 is legal only between MOVE_TO_BRUSH_STATION and
+    // MOVE_OUT_BRUSH_STATION. This catches a reordering that a pairwise index
+    // comparison could miss if a second wait were added later.
+    const std::string out = emit_toolchange_to_plastic(profile_params());
+
+    bool in_station = false;
+    int  waits      = 0;
+    int  waits_outside = 0;
+    size_t pos = 0;
+    while (pos < out.size()) {
+        const size_t eol = out.find(0x0A, pos);
+        const size_t end = eol == std::string::npos ? out.size() : eol;
+        const std::string line = out.substr(pos, end - pos);
+        if (line.rfind("MOVE_TO_BRUSH_STATION", 0) == 0)
+            in_station = true;
+        else if (line.rfind("MOVE_OUT_BRUSH_STATION", 0) == 0)
+            in_station = false;
+        else if (line.rfind("M109", 0) == 0) {
+            ++waits;
+            if (!in_station)
+                ++waits_outside;
+        }
+        if (eol == std::string::npos)
+            break;
+        pos = eol + 1;
+    }
+    CHECK(waits > 0);        // the half really does carry a wait
+    CHECK(waits_outside == 0); // and none of it is paid outside the station
+}
+
+TEST_CASE("FiberToolChange: a pending preheat is not clobbered by the standby line",
+          "[Fiber][FiberToolChange][ordering]")
+{
+    // The activated head's standby line is a documented no-op: the head is
+    // already parked there and the working pre-charge two lines later overrides
+    // it. Once the scheduler preheats that head to WORKING temperature ahead of
+    // the switch, the same line stops being a no-op and becomes a clobber - it
+    // throws the lead away. With the flag set it must be gone.
+    FiberToolChangeParams p = profile_params();
+    p.emit_readiness_wait = true;
+
+    const std::string plain = emit_toolchange_to_fiber(p);
+    CHECK(first_line_with(plain, "M104 S180 T0") != std::string::npos);
+
+    p.incoming_preheat_pending = true;
+    const std::string hot = emit_toolchange_to_fiber(p);
+    CHECK(first_line_with(hot, "M104 S180 T0") == std::string::npos);
+
+    // The both-heads clause is still satisfied: the block carries a target for
+    // the activated head, at working temperature, and still waits on it.
+    CHECK(first_line_with(hot, "M104 S270 T0 ; pre-charge") != std::string::npos);
+    CHECK(first_line_with(hot, "M109 S270 T0") != std::string::npos);
+    // And the outgoing head is still parked - that half is never gated.
+    CHECK(first_line_with(hot, "M104 S150 T1") != std::string::npos);
+
+    // Ordering still holds with the preheat path taken.
+    const size_t enter = first_line_with(hot, "MOVE_TO_BRUSH_STATION");
+    const size_t wait  = first_line_with(hot, "M109");
+    const size_t exit_ = first_line_with(hot, "MOVE_OUT_BRUSH_STATION");
+    REQUIRE(enter != std::string::npos);
+    REQUIRE(wait  != std::string::npos);
+    REQUIRE(exit_ != std::string::npos);
+    CHECK(enter < wait);
+    CHECK(wait < exit_);
+}
+
+TEST_CASE("FiberToolChange: with no station the readiness wait is still paid",
+          "[Fiber][FiberToolChange][ordering]")
+{
+    // The station-only rule is unsatisfiable without a station. Printing cold is
+    // worse than a wait in the open, so the wait is emitted in place and the
+    // analyzer reports it, rather than the code silently dropping a wait the
+    // print needs.
+    FiberToolChangeParams p = profile_params();
+    p.brush_on_toolchange = false;
+    p.emit_readiness_wait = true;
+
+    const std::string s = emit_toolchange_to_fiber(p);
+    CHECK(first_line_with(s, "MOVE_TO_BRUSH_STATION") == std::string::npos);
+    CHECK(first_line_with(s, "M109 S270 T0") != std::string::npos);
+    // Still before the switch, so the head is hot when the window opens.
+    const size_t wait = first_line_with(s, "M109");
+    const size_t tsel = first_line_with(s, "T0 ;");
+    REQUIRE(wait != std::string::npos);
+    REQUIRE(tsel != std::string::npos);
+    CHECK(wait < tsel);
 }

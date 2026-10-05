@@ -27,12 +27,31 @@ void append_standby(std::string& s, int temp_c, int tool)
 // The brush triple, emitted against the head currently selected - which the
 // callers arrange to be the head being put away. Macro-owned motion (machine
 // contract s10): the slicer names the station, the firmware moves to it.
-void append_brush(std::string& s, bool enable)
+//
+// `inside_visit` is emitted between the clean and the exit, i.e. while the
+// carriage is parked at the station. It exists for the owner's transition-
+// ordering rule (2026-10-05): a blocking temperature wait is only ever paid
+// at the station, never on the way to it and never over the part. The wait
+// goes AFTER the clean so the head is still hot enough to shed matrix onto
+// the brush rather than after it has been parked at standby.
+//
+// When the visit is disabled there is nowhere to pay the wait, so the block
+// is emitted in place instead. That is deliberately not silent: the station-
+// only rule is unsatisfiable without a station, and printing cold is worse
+// than a wait in the open, so the wait wins and the analyzer reports
+// FS_WAIT_OUTSIDE_STATION against the export rather than the code quietly
+// dropping a readiness wait the print needs.
+void append_brush(std::string& s, bool enable, const std::string& inside_visit = std::string())
 {
-    if (!enable)
+    if (!enable) {
+        if (!inside_visit.empty())
+            s += inside_visit;
         return;
+    }
     put(s, "MOVE_TO_BRUSH_STATION");
     put(s, "CLEAN_NOZZLE");
+    if (!inside_visit.empty())
+        s += inside_visit;
     put(s, "MOVE_OUT_BRUSH_STATION");
 }
 
@@ -108,21 +127,32 @@ std::string emit_toolchange_to_fiber(const FiberToolChangeParams& p)
     // other reference exports), and on this half the flush has to precede the
     // caller's outgoing E withdrawal, so the caller emits it. See the call site
     // in GCode::process_layer.
-    // Standby target for the plastic head being put away: emitted when the
-    // slicer owns thermals, because M104 does not block and a parked nozzle left
-    // at working temperature is the ooze source this sequence exists to remove.
-    // Gated on the restore temperature being KNOWN: parking the head is only
-    // safe if the return half can put it back, and the caller passes 0 when the
-    // filament working temperature cannot be resolved. The composite head is
-    // charged and waited for only when the caller asks for the readiness wait; on
-    // the first window of a plate that was NOT primed the head is provably hot
-    // from the preamble preheat, and dropping it to standby without an M109 to
-    // bring it back would make it print cold. A PRIMED plate is the opposite case:
-    // the priming window is closed by emit_toolchange_to_plastic below, which
-    // parks T0 like any other exit, so the first model window owes the wait again.
+    // Every thermal line of this half is built into its own string first, so
+    // the whole thermal block can be placed INSIDE the brush visit. That is the
+    // owner's transition-ordering rule (2026-10-05): no blocking wait before
+    // station entry, and no cooling of the selected head before its clean.
+    //
+    // Order inside the visit, and why:
+    //   CLEAN_NOZZLE      first, while the outgoing head is still at working
+    //                     temperature, so matrix sheds onto the brush molten
+    //                     rather than being parked half-cooked in the nozzle.
+    //   M104 T1 standby   only now is the outgoing plastic head parked. Doing it
+    //                     before the clean is the FS_COOL_BEFORE_CLEAN defect.
+    //   M104 T0 standby   the both-heads clause, a measured no-op (see below).
+    //   M104 T0 working   pre-charge, so the head is climbing before it is waited
+    //                     for; charging to standby then waiting for working only
+    //                     lengthens the wait.
+    //   M109 T0           the blocking readiness wait, paid at the station.
+    std::string thermal;
     if (p.t0_temp_c > 0) {
+        // Standby target for the plastic head being put away: emitted when the
+        // slicer owns thermals, because M104 does not block and a parked nozzle
+        // left at working temperature is the ooze source this sequence exists to
+        // remove. Gated on the restore temperature being KNOWN: parking the head
+        // is only safe if the return half can put it back, and the caller passes 0
+        // when the filament working temperature cannot be resolved.
         if (p.t1_working_c > 0)
-            append_standby(s, p.t1_standby_c, 1);
+            append_standby(thermal, p.t1_standby_c, 1);
         if (p.emit_readiness_wait) {
             // Standby target for the head being ACTIVATED, so that this block
             // carries a target for BOTH heads as the objective requires. It is a
@@ -130,22 +160,23 @@ std::string emit_toolchange_to_fiber(const FiberToolChangeParams& p)
             // temperature, because the fibre->plastic half dropped it here on the
             // way out of the previous window, and 0/315 reference blocks send it.
             // It is harmless (M104 does not block) and it is overridden two lines
-            // later by the working-temperature pre-charge below, so the vendor
-            // thermal behaviour is unchanged. It sits INSIDE the readiness gate on
-            // purpose: where no M109 follows, dropping the head to standby with no
-            // way to bring it back would strand it cold, so the gate keeps the
-            // clause satisfiable without ever making the print worse.
-            append_standby(s, p.t0_standby_c, 0);
-            // Pre-charge at WORKING temperature, not standby: the vendor sends
-            // M104 S<t0_temp> T0 here so the head is already climbing when the
-            // blocking M109 below is reached. Charging it to standby and then
-            // waiting for working temperature would only make the wait longer.
-            put(s, "M104 S" + std::to_string(p.t0_temp_c) + " T0 ; pre-charge");
-            put(s, "M109 S" + std::to_string(p.t0_temp_c) + " T0");
+            // later by the working-temperature pre-charge, so the vendor thermal
+            // behaviour is unchanged. It sits INSIDE the readiness gate on purpose:
+            // where no M109 follows, dropping the head to standby with no way to
+            // bring it back would strand it cold, so the gate keeps the clause
+            // satisfiable without ever making the print worse.
+            // Suppressed when the scheduler already preheated this head: see
+            // incoming_preheat_pending. The both-heads clause is still met by the
+            // working-temperature pre-charge emitted next.
+            if (!p.incoming_preheat_pending)
+                append_standby(thermal, p.t0_standby_c, 0);
+            put(thermal, "M104 S" + std::to_string(p.t0_temp_c) + " T0 ; pre-charge");
+            put(thermal, "M109 S" + std::to_string(p.t0_temp_c) + " T0");
         }
     }
-    // Clean against the head being put away (T1) while it is still selected.
-    append_brush(s, p.brush_on_toolchange);
+    // Clean against the head being put away (T1) while it is still selected,
+    // and pay the composite head's readiness wait while parked there.
+    append_brush(s, p.brush_on_toolchange, thermal);
     append_head_fans(s, p, true);
     append_aux_fans(s, p, true);
     put(s, "T0 ; switch extruder type to:FIBER");
@@ -174,17 +205,25 @@ std::string emit_toolchange_to_plastic(const FiberToolChangeParams& p)
     // cold. This is the "incoming temperature readiness" half of the vendor
     // sequence and it is not gated by emit_readiness_wait: the standby dwell this
     // wait pays for happens on EVERY window, including the first.
+    // Same ordering rule as the other half, and the same reason: the clean
+    // happens while the composite head is still hot, the outgoing head is only
+    // parked after it has been cleaned, and the blocking wait for the incoming
+    // plastic head is paid while parked at the station rather than over the part.
+    std::string thermal;
     if (p.t0_temp_c > 0) {
-        append_standby(s, p.t0_standby_c, 0);
         if (p.t1_working_c > 0) {
             // Pre-charge the plastic head before waiting on it, matching the
             // vendor's M104 S<working> T1 / M109 S<working> T1 pair.
-            put(s, "M104 S" + std::to_string(p.t1_working_c) + " T1 ; pre-charge");
-            put(s, "M109 S" + std::to_string(p.t1_working_c) + " T1");
+            put(thermal, "M104 S" + std::to_string(p.t1_working_c) + " T1 ; pre-charge");
+            put(thermal, "M109 S" + std::to_string(p.t1_working_c) + " T1");
         }
+        // Park the composite head being put away, AFTER its clean. Dropping the
+        // selected head to standby before the brush visit is the defect the
+        // analyzer names FS_COOL_BEFORE_CLEAN.
+        append_standby(thermal, p.t0_standby_c, 0);
     }
     // Clean against the head being put away (T0) while it is still selected.
-    append_brush(s, p.brush_on_toolchange);
+    append_brush(s, p.brush_on_toolchange, thermal);
     append_head_fans(s, p, false);
     append_aux_fans(s, p, false);
     put(s, "T1 ; switch extruder type to:PLASTIC");
