@@ -59,17 +59,23 @@ def sha(path):
 
 
 def git(*a):
-    return subprocess.list2cmdline(
-        subprocess.run(["git"] + list(a), cwd=ROOT, capture_output=True,
-                       text=True).stdout).strip()
+    """Run git in the repo and return its trimmed stdout.
+
+    The result must NOT be passed through list2cmdline: given a str, that
+    function iterates its CHARACTERS, so the recorded source revision came out
+    as "3 4 d 1 c c" instead of the SHA. Provenance that cannot be checked out
+    is not provenance.
+    """
+    return subprocess.run(["git"] + list(a), cwd=ROOT, capture_output=True,
+                          text=True).stdout.strip()
 
 
 def dirty_patch_sha256():
     """Hash of the uncommitted patch that produced this build.
 
-    Read from out/fs_shook/dirty.patch, which  writes. The
-    diff is scoped to the source tree because a whole-worktree  on a
-    Windows drive takes ~100 s and drags in build artifacts.
+    Read from out/fs_shook/dirty.patch, which out/fs_shook/make_dirty_patch.sh
+    writes. The diff is scoped to the source tree because a whole-worktree diff
+    on a Windows drive takes ~100 s and drags in build artifacts.
     """
     cache = os.path.join(OUT, "dirty.patch")
     if not os.path.isfile(cache):

@@ -52,6 +52,12 @@ CONTAIN_LAT = 8          # lateral samples across the buffered footprint
 TOL_TAIL_V = 0.05        # mm of matrix V per window (shipped max deviation 0.009)
 TOL_BODY_RATE = 0.02     # relative, body matrix payout rate (shipped max 0.005)
 TOL_STATIONARY_V = 0.002 # mm, per-window stationary V amounts
+TOL_LIFT_Z = 0.005       # mm, slack when judging a clearance lift against spec
+# The departure Z clearance. FiberEmitter.hpp pins lift_z_mm = 0.6 and GCode.cpp
+# feeds strand.z + lift_z_mm to the paired tool-change block, so 0.6 mm above
+# the strand is the clearance a departure lift has to reach. Overridable from
+# the effective config (fs_toolchange_lift_z) when a build exposes it.
+DEPARTURE_CLEARANCE_MM = 0.6
 
 NOMINAL_TAIL = 54.8      # T
 EXPECTED_LAYERS = 32
@@ -274,6 +280,19 @@ class Win(object):
         self.open_idx = self.cut_idx = self.close_idx = None
         self.v1_ln = self.rel_begin_ln = self.rel_end_ln = None
         self.lift_ln = self.entry_ln = None
+        # How this close was classified: "departure" (T0 physically leaves),
+        # "interstrand" (next strand still runs on T0) or "terminal" (nothing
+        # follows). Set by classify_closes(); None until it runs.
+        self.kind = None
+        # The first REAL clearance lift after the close: a positive Z rise.
+        # A Z word that repeats the current Z is recorded separately, because
+        # re-issuing the current height moves nothing and clears nothing.
+        self.lift_kind = None        # "rise" | "hop" | None
+        self.lift_z_from = self.lift_z_to = self.lift_z_rise = None
+        self.lift_z_repeat = None    # line of a Z word that did not rise
+        self.entry_after_lift = False
+        self.v1_idx = None
+        self.next_open_idx = None
         self.budget_L = None
         self.cut_xy = self.dep_end_xy = self.rel_end_xy = (float("nan"),) * 2
         self.dep_len = self.rel_len = self.total_len = 0.0
@@ -332,6 +351,7 @@ def measure_window(lines, w, o, cl, cu, bound_idx=None):
     w.open_idx = o
     w.close_idx = cl
     w.cut_idx = cu
+    w.next_open_idx = bound_idx
     if cu is None:
         w.errors.append("FS_WINDOW_NO_CUT: window opened at line %d has no M2800" % w.open_ln)
         return
@@ -365,6 +385,7 @@ def measure_window(lines, w, o, cl, cu, bound_idx=None):
                         % (w.cut_ln, w.close_ln))
         return
     w.v1_ln = lines[v1].n
+    w.v1_idx = v1
 
     # Deposition phase: cut -> V-1, every translating block, including the
     # rounded zero-V blocks the tail carries.
@@ -482,16 +503,33 @@ def measure_window(lines, w, o, cl, cu, bound_idx=None):
     # stationary V, and even its later departure withdrawal, as if they belonged
     # to this close.
     scan_end = bound_idx if bound_idx is not None else len(lines)
+    z_at = lines[cl].z
     lift_i = None
     for i in range(cl, scan_end):
         c = lines[i]
         if lift_i is None and RE_MOVE.match(c.cmd) and "Z" in c.w:
+            to = c.w["Z"]
+            # A lift is a DISPLACEMENT, not the presence of a Z word. Re-issuing
+            # the height the carriage is already at satisfies nothing, so it is
+            # recorded and skipped rather than accepted as the clearance move.
+            if math.isfinite(z_at) and math.isfinite(to) and to <= z_at + 1e-9:
+                if w.lift_z_repeat is None:
+                    w.lift_z_repeat = c.n
+                continue
             lift_i = i
             w.lift_ln = c.n
+            w.lift_kind = "rise"
+            w.lift_z_from = z_at
+            w.lift_z_to = to
+            w.lift_z_rise = to - z_at
         if w.entry_ln is None and c.cmd in STATION_IN:
             w.entry_ln = c.n
         if lift_i is not None and w.entry_ln is not None:
             break
+    w.entry_after_lift = (w.entry_ln is not None and w.lift_ln is not None
+                          and w.entry_ln > w.lift_ln)
+    if w.lift_kind == "rise":
+        w.lift_kind = "hop" if w.entry_ln is None else "rise"
     # Stationary V between the close and the departure lift, or, when this close
     # does not lift at all (an inter-strand close is followed by the next window,
     # not by a station visit), up to that next window opening. Collecting only
@@ -670,14 +708,14 @@ def find_transitions(lines):
     return out
 
 
-def departure_obligations(lines, wins, trans, want_dep, tol):
-    """Decide, per fibre window, whether its close is an ACTUAL T0 departure.
+def classify_closes(lines, wins, trans, want_dep, tol):
+    """Classify every fibre-window close as departure / interstrand / terminal.
 
     Being on T0 when a window closes does not establish that T0 is departing.
-    An inter-strand close -- the next strand is still T0 -- also happens while
-    T0 is selected, so a rule of the form "head at close == 0 therefore owe a
-    withdrawal" wrongly demands one there. The rule looks forward instead: to
-    the next fibre window and to the next physical head change.
+    An inter-strand close -- the next strand still runs on T0 -- also happens
+    while T0 is selected, so a rule of the form "head at close == 0 therefore
+    owe a withdrawal" wrongly demands one there. The rule looks forward
+    instead: to the next fibre window and to the next physical head change.
 
       - closes on a head other than T0: T0 is not the outgoing head, nothing owed
       - no physical head change at all after the close: T0 never leaves
@@ -689,6 +727,12 @@ def departure_obligations(lines, wins, trans, want_dep, tol):
     Deriving this from physical head changes rather than from the window list is
     also what makes several strands inside one T0 activation correct: they are
     one activation, so only the last of them departs.
+
+    The same classification serves S06 and S11. S06 must NOT infer "inter-strand"
+    from "no withdrawal owed", because a terminal close also owes nothing yet is
+    not an inter-strand move: it is followed by shutdown, not by another strand.
+
+    Returns one row per window, in window order.
     """
     rows = []
     n = len(wins)
@@ -698,30 +742,42 @@ def departure_obligations(lines, wins, trans, want_dep, tol):
         nxt_ln = lines[nxt_idx].n if nxt_idx is not None else None
         chg = next((t for t in trans if t["idx"] > w.close_idx), None)
         if head != 0:
-            expected, basis = False, ("closes while T%s is selected, so T0 is not "
-                                      "the outgoing head" % head)
+            kind, basis = "interstrand", ("closes while T%s is selected, so T0 is "
+                                          "not the outgoing head" % head)
         elif chg is None:
-            expected, basis = False, ("no physical head change after this close, so "
-                                      "T0 never leaves the station")
+            kind, basis = "terminal", ("no physical head change after this close, so "
+                                       "T0 never leaves the station")
         elif nxt_idx is not None and chg["idx"] > nxt_idx:
-            expected, basis = False, ("the next fibre window opens at line %d before "
-                                      "the next head change at line %d, so T0 stays "
-                                      "active between strands" % (nxt_ln,
-                                                                  chg["switch_ln"]))
+            kind, basis = "interstrand", ("the next fibre window opens at line %d "
+                                         "before the next head change at line %d, "
+                                         "so T0 stays active between strands"
+                                         % (nxt_ln, chg["switch_ln"]))
         elif nxt_idx is None:
-            expected, basis = True, ("last window, T0 hands over to T%d at line %d"
-                                     % (chg["to"], chg["switch_ln"]))
+            kind, basis = "departure", ("last window, T0 hands over to T%d at line "
+                                        "%d" % (chg["to"], chg["switch_ln"]))
         else:
-            expected, basis = True, ("head change T%d->T%d at line %d lands between "
-                                     "windows, before the next window at line %d"
-                                     % (chg["frm"], chg["to"], chg["switch_ln"],
-                                        nxt_ln))
+            kind, basis = "departure", ("head change T%d->T%d at line %d lands "
+                                        "between windows, before the next window at "
+                                        "line %d" % (chg["frm"], chg["to"],
+                                                     chg["switch_ln"], nxt_ln))
         hits = [ln for ln, val in w.depart_v if near(val, want_dep, tol)]
-        rows.append(dict(window=k + 1, head=head, expected=expected, basis=basis,
-                         lines=hits, next_open_ln=nxt_ln,
+        w.kind = kind
+        rows.append(dict(window=k + 1, head=head, kind=kind, basis=basis,
+                         expected=(kind == "departure"), lines=hits,
+                         next_open_ln=nxt_ln,
                          change_ln=chg["switch_ln"] if chg else None,
                          values=[round(v, 3) for _, v in w.depart_v]))
     return rows
+
+
+def clearance_mm(spec):
+    """Required departure Z clearance, from the effective config when present."""
+    v = (spec or {}).get("fs_toolchange_lift_z")
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return DEPARTURE_CLEARANCE_MM
+    return v if v > 0.0 else DEPARTURE_CLEARANCE_MM
 
 
 def head_at(lines, idx):
@@ -1005,6 +1061,19 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
         wins.append(w)
     res["windows"] = wins
 
+    # One forward-looking classification of every close, computed ONCE and
+    # shared by S06 (what the exit sequence owes) and S11 (what the payout owes).
+    # Two independent classifications would eventually disagree about whether a
+    # given close was a departure.
+    trans = find_transitions(lines)
+    # The configured departure withdrawal. Absent from the effective config, the
+    # registered default 4.0 mm is what the emitter emits and therefore what is
+    # required; S11 records that substitution rather than silently trusting it.
+    tcv = spec.get("fs_toolchange_retract_v")
+    want_dep = -float(tcv if tcv not in (None, "") else 4.0)
+    res["close_kinds"] = classify_closes(lines, wins, trans, want_dep,
+                                         TOL_STATIONARY_V)
+
     half_width = spec.get("bead_width_mm", 0.7) / 2.0
 
     # ---- S01 same-project structure ------------------------------------
@@ -1130,28 +1199,120 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
     res["checks"]["S05"] = s05
 
     # ---- S06 end sequence ---------------------------------------------
-    s06 = Check("S06", "window exit sequence")
+    # One rule for every strand, then a rule per close kind. The kind comes from
+    # the SAME forward-looking classification S11 uses (res["close_kinds"]), so
+    # the two checks can never disagree about what a close was.
+    s06 = Check("S06", "window exit sequence, per close kind")
+    want_clear = clearance_mm(spec)
     bad = []
+    n_dep = n_int = n_term = 0
     for k, w in enumerate(wins, start=1):
-        seq = [("V-1", w.v1_ln), ("M1002", w.close_ln), ("lift", w.lift_ln),
-               ("station entry", w.entry_ln)]
-        nums = [n for _, n in seq if n is not None]
-        if len(nums) != len(seq):
-            missing = [nm for nm, n in seq if n is None]
-            bad.append("W%d missing %s" % (k, missing))
+        kind = w.kind or "departure"
+        n_dep += kind == "departure"
+        n_int += kind == "interstrand"
+        n_term += kind == "terminal"
+
+        # --- every strand, regardless of kind --------------------------
+        # Final deposition -> V-1 -> configured release AT PRINTING Z -> M1002,
+        # with no lift and no departure in the middle of it.
+        if w.v1_ln is None or w.close_ln is None:
+            bad.append("W%d (%s) missing V-1 or M1002" % (k, kind))
             continue
-        if not (w.v1_ln < w.close_ln < w.lift_ln < w.entry_ln):
-            bad.append("W%d order V-1@%s M1002@%s lift@%s entry@%s"
-                       % (k, w.v1_ln, w.close_ln, w.lift_ln, w.entry_ln))
+        if not (w.v1_ln < w.close_ln):
+            bad.append("W%d (%s) order V-1@%s M1002@%s"
+                       % (k, kind, w.v1_ln, w.close_ln))
             continue
-        if w.rel_len > 0.0 and not (w.v1_ln < w.rel_begin_ln < w.rel_end_ln < w.close_ln):
-            bad.append("W%d release lines %s..%s not between V-1@%d and M1002@%d"
-                       % (k, w.rel_begin_ln, w.rel_end_ln, w.v1_ln, w.close_ln))
+        if w.rel_len > 0.0:
+            if w.rel_begin_ln is None or w.rel_end_ln is None:
+                bad.append("W%d (%s) releases %.3f mm but has no release block "
+                           "between V-1@%d and M1002@%d"
+                           % (k, kind, w.rel_len, w.v1_ln, w.close_ln))
+                continue
+            if not (w.v1_ln < w.rel_begin_ln < w.rel_end_ln < w.close_ln):
+                bad.append("W%d (%s) release lines %s..%s not between V-1@%d and "
+                           "M1002@%d"
+                           % (k, kind, w.rel_begin_ln, w.rel_end_ln, w.v1_ln,
+                              w.close_ln))
+                continue
+        # Nothing may leave the printing height before the window closes. A Z
+        # move inside V-1..M1002 truncates the release scan, so a release that
+        # was asked for would silently not have been executed.
+        early = [c.n for c in lines[w.v1_idx:w.close_idx]
+                 if RE_MOVE.match(c.cmd) and "Z" in c.w]
+        if early:
+            bad.append("W%d (%s) lifts at line %d BEFORE the window closes at line "
+                       "%d, so the strand ended in the air%s"
+                       % (k, kind, early[0], w.close_ln,
+                          "" if w.rel_len <= 0.0 else
+                          " and the %.3f mm release was truncated" % w.rel_len))
+            continue
+
+        # --- kind-specific ---------------------------------------------
+        if kind == "departure":
+            # M1002 -> departure withdrawal -> clearance lift -> station entry.
+            dep = [ln for ln, val in w.depart_v if near(val, want_dep, TOL_STATIONARY_V)]
+            if len(dep) != 1:
+                bad.append("W%d (departure) requires exactly 1 stationary V %+.3f "
+                           "between M1002 at line %d and the lift, found %d "
+                           "(post-close stationary V: %s)"
+                           % (k, want_dep, w.close_ln, len(dep),
+                              ", ".join("%+.3f@%d" % (v, ln) for ln, v in
+                                        w.depart_v) or "none"))
+                continue
+            if w.lift_ln is None:
+                why = ("but its Z word repeats the current height, moving nothing"
+                       if w.lift_z_repeat else "and no Z move follows at all")
+                bad.append("W%d (departure) has no clearance lift after M1002 at "
+                           "line %d %s" % (k, w.close_ln, why))
+                continue
+            if w.lift_z_rise is None or w.lift_z_rise + TOL_LIFT_Z < want_clear:
+                bad.append("W%d (departure) lift at line %d rises %s mm from Z%s, "
+                           "below the %.2f mm departure clearance"
+                           % (k, w.lift_ln,
+                              "%.3f" % w.lift_z_rise if w.lift_z_rise else "0.000",
+                              "%.2f" % w.lift_z_from if w.lift_z_from is not None
+                              else "?", want_clear))
+                continue
+            if w.entry_ln is None:
+                bad.append("W%d (departure) lifts at line %d but never enters the "
+                           "station, so the outgoing head is never cleaned"
+                           % (k, w.lift_ln))
+                continue
+            if not w.entry_after_lift:
+                bad.append("W%d (departure) enters the station at line %d before "
+                           "the clearance lift at line %d"
+                           % (k, w.entry_ln, w.lift_ln))
+                continue
+        elif kind == "interstrand":
+            # T0 stays active: no station visit and no departure lift are OWED.
+            # What IS owed is that the strand was released and closed before the
+            # carriage repositioned, and that the repositioning keeps the
+            # existing restart clearance. A Z rise here is therefore judged as
+            # the restart hop the emitter legitimately performs, not rejected
+            # for existing: redundancy is not a defect, an inadequate hop is.
+            if w.lift_kind in ("hop", "rise") and w.lift_ln is not None:
+                if w.lift_z_rise is None or w.lift_z_rise + TOL_LIFT_Z < want_clear:
+                    bad.append("W%d (inter-strand) restart move at line %d rises "
+                               "%s mm from Z%s, below the %.2f mm clearance the "
+                               "restart hop policy requires"
+                               % (k, w.lift_ln,
+                                  "%.3f" % w.lift_z_rise if w.lift_z_rise
+                                  is not None else "0.000",
+                                  "%.2f" % w.lift_z_from if w.lift_z_from is not
+                                  None else "?", want_clear))
+                    continue
+        # terminal: closure is the whole duty. Shutdown is judged separately
+        # (S07 for waits, S11 for payout); no incoming-head transition is
+        # invented here.
     if bad:
         s06.bad("; ".join(bad[:4]), code="FS_WINDOW_SEQUENCE")
     else:
-        s06.ok("final deposition -> V-1 -> release -> M1002 -> lift -> station entry "
-               "in all %d windows" % len(wins))
+        s06.ok("%d windows: %d physical departure(s) verified V-1 -> release -> "
+               "M1002 -> withdrawal -> clearance lift -> station entry; %d "
+               "inter-strand close(s) verified released and closed before "
+               "repositioning with no station visit owed; %d terminal close(s) "
+               "verified released and closed before shutdown"
+               % (len(wins), n_dep, n_int, n_term))
     res["checks"]["S06"] = s06
 
     # ---- S07 station waits --------------------------------------------
@@ -1588,19 +1749,15 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
     # close is a departure is decided by looking FORWARD (see
     # departure_obligations), not by the head selected at the close, because an
     # inter-strand close is also on T0 and owes nothing.
-    tcv = spec.get("fs_toolchange_retract_v")
     if tcv is None:
-        tcv = 4.0
         s11.note("fs_toolchange_retract_v absent from the effective config; the "
                  "registered default 4.0 mm is used as the required departure "
                  "withdrawal")
-    if tcv > 0.0:
-        want_dep = -tcv
+    if want_dep < 0.0:
         dep_bad = []
         dep_missing = []
         dep_spurious = []
-        dep_rows = departure_obligations(lines, wins, trans, want_dep,
-                                         TOL_STATIONARY_V)
+        dep_rows = res["close_kinds"]
         for d, w in zip(dep_rows, wins):
             k = d["window"]
             if d["expected"] and len(d["lines"]) != 1:
@@ -1622,10 +1779,14 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
                     % (k, d["basis"], len(d["lines"]), d["lines"]))
         res["departure_withdrawals"] = dep_rows
         n_exp = sum(1 for d in dep_rows if d["expected"])
-        s11.note("departure withdrawal: %d of %d windows are an actual T0 departure "
+        s11.note("close kinds shared with S06: %s; departure withdrawal: %d of %d "
+                 "windows are an actual T0 departure "
                  "and each requires exactly one stationary V %+.3f after M1002 and "
-                 "before the lift; %d verified; %d inter-strand close(s) require none"
-                 % (n_exp, len(wins), want_dep, n_exp - len(dep_missing),
+                 "before the lift; %d verified; %d close(s) require none"
+                 % ("/".join("%s:%d" % (kk, sum(1 for d in dep_rows
+                                                if d["kind"] == kk))
+                             for kk in ("departure", "interstrand", "terminal")),
+                    n_exp, len(wins), want_dep, n_exp - len(dep_missing),
                     len(wins) - n_exp))
         if dep_missing:
             codes11.append("FS_DEPART_WITHDRAWAL_MISSING")
@@ -1905,7 +2066,10 @@ def check_cross_totals(results):
     """The spec's cross-check: total XY from cut through release end."""
     out = []
     for r in results:
-        v = r["variant"]
+        # The spec row follows spec_variant, exactly as evaluate_file resolves
+        # it, so a mutant or fixture that carries its own variant name is still
+        # judged against the export it was derived from.
+        v = r.get("spec_variant", r["variant"])
         spec = VSPEC[v]
         bad = []
         for k, w in enumerate(r["windows"], start=1):
@@ -1914,7 +2078,7 @@ def check_cross_totals(results):
                            "(deposition %.3f + release %.3f)"
                            % (k, w.total_len, spec["total"], TOL_TOTAL,
                               w.dep_len, w.rel_len))
-        out.append(dict(variant=v, bad=bad))
+        out.append(dict(variant=r["variant"], spec_variant=v, bad=bad))
     return out
 
 
@@ -1929,6 +2093,12 @@ def window_rows(res):
             file=os.path.basename(res["gcode"]), sha256=res.get("sha256", ""),
             variant=res["variant"], window=k,
             kind="purge" if w.is_purge else "model",
+            # How the close was classified, and whether the Z move after it was a
+            # real displacement. S06/S11 decide by this, so the report has to show
+            # it: "no withdrawal owed" is true of both inter-strand and terminal.
+            close_kind=w.kind,
+            lift_kind=w.lift_kind,
+            lift_rise_mm=(None if w.lift_z_rise is None else round(w.lift_z_rise, 3)),
             z=round(w.z, 3),
             open_ln=w.open_ln, cut_ln=w.cut_ln, v1_ln=w.v1_ln,
             rel_begin_ln=w.rel_begin_ln, rel_end_ln=w.rel_end_ln,
@@ -2051,19 +2221,30 @@ def render_md(payload):
         A("strip reaches past material already deposited in the same layer;")
         A("negative or zero means the whole strip is covered.")
         A("")
-        A("| W | kind | Z | open | cut | V-1 | rel beg | rel end | close | lift | entry | "
-          "dep mm | rel mm | total mm | rel F | rel Z dev | post-cut U | L | support | "
-          "footprint escape mm |")
-        A("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+        A("| W | kind | close | Z | open | cut | V-1 | rel beg | rel end | close ln | "
+          "lift | entry | dep mm | rel mm | total mm | rel F | rel Z dev | post-cut U | "
+          "L | support | footprint escape mm |")
+        A("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
         for w in r["window_rows"]:
             esc = w.get("footprint_escape_mm")
-            A("| %d | %s | %.2f | %s | %s | %s | %s | %s | %s | %s | %s | %.3f | %.3f | %.3f | %s | %.4f | %.3f | %s | %s | %s |"
-              % (w["window"], w["kind"], w["z"], w["open_ln"], w["cut_ln"], w["v1_ln"],
+            # close column: the classification plus what the Z move after the
+            # close actually did, so a reader can see "departure/rise+0.60"
+            # versus "interstrand/noZ" without cross-referencing the JSON.
+            rise = w.get("lift_rise_mm")
+            close_cell = "%s/%s%s" % (
+                w.get("close_kind") or "-",
+                w.get("lift_kind") or "noZ",
+                "+%.2f" % rise if rise is not None else "")
+            A("| %d | %s | %s | %.2f | %s | %s | %s | %s | %s | %s | %s | %s | %.3f | "
+              "%.3f | %.3f | %s | %.4f | %.3f | %s | %s | %s |"
+              % (w["window"], w["kind"], close_cell, w["z"], w["open_ln"],
+                 w["cut_ln"], w["v1_ln"],
                  w["rel_begin_ln"] or "-", w["rel_end_ln"] or "-", w["close_ln"],
                  w["lift_ln"], w["entry_ln"], w["post_cut_dep_mm"], w["release_mm"],
                  w["total_mm"], w["release_f"] if w["release_f"] is not None else "-",
                  w["release_z_dev_mm"], w["post_cut_u_mm"], w["budget_L"], w["support"],
                  ("%.4f" % esc) if esc is not None else "-"))
+        A("")
         A("")
         A("### Per-transition measurements")
         A("")
@@ -2199,7 +2380,7 @@ def main(argv=None):
         eff = entry.get("effective_config") or {}
         for fk in ("fs_fiber_rate", "fs_matrix_ratio", "fs_tail_v_factor",
                    "fs_prime_v", "fs_retract_v", "fs_toolchange_retract_v",
-                   "fs_t0_temp", "fs_t1_temp"):
+                   "fs_toolchange_lift_z", "fs_t0_temp", "fs_t1_temp"):
             if eff.get(fk) is not None:
                 try:
                     spec[fk] = float(eff[fk])
@@ -2221,6 +2402,7 @@ def main(argv=None):
             except (TypeError, ValueError):
                 pass
         r = evaluate_file(variant, path, spec, entry.get("evidence"), macro_status)
+        r["spec_variant"] = entry.get("spec_variant", variant)
         r["effective_config"] = entry.get("effective_config")
         r["command"] = entry.get("cmd")
         r["exit"] = entry.get("exit")
@@ -2250,7 +2432,7 @@ def main(argv=None):
     cross_bad = sum(len(c["bad"]) for c in cross)
     cross_summary = []
     for r in results:
-        spec = VSPEC[r["variant"]]
+        spec = VSPEC[r.get("spec_variant", r["variant"])]
         cb = next(c["bad"] for c in cross if c["variant"] == r["variant"])
         cross_summary.append(dict(variant=r["variant"], expected=spec["total"],
                                   dep=spec["dep"], rel=spec["rel"], bad=cb))

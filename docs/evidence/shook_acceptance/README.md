@@ -27,6 +27,7 @@ python tools/verify_fs_shook_negatives.py \
   --manifest docs/evidence/shook_acceptance/manifest.json \
   --workdir  docs/evidence/shook_acceptance/negatives
 python tests/fibreseeker/test_fs_departure_rule.py    # departure rule, both directions
+python tests/fibreseeker/test_fs_s06_close_kinds.py   # S06 close kinds, 10 cases
 python tests/fibreseeker/fs_validate_fixtures.py      # retained dialect fixtures
 python tests/fibreseeker/fs_tail_release_analyzer.py  # retained ordering fixtures
 ```
@@ -37,7 +38,7 @@ python tests/fibreseeker/fs_tail_release_analyzer.py  # retained ordering fixtur
 SOFTWARE_EXPORT_ACCEPTANCE: PASS
 MACRO_CONTRACT:             UNVERIFIED   (conditional: see the macro note below)
 PHYSICAL_PRINT_RESULT:      NOT_TESTED   (operator trials pending)
-NEGATIVE_TESTS:             PASS 13/13
+NEGATIVE_TESTS:             PASS 17/17
 ```
 
 ## What was measured
@@ -186,6 +187,69 @@ On the shipped S-hook exports the corrected rule agrees with the old one for all
 48 windows across A/B/C, because every window there really does end in a
 departure. The correction is about the rule being right, not about these
 results changing.
+
+## Detector hardening, fourth round (2026-10-06)
+
+The owner confirmed the S11 departure predicate and asked for the same
+distinction one level up: **S06 required a lift and a station visit for every
+fibre window**, which is only true of a physical tool departure.
+
+S06 now consumes the one classification S11 already computes.
+`departure_obligations()` became `classify_closes()` and returns a KIND, not a
+boolean, because three situations exist and two of them owe no withdrawal:
+
+| kind | how recognised | S06 requires |
+|---|---|---|
+| `departure` | head change lands between windows | M1002 -> withdrawal -> clearance lift -> station entry |
+| `interstrand` | next window opens before the next head change | release + closure before repositioning; restart hop keeps its clearance; **no** station visit or departure lift owed |
+| `terminal` | no head change at all after the close | release + closure before shutdown; no incoming-head transition invented |
+
+Collapsing `terminal` into "expected is False, so inter-strand" would have been
+the obvious shortcut and would have been wrong: both owe no withdrawal, but only
+one is followed by another strand. The test proves the distinction by appending a
+head change after the terminal window and requiring S06 to switch to the
+departure rule and fail.
+
+Every strand, whatever its kind, must complete final deposition -> V-1 -> the
+configured release at printing Z -> M1002 before anything lifts. A Z move inside
+that span is reported, and when a release was configured the message says the
+release was truncated, because the release scan stops at the first Z move.
+
+**A lift is now a displacement, not a Z word.** Re-issuing the height the
+carriage already occupies moves nothing and clears nothing, so it is recorded as
+`lift_z_repeat` and does not satisfy the clearance requirement. The required rise
+is 0.60 mm, from `FiberEmitter.hpp` `lift_z_mm`, overridable by an effective
+config key `fs_toolchange_lift_z`.
+
+Pinned by `tests/fibreseeker/test_fs_s06_close_kinds.py` over the fixture
+`tests/fibreseeker/fixtures_s06/s06_close_kinds.gcode`, which contains one
+inter-strand close with no Z move, one inter-strand close with a valid 0.60 mm
+restart hop, one real departure, and one terminal close. The test drives the
+fixture through the verifier's normal CLI path and asserts **S06's own status**
+per case, so an unrelated fixture failure cannot mask a broken S06 and a vacuous
+S06 cannot hide behind an otherwise-green file. Ten cases: the four kinds pass
+unmutated, and removing the departure lift, replacing it with an unchanged Z,
+removing the station entry, lifting before the release completes, lifting before
+M1002, weakening the inter-strand hop, and converting the terminal close into a
+departure each fail S06. A spurious withdrawal at an inter-strand close is
+asserted against S11, which owns that rule.
+
+Two shipped-export negatives cover the same ground on real data:
+`t15_all_departure_lifts_deleted` and `t16_lift_before_window_close`, both
+requiring `FS_WINDOW_SE`UENCE` from S06. Negative tests are now 17.
+
+On the shipped S-hook exports the new S06 agrees with the old one for all 48
+windows, because every window there really does depart: the report's new `close`
+column reads `departure/rise+0.60` for all sixteen windows of each variant. The
+correction is about the rule being right, not about these results changing.
+
+### Provenance fix found while re-running
+
+`make_manifest.py` passed the git stdout through `subprocess.list2cmdline()`,
+which given a string iterates its CHARACTERS. The recorded `source_revision` was
+therefore `3 4 d 1 c c ...` rather than a checkoutable SHA. The revision now
+records `34d1cc78a6efc74486bf5b15186bb11ea375084c`. Provenance that cannot be
+checked out is not provenance.
 
 ## Export-script root
 

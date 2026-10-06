@@ -11,7 +11,7 @@
   "filament_preset_sha256": "51bb091c2465366b7f85122ce4e34aab3c712e57dfe8285c5b6402be61d52d54",
   "machine_preset_base": "resources/profiles/FibreSeeker3/machine/FibreSeeker3 SK3 CF nozzle.json",
   "machine_preset_base_sha256": "3e9f837be6b26239f4672015c9141d5d56d4d06f605cd78fe3a05d99df143e02",
-  "source_revision": "7 f e 1 8 0 e 1 d c 9 8 1 c f b 1 d 3 4 b 9 5 3 2 2 9 4 4 4 d 6 a 9 3 5 8 8 8 8",
+  "source_revision": "34d1cc78a6efc74486bf5b15186bb11ea375084c",
   "source_dirty_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "build_command": "cmake --build build --target OrcaSlicer --config Release -j 8",
   "executable": "build/src/Release/orca-slicer.exe",
@@ -19,7 +19,7 @@
   "runtime_dll": "build/src/Release/OrcaSlicer.dll",
   "runtime_dll_sha256": "2490aef02bd0d95de7b086d1df27f44bb488ef9ec669229309954bd11fac6af4",
   "verifier": "tools/verify_fs_shook.py",
-  "verifier_sha256": "e25f6b778bc35a09adc806b20a0cf088a5d8626c8e36900fc2afff3dcc3b6fda"
+  "verifier_sha256": "a9911dd9f3098c61315c2a6b6f34200085f09ef864486f5e78df675dfd102926"
  },
  "clock": {
   "translating": "60 * XYZ distance / modal F",
@@ -407,13 +407,13 @@
     },
     "S06": {
      "id": "S06",
-     "title": "window exit sequence",
+     "title": "window exit sequence, per close kind",
      "status": "PASS",
      "measured": null,
      "expected": null,
      "codes": [],
      "detail": [
-      "final deposition -> V-1 -> release -> M1002 -> lift -> station entry in all 16 windows"
+      "16 windows: 16 physical departure(s) verified V-1 -> release -> M1002 -> withdrawal -> clearance lift -> station entry; 0 inter-strand close(s) verified released and closed before repositioning with no station visit owed; 0 terminal close(s) verified released and closed before shutdown"
      ]
     },
     "S07": {
@@ -732,7 +732,7 @@
       "body payout rate worst relative deviation 0.477 percent (tolerance 2.0 percent)",
       "tail payout worst absolute deviation 0.0093 mm (tolerance 0.05 mm)",
       "fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal",
-      "departure withdrawal: 16 of 16 windows are an actual T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified; 0 inter-strand close(s) require none",
+      "close kinds shared with S06: departure:16/interstrand:0/terminal:0; departure withdrawal: 16 of 16 windows are an actual T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified; 0 close(s) require none",
       "stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000",
       "U55 reload present on 16 of 16 windows",
       "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one"
@@ -788,7 +788,249 @@
    "errors": [],
    "lines": 19595,
    "unsupported": [],
-   "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+   "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+   "close_kinds": [
+    {
+     "window": 1,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 80 lands between windows, before the next window at line 1589",
+     "expected": true,
+     "lines": [
+      70
+     ],
+     "next_open_ln": 1589,
+     "change_ln": 80,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 2,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 1962 lands between windows, before the next window at line 2586",
+     "expected": true,
+     "lines": [
+      1950
+     ],
+     "next_open_ln": 2586,
+     "change_ln": 1962,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 3,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 2970 lands between windows, before the next window at line 3640",
+     "expected": true,
+     "lines": [
+      2958
+     ],
+     "next_open_ln": 3640,
+     "change_ln": 2970,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 4,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 4039 lands between windows, before the next window at line 4843",
+     "expected": true,
+     "lines": [
+      4027
+     ],
+     "next_open_ln": 4843,
+     "change_ln": 4039,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 5,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 5223 lands between windows, before the next window at line 6027",
+     "expected": true,
+     "lines": [
+      5211
+     ],
+     "next_open_ln": 6027,
+     "change_ln": 5223,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 6,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 6410 lands between windows, before the next window at line 7214",
+     "expected": true,
+     "lines": [
+      6398
+     ],
+     "next_open_ln": 7214,
+     "change_ln": 6410,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 7,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 7590 lands between windows, before the next window at line 8394",
+     "expected": true,
+     "lines": [
+      7578
+     ],
+     "next_open_ln": 8394,
+     "change_ln": 7590,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 8,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 8775 lands between windows, before the next window at line 9579",
+     "expected": true,
+     "lines": [
+      8763
+     ],
+     "next_open_ln": 9579,
+     "change_ln": 8775,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 9,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 9959 lands between windows, before the next window at line 10763",
+     "expected": true,
+     "lines": [
+      9947
+     ],
+     "next_open_ln": 10763,
+     "change_ln": 9959,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 10,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 11145 lands between windows, before the next window at line 11947",
+     "expected": true,
+     "lines": [
+      11133
+     ],
+     "next_open_ln": 11947,
+     "change_ln": 11145,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 11,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 12328 lands between windows, before the next window at line 13158",
+     "expected": true,
+     "lines": [
+      12316
+     ],
+     "next_open_ln": 13158,
+     "change_ln": 12328,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 12,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 13538 lands between windows, before the next window at line 14373",
+     "expected": true,
+     "lines": [
+      13526
+     ],
+     "next_open_ln": 14373,
+     "change_ln": 13538,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 13,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 14759 lands between windows, before the next window at line 15486",
+     "expected": true,
+     "lines": [
+      14747
+     ],
+     "next_open_ln": 15486,
+     "change_ln": 14759,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 14,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 15867 lands between windows, before the next window at line 16512",
+     "expected": true,
+     "lines": [
+      15855
+     ],
+     "next_open_ln": 16512,
+     "change_ln": 15867,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 15,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 16878 lands between windows, before the next window at line 17474",
+     "expected": true,
+     "lines": [
+      16866
+     ],
+     "next_open_ln": 17474,
+     "change_ln": 16878,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 16,
+     "head": 0,
+     "kind": "departure",
+     "basis": "last window, T0 hands over to T1 at line 17841",
+     "expected": true,
+     "lines": [
+      17829
+     ],
+     "next_open_ln": null,
+     "change_ln": 17841,
+     "values": [
+      -4.0
+     ]
+    }
+   ],
    "wait_obligations": [
     {
      "kind": "startup",
@@ -3144,8 +3386,9 @@
     {
      "window": 1,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 80 lands between windows, before the next window at line 1589",
+     "expected": true,
      "lines": [
       70
      ],
@@ -3158,8 +3401,9 @@
     {
      "window": 2,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 1962 lands between windows, before the next window at line 2586",
+     "expected": true,
      "lines": [
       1950
      ],
@@ -3172,8 +3416,9 @@
     {
      "window": 3,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 2970 lands between windows, before the next window at line 3640",
+     "expected": true,
      "lines": [
       2958
      ],
@@ -3186,8 +3431,9 @@
     {
      "window": 4,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 4039 lands between windows, before the next window at line 4843",
+     "expected": true,
      "lines": [
       4027
      ],
@@ -3200,8 +3446,9 @@
     {
      "window": 5,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 5223 lands between windows, before the next window at line 6027",
+     "expected": true,
      "lines": [
       5211
      ],
@@ -3214,8 +3461,9 @@
     {
      "window": 6,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 6410 lands between windows, before the next window at line 7214",
+     "expected": true,
      "lines": [
       6398
      ],
@@ -3228,8 +3476,9 @@
     {
      "window": 7,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 7590 lands between windows, before the next window at line 8394",
+     "expected": true,
      "lines": [
       7578
      ],
@@ -3242,8 +3491,9 @@
     {
      "window": 8,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 8775 lands between windows, before the next window at line 9579",
+     "expected": true,
      "lines": [
       8763
      ],
@@ -3256,8 +3506,9 @@
     {
      "window": 9,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 9959 lands between windows, before the next window at line 10763",
+     "expected": true,
      "lines": [
       9947
      ],
@@ -3270,8 +3521,9 @@
     {
      "window": 10,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 11145 lands between windows, before the next window at line 11947",
+     "expected": true,
      "lines": [
       11133
      ],
@@ -3284,8 +3536,9 @@
     {
      "window": 11,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 12328 lands between windows, before the next window at line 13158",
+     "expected": true,
      "lines": [
       12316
      ],
@@ -3298,8 +3551,9 @@
     {
      "window": 12,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 13538 lands between windows, before the next window at line 14373",
+     "expected": true,
      "lines": [
       13526
      ],
@@ -3312,8 +3566,9 @@
     {
      "window": 13,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 14759 lands between windows, before the next window at line 15486",
+     "expected": true,
      "lines": [
       14747
      ],
@@ -3326,8 +3581,9 @@
     {
      "window": 14,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 15867 lands between windows, before the next window at line 16512",
+     "expected": true,
      "lines": [
       15855
      ],
@@ -3340,8 +3596,9 @@
     {
      "window": 15,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 16878 lands between windows, before the next window at line 17474",
+     "expected": true,
      "lines": [
       16866
      ],
@@ -3354,8 +3611,9 @@
     {
      "window": 16,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "last window, T0 hands over to T1 at line 17841",
+     "expected": true,
      "lines": [
       17829
      ],
@@ -3366,6 +3624,7 @@
      ]
     }
    ],
+   "spec_variant": "shook_A_park_wait",
    "effective_config": {
     "fs_fiber_enabled": "1",
     "fs_t0_temp": "270",
@@ -3408,10 +3667,13 @@
    "window_rows": [
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 1,
      "kind": "purge",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 0.24,
      "open_ln": 53,
      "cut_ln": 62,
@@ -3448,10 +3710,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 2,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 0.48,
      "open_ln": 1589,
      "cut_ln": 1887,
@@ -3488,10 +3753,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 3,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 0.72,
      "open_ln": 2586,
      "cut_ln": 2897,
@@ -3528,10 +3796,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 4,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 0.96,
      "open_ln": 3640,
      "cut_ln": 3924,
@@ -3568,10 +3839,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 5,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 1.2,
      "open_ln": 4843,
      "cut_ln": 5143,
@@ -3608,10 +3882,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 6,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 1.44,
      "open_ln": 6027,
      "cut_ln": 6340,
@@ -3648,10 +3925,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 7,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 1.68,
      "open_ln": 7214,
      "cut_ln": 7486,
@@ -3688,10 +3968,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 8,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 1.92,
      "open_ln": 8394,
      "cut_ln": 8674,
@@ -3728,10 +4011,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 9,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 2.16,
      "open_ln": 9579,
      "cut_ln": 9831,
@@ -3768,10 +4054,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 10,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 2.4,
      "open_ln": 10763,
      "cut_ln": 11075,
@@ -3808,10 +4097,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 11,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 2.64,
      "open_ln": 11947,
      "cut_ln": 12231,
@@ -3848,10 +4140,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 12,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 2.88,
      "open_ln": 13158,
      "cut_ln": 13459,
@@ -3888,10 +4183,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 13,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 3.12,
      "open_ln": 14373,
      "cut_ln": 14635,
@@ -3928,10 +4226,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 14,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 3.36,
      "open_ln": 15486,
      "cut_ln": 15745,
@@ -3968,10 +4269,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 15,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 3.6,
      "open_ln": 16512,
      "cut_ln": 16761,
@@ -4008,10 +4312,13 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
      "variant": "shook_A_park_wait",
      "window": 16,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 3.84,
      "open_ln": 17474,
      "cut_ln": 17737,
@@ -5147,13 +5454,13 @@
     },
     "S06": {
      "id": "S06",
-     "title": "window exit sequence",
+     "title": "window exit sequence, per close kind",
      "status": "PASS",
      "measured": null,
      "expected": null,
      "codes": [],
      "detail": [
-      "final deposition -> V-1 -> release -> M1002 -> lift -> station entry in all 16 windows"
+      "16 windows: 16 physical departure(s) verified V-1 -> release -> M1002 -> withdrawal -> clearance lift -> station entry; 0 inter-strand close(s) verified released and closed before repositioning with no station visit owed; 0 terminal close(s) verified released and closed before shutdown"
      ]
     },
     "S07": {
@@ -5472,7 +5779,7 @@
       "body payout rate worst relative deviation 0.291 percent (tolerance 2.0 percent)",
       "tail payout worst absolute deviation 0.0086 mm (tolerance 0.05 mm)",
       "fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal",
-      "departure withdrawal: 16 of 16 windows are an actual T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified; 0 inter-strand close(s) require none",
+      "close kinds shared with S06: departure:16/interstrand:0/terminal:0; departure withdrawal: 16 of 16 windows are an actual T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified; 0 close(s) require none",
       "stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000",
       "U55 reload present on 16 of 16 windows",
       "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one"
@@ -5528,7 +5835,249 @@
    "errors": [],
    "lines": 19654,
    "unsupported": [],
-   "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+   "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+   "close_kinds": [
+    {
+     "window": 1,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 83 lands between windows, before the next window at line 1592",
+     "expected": true,
+     "lines": [
+      73
+     ],
+     "next_open_ln": 1592,
+     "change_ln": 83,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 2,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 1968 lands between windows, before the next window at line 2592",
+     "expected": true,
+     "lines": [
+      1956
+     ],
+     "next_open_ln": 2592,
+     "change_ln": 1968,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 3,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 2980 lands between windows, before the next window at line 3650",
+     "expected": true,
+     "lines": [
+      2968
+     ],
+     "next_open_ln": 3650,
+     "change_ln": 2980,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 4,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 4054 lands between windows, before the next window at line 4858",
+     "expected": true,
+     "lines": [
+      4042
+     ],
+     "next_open_ln": 4858,
+     "change_ln": 4054,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 5,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 5241 lands between windows, before the next window at line 6045",
+     "expected": true,
+     "lines": [
+      5229
+     ],
+     "next_open_ln": 6045,
+     "change_ln": 5241,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 6,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 6430 lands between windows, before the next window at line 7234",
+     "expected": true,
+     "lines": [
+      6418
+     ],
+     "next_open_ln": 7234,
+     "change_ln": 6430,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 7,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 7614 lands between windows, before the next window at line 8419",
+     "expected": true,
+     "lines": [
+      7602
+     ],
+     "next_open_ln": 8419,
+     "change_ln": 7614,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 8,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 8804 lands between windows, before the next window at line 9608",
+     "expected": true,
+     "lines": [
+      8792
+     ],
+     "next_open_ln": 9608,
+     "change_ln": 8804,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 9,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 9991 lands between windows, before the next window at line 10795",
+     "expected": true,
+     "lines": [
+      9979
+     ],
+     "next_open_ln": 10795,
+     "change_ln": 9991,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 10,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 11179 lands between windows, before the next window at line 11981",
+     "expected": true,
+     "lines": [
+      11167
+     ],
+     "next_open_ln": 11981,
+     "change_ln": 11179,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 11,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 12365 lands between windows, before the next window at line 13195",
+     "expected": true,
+     "lines": [
+      12353
+     ],
+     "next_open_ln": 13195,
+     "change_ln": 12365,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 12,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 13578 lands between windows, before the next window at line 14413",
+     "expected": true,
+     "lines": [
+      13566
+     ],
+     "next_open_ln": 14413,
+     "change_ln": 13578,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 13,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 14803 lands between windows, before the next window at line 15529",
+     "expected": true,
+     "lines": [
+      14791
+     ],
+     "next_open_ln": 15529,
+     "change_ln": 14803,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 14,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 15917 lands between windows, before the next window at line 16562",
+     "expected": true,
+     "lines": [
+      15905
+     ],
+     "next_open_ln": 16562,
+     "change_ln": 15917,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 15,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 16932 lands between windows, before the next window at line 17528",
+     "expected": true,
+     "lines": [
+      16920
+     ],
+     "next_open_ln": 17528,
+     "change_ln": 16932,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 16,
+     "head": 0,
+     "kind": "departure",
+     "basis": "last window, T0 hands over to T1 at line 17900",
+     "expected": true,
+     "lines": [
+      17888
+     ],
+     "next_open_ln": null,
+     "change_ln": 17900,
+     "values": [
+      -4.0
+     ]
+    }
+   ],
    "wait_obligations": [
     {
      "kind": "startup",
@@ -7884,8 +8433,9 @@
     {
      "window": 1,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 83 lands between windows, before the next window at line 1592",
+     "expected": true,
      "lines": [
       73
      ],
@@ -7898,8 +8448,9 @@
     {
      "window": 2,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 1968 lands between windows, before the next window at line 2592",
+     "expected": true,
      "lines": [
       1956
      ],
@@ -7912,8 +8463,9 @@
     {
      "window": 3,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 2980 lands between windows, before the next window at line 3650",
+     "expected": true,
      "lines": [
       2968
      ],
@@ -7926,8 +8478,9 @@
     {
      "window": 4,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 4054 lands between windows, before the next window at line 4858",
+     "expected": true,
      "lines": [
       4042
      ],
@@ -7940,8 +8493,9 @@
     {
      "window": 5,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 5241 lands between windows, before the next window at line 6045",
+     "expected": true,
      "lines": [
       5229
      ],
@@ -7954,8 +8508,9 @@
     {
      "window": 6,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 6430 lands between windows, before the next window at line 7234",
+     "expected": true,
      "lines": [
       6418
      ],
@@ -7968,8 +8523,9 @@
     {
      "window": 7,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 7614 lands between windows, before the next window at line 8419",
+     "expected": true,
      "lines": [
       7602
      ],
@@ -7982,8 +8538,9 @@
     {
      "window": 8,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 8804 lands between windows, before the next window at line 9608",
+     "expected": true,
      "lines": [
       8792
      ],
@@ -7996,8 +8553,9 @@
     {
      "window": 9,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 9991 lands between windows, before the next window at line 10795",
+     "expected": true,
      "lines": [
       9979
      ],
@@ -8010,8 +8568,9 @@
     {
      "window": 10,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 11179 lands between windows, before the next window at line 11981",
+     "expected": true,
      "lines": [
       11167
      ],
@@ -8024,8 +8583,9 @@
     {
      "window": 11,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 12365 lands between windows, before the next window at line 13195",
+     "expected": true,
      "lines": [
       12353
      ],
@@ -8038,8 +8598,9 @@
     {
      "window": 12,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 13578 lands between windows, before the next window at line 14413",
+     "expected": true,
      "lines": [
       13566
      ],
@@ -8052,8 +8613,9 @@
     {
      "window": 13,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 14803 lands between windows, before the next window at line 15529",
+     "expected": true,
      "lines": [
       14791
      ],
@@ -8066,8 +8628,9 @@
     {
      "window": 14,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 15917 lands between windows, before the next window at line 16562",
+     "expected": true,
      "lines": [
       15905
      ],
@@ -8080,8 +8643,9 @@
     {
      "window": 15,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 16932 lands between windows, before the next window at line 17528",
+     "expected": true,
      "lines": [
       16920
      ],
@@ -8094,8 +8658,9 @@
     {
      "window": 16,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "last window, T0 hands over to T1 at line 17900",
+     "expected": true,
      "lines": [
       17888
      ],
@@ -8106,6 +8671,7 @@
      ]
     }
    ],
+   "spec_variant": "shook_B_forward_release",
    "effective_config": {
     "fs_fiber_enabled": "1",
     "fs_t0_temp": "270",
@@ -8148,10 +8714,13 @@
    "window_rows": [
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 1,
      "kind": "purge",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 0.24,
      "open_ln": 53,
      "cut_ln": 62,
@@ -8188,10 +8757,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 2,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 0.48,
      "open_ln": 1592,
      "cut_ln": 1874,
@@ -8231,10 +8803,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 3,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 0.72,
      "open_ln": 2592,
      "cut_ln": 2887,
@@ -8274,10 +8849,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 4,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 0.96,
      "open_ln": 3650,
      "cut_ln": 3954,
@@ -8317,10 +8895,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 5,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 1.2,
      "open_ln": 4858,
      "cut_ln": 5166,
@@ -8360,10 +8941,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 6,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 1.44,
      "open_ln": 6045,
      "cut_ln": 6354,
@@ -8403,10 +8987,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 7,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 1.68,
      "open_ln": 7234,
      "cut_ln": 7538,
@@ -8446,10 +9033,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 8,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 1.92,
      "open_ln": 8419,
      "cut_ln": 8728,
@@ -8489,10 +9079,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 9,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 2.16,
      "open_ln": 9608,
      "cut_ln": 9915,
@@ -8532,10 +9125,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 10,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 2.4,
      "open_ln": 10795,
      "cut_ln": 11102,
@@ -8575,10 +9171,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 11,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 2.64,
      "open_ln": 11981,
      "cut_ln": 12289,
@@ -8618,10 +9217,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 12,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 2.88,
      "open_ln": 13195,
      "cut_ln": 13502,
@@ -8661,10 +9263,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 13,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 3.12,
      "open_ln": 14413,
      "cut_ln": 14712,
@@ -8704,10 +9309,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 14,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 3.36,
      "open_ln": 15529,
      "cut_ln": 15823,
@@ -8747,10 +9355,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 15,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 3.6,
      "open_ln": 16562,
      "cut_ln": 16837,
@@ -8790,10 +9401,13 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
      "variant": "shook_B_forward_release",
      "window": 16,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 3.84,
      "open_ln": 17528,
      "cut_ln": 17804,
@@ -9932,13 +10546,13 @@
     },
     "S06": {
      "id": "S06",
-     "title": "window exit sequence",
+     "title": "window exit sequence, per close kind",
      "status": "PASS",
      "measured": null,
      "expected": null,
      "codes": [],
      "detail": [
-      "final deposition -> V-1 -> release -> M1002 -> lift -> station entry in all 16 windows"
+      "16 windows: 16 physical departure(s) verified V-1 -> release -> M1002 -> withdrawal -> clearance lift -> station entry; 0 inter-strand close(s) verified released and closed before repositioning with no station visit owed; 0 terminal close(s) verified released and closed before shutdown"
      ]
     },
     "S07": {
@@ -10257,7 +10871,7 @@
       "body payout rate worst relative deviation 0.286 percent (tolerance 2.0 percent)",
       "tail payout worst absolute deviation 0.0092 mm (tolerance 0.05 mm)",
       "fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal",
-      "departure withdrawal: 16 of 16 windows are an actual T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified; 0 inter-strand close(s) require none",
+      "close kinds shared with S06: departure:16/interstrand:0/terminal:0; departure withdrawal: 16 of 16 windows are an actual T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified; 0 close(s) require none",
       "stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000",
       "U55 reload present on 16 of 16 windows",
       "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one"
@@ -10313,7 +10927,249 @@
    "errors": [],
    "lines": 19662,
    "unsupported": [],
-   "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+   "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+   "close_kinds": [
+    {
+     "window": 1,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 83 lands between windows, before the next window at line 1592",
+     "expected": true,
+     "lines": [
+      73
+     ],
+     "next_open_ln": 1592,
+     "change_ln": 83,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 2,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 1968 lands between windows, before the next window at line 2592",
+     "expected": true,
+     "lines": [
+      1956
+     ],
+     "next_open_ln": 2592,
+     "change_ln": 1968,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 3,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 2980 lands between windows, before the next window at line 3650",
+     "expected": true,
+     "lines": [
+      2968
+     ],
+     "next_open_ln": 3650,
+     "change_ln": 2980,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 4,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 4054 lands between windows, before the next window at line 4858",
+     "expected": true,
+     "lines": [
+      4042
+     ],
+     "next_open_ln": 4858,
+     "change_ln": 4054,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 5,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 5242 lands between windows, before the next window at line 6046",
+     "expected": true,
+     "lines": [
+      5230
+     ],
+     "next_open_ln": 6046,
+     "change_ln": 5242,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 6,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 6432 lands between windows, before the next window at line 7236",
+     "expected": true,
+     "lines": [
+      6420
+     ],
+     "next_open_ln": 7236,
+     "change_ln": 6432,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 7,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 7617 lands between windows, before the next window at line 8422",
+     "expected": true,
+     "lines": [
+      7605
+     ],
+     "next_open_ln": 8422,
+     "change_ln": 7617,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 8,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 8808 lands between windows, before the next window at line 9612",
+     "expected": true,
+     "lines": [
+      8796
+     ],
+     "next_open_ln": 9612,
+     "change_ln": 8808,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 9,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 9996 lands between windows, before the next window at line 10800",
+     "expected": true,
+     "lines": [
+      9984
+     ],
+     "next_open_ln": 10800,
+     "change_ln": 9996,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 10,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 11185 lands between windows, before the next window at line 11987",
+     "expected": true,
+     "lines": [
+      11173
+     ],
+     "next_open_ln": 11987,
+     "change_ln": 11185,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 11,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 12372 lands between windows, before the next window at line 13202",
+     "expected": true,
+     "lines": [
+      12360
+     ],
+     "next_open_ln": 13202,
+     "change_ln": 12372,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 12,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 13586 lands between windows, before the next window at line 14421",
+     "expected": true,
+     "lines": [
+      13574
+     ],
+     "next_open_ln": 14421,
+     "change_ln": 13586,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 13,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 14811 lands between windows, before the next window at line 15537",
+     "expected": true,
+     "lines": [
+      14799
+     ],
+     "next_open_ln": 15537,
+     "change_ln": 14811,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 14,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 15925 lands between windows, before the next window at line 16570",
+     "expected": true,
+     "lines": [
+      15913
+     ],
+     "next_open_ln": 16570,
+     "change_ln": 15925,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 15,
+     "head": 0,
+     "kind": "departure",
+     "basis": "head change T0->T1 at line 16940 lands between windows, before the next window at line 17536",
+     "expected": true,
+     "lines": [
+      16928
+     ],
+     "next_open_ln": 17536,
+     "change_ln": 16940,
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 16,
+     "head": 0,
+     "kind": "departure",
+     "basis": "last window, T0 hands over to T1 at line 17908",
+     "expected": true,
+     "lines": [
+      17896
+     ],
+     "next_open_ln": null,
+     "change_ln": 17908,
+     "values": [
+      -4.0
+     ]
+    }
+   ],
    "wait_obligations": [
     {
      "kind": "startup",
@@ -12669,8 +13525,9 @@
     {
      "window": 1,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 83 lands between windows, before the next window at line 1592",
+     "expected": true,
      "lines": [
       73
      ],
@@ -12683,8 +13540,9 @@
     {
      "window": 2,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 1968 lands between windows, before the next window at line 2592",
+     "expected": true,
      "lines": [
       1956
      ],
@@ -12697,8 +13555,9 @@
     {
      "window": 3,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 2980 lands between windows, before the next window at line 3650",
+     "expected": true,
      "lines": [
       2968
      ],
@@ -12711,8 +13570,9 @@
     {
      "window": 4,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 4054 lands between windows, before the next window at line 4858",
+     "expected": true,
      "lines": [
       4042
      ],
@@ -12725,8 +13585,9 @@
     {
      "window": 5,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 5242 lands between windows, before the next window at line 6046",
+     "expected": true,
      "lines": [
       5230
      ],
@@ -12739,8 +13600,9 @@
     {
      "window": 6,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 6432 lands between windows, before the next window at line 7236",
+     "expected": true,
      "lines": [
       6420
      ],
@@ -12753,8 +13615,9 @@
     {
      "window": 7,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 7617 lands between windows, before the next window at line 8422",
+     "expected": true,
      "lines": [
       7605
      ],
@@ -12767,8 +13630,9 @@
     {
      "window": 8,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 8808 lands between windows, before the next window at line 9612",
+     "expected": true,
      "lines": [
       8796
      ],
@@ -12781,8 +13645,9 @@
     {
      "window": 9,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 9996 lands between windows, before the next window at line 10800",
+     "expected": true,
      "lines": [
       9984
      ],
@@ -12795,8 +13660,9 @@
     {
      "window": 10,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 11185 lands between windows, before the next window at line 11987",
+     "expected": true,
      "lines": [
       11173
      ],
@@ -12809,8 +13675,9 @@
     {
      "window": 11,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 12372 lands between windows, before the next window at line 13202",
+     "expected": true,
      "lines": [
       12360
      ],
@@ -12823,8 +13690,9 @@
     {
      "window": 12,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 13586 lands between windows, before the next window at line 14421",
+     "expected": true,
      "lines": [
       13574
      ],
@@ -12837,8 +13705,9 @@
     {
      "window": 13,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 14811 lands between windows, before the next window at line 15537",
+     "expected": true,
      "lines": [
       14799
      ],
@@ -12851,8 +13720,9 @@
     {
      "window": 14,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 15925 lands between windows, before the next window at line 16570",
+     "expected": true,
      "lines": [
       15913
      ],
@@ -12865,8 +13735,9 @@
     {
      "window": 15,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "head change T0->T1 at line 16940 lands between windows, before the next window at line 17536",
+     "expected": true,
      "lines": [
       16928
      ],
@@ -12879,8 +13750,9 @@
     {
      "window": 16,
      "head": 0,
-     "expected": true,
+     "kind": "departure",
      "basis": "last window, T0 hands over to T1 at line 17908",
+     "expected": true,
      "lines": [
       17896
      ],
@@ -12891,6 +13763,7 @@
      ]
     }
    ],
+   "spec_variant": "shook_C_release_margin_1mm",
    "effective_config": {
     "fs_fiber_enabled": "1",
     "fs_t0_temp": "270",
@@ -12933,10 +13806,13 @@
    "window_rows": [
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 1,
      "kind": "purge",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 0.24,
      "open_ln": 53,
      "cut_ln": 62,
@@ -12973,10 +13849,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 2,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 0.48,
      "open_ln": 1592,
      "cut_ln": 1871,
@@ -13016,10 +13895,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 3,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 0.72,
      "open_ln": 2592,
      "cut_ln": 2885,
@@ -13059,10 +13941,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 4,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 0.96,
      "open_ln": 3650,
      "cut_ln": 3952,
@@ -13102,10 +13987,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 5,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 1.2,
      "open_ln": 4858,
      "cut_ln": 5165,
@@ -13145,10 +14033,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 6,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 1.44,
      "open_ln": 6046,
      "cut_ln": 6354,
@@ -13188,10 +14079,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 7,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 1.68,
      "open_ln": 7236,
      "cut_ln": 7539,
@@ -13231,10 +14125,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 8,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 1.92,
      "open_ln": 8422,
      "cut_ln": 8730,
@@ -13274,10 +14171,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 9,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 2.16,
      "open_ln": 9612,
      "cut_ln": 9918,
@@ -13317,10 +14217,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 10,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 2.4,
      "open_ln": 10800,
      "cut_ln": 11106,
@@ -13360,10 +14263,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 11,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 2.64,
      "open_ln": 11987,
      "cut_ln": 12294,
@@ -13403,10 +14309,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 12,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 2.88,
      "open_ln": 13202,
      "cut_ln": 13508,
@@ -13446,10 +14355,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 13,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 3.12,
      "open_ln": 14421,
      "cut_ln": 14719,
@@ -13489,10 +14401,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 14,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 3.36,
      "open_ln": 15537,
      "cut_ln": 15829,
@@ -13532,10 +14447,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 15,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 3.6,
      "open_ln": 16570,
      "cut_ln": 16842,
@@ -13575,10 +14493,13 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
      "variant": "shook_C_release_margin_1mm",
      "window": 16,
      "kind": "model",
+     "close_kind": "departure",
+     "lift_kind": "rise",
+     "lift_rise_mm": 0.6,
      "z": 3.84,
      "open_ln": 17536,
      "cut_ln": 17811,

@@ -443,6 +443,51 @@ def mut_delete_departure_withdrawals(lines):
     return out, "deleted all %d departure V -4.000 withdrawals" % len(hits)
 
 
+def mut_delete_departure_lifts(lines):
+    """Delete the clearance lift of every departure (the Z rise after the V-4).
+
+    S06 used to accept ANY Z word as the lift. A departure that never rises has
+    the carriage entering the brush station at printing height, so the strand
+    ended in the air and the head is dragged across the part.
+    """
+    out = list(lines)
+    hits = []
+    for i, ln in enumerate(out):
+        c, t = cmd_of(out, i)
+        if c in ("G0", "G1") and has_word(t, "Z") and not has_word(t, "X")                 and not has_word(t, "Y") and not has_word(t, "V"):
+            prev = next((k for k in range(i - 1, max(i - 4, -1), -1)
+                         if cmd_of(out, k)[0] == "M1002"), None)
+            if prev is not None:
+                hits.append(i)
+    if len(hits) < 10:
+        raise RuntimeError("only %d departure lifts found" % len(hits))
+    for i in hits:
+        out[i] = "; MUTANT: departure clearance lift deleted"
+    return out, "deleted all %d departure clearance lifts" % len(hits)
+
+
+def mut_lift_before_close(lines):
+    """Move one departure lift to just BEFORE its own M1002.
+
+    The release has to run at printing height. Lifting before the window closes
+    truncates it, so the strand is released in the air and the measured release
+    is no longer the configured one. The lift is found as the Z-only rise that
+    follows a close, then relocated above that close.
+    """
+    out = list(lines)
+    closes = [i for i, ln in enumerate(out) if cmd_of(out, i)[0] == "M1002"]
+    for cl in closes:
+        for i in range(cl + 1, min(cl + 8, len(out))):
+            c, t = cmd_of(out, i)
+            if c not in ("G0", "G1") or not has_word(t, "Z") or has_word(t, "X")                     or has_word(t, "Y") or has_word(t, "V"):
+                continue
+            out.insert(cl, out[i])
+            del out[i + 1]
+            return out, ("moved the departure lift at line %d to just before "
+                         "M1002 at line %d" % (i + 1, cl + 1))
+    raise RuntimeError("no departure lift found after any window close")
+
+
 def mut_hash_only(lines):
     out = list(lines)
     out.insert(0, "; MUTANT: content changed, manifest hash left stale")
@@ -487,6 +532,13 @@ CASES = [
      mut_startup_wait_duplicated, "FS_WAIT_MISSING", "S07"),
     ("t14_all_departure_withdrawals_deleted", "shook_B_forward_release",
      mut_delete_departure_withdrawals, "FS_DEPART_WITHDRAWAL_MISSING", "S11"),
+    # S06 now judges the exit sequence per close KIND, and a lift is a Z
+    # DISPLACEMENT rather than the presence of a Z word. These two mutants are
+    # the regressions for that.
+    ("t15_all_departure_lifts_deleted", "shook_B_forward_release",
+     mut_delete_departure_lifts, "FS_WINDOW_SEQUENCE", "S06"),
+    ("t16_lift_before_window_close", "shook_B_forward_release",
+     mut_lift_before_close, "FS_WINDOW_SEQUENCE", "S06"),
 ]
 
 

@@ -8,7 +8,7 @@
   "filament_preset_sha256": "51bb091c2465366b7f85122ce4e34aab3c712e57dfe8285c5b6402be61d52d54",
   "machine_preset_base": "resources/profiles/FibreSeeker3/machine/FibreSeeker3 SK3 CF nozzle.json",
   "machine_preset_base_sha256": "3e9f837be6b26239f4672015c9141d5d56d4d06f605cd78fe3a05d99df143e02",
-  "source_revision": "7 f e 1 8 0 e 1 d c 9 8 1 c f b 1 d 3 4 b 9 5 3 2 2 9 4 4 4 d 6 a 9 3 5 8 8 8 8",
+  "source_revision": "34d1cc78a6efc74486bf5b15186bb11ea375084c",
   "source_dirty_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "build_command": "cmake --build build --target OrcaSlicer --config Release -j 8",
   "executable": "build/src/Release/orca-slicer.exe",
@@ -16,7 +16,7 @@
   "runtime_dll": "build/src/Release/OrcaSlicer.dll",
   "runtime_dll_sha256": "2490aef02bd0d95de7b086d1df27f44bb488ef9ec669229309954bd11fac6af4",
   "verifier": "tools/verify_fs_shook.py",
-  "verifier_sha256": "e25f6b778bc35a09adc806b20a0cf088a5d8626c8e36900fc2afff3dcc3b6fda"
+  "verifier_sha256": "a9911dd9f3098c61315c2a6b6f34200085f09ef864486f5e78df675dfd102926"
  },
  "clock": {
   "translating": "60 * XYZ distance / modal F",
@@ -34,7 +34,7 @@
   {
    "variant": "shook_A_park_wait",
    "gcode": "gcode/shook_A_park_wait.gcode",
-   "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+   "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
    "lines": 19594,
    "cmd": "C:/Users/3ricj/Documents/GitHub/OrcaSlicer/build/src/Release/orca-slicer.exe --datadir C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/datadir --load-settings C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/datadir/user/default/machine/shook_A_park_wait.json;C:/Users/3ricj/Documents/GitHub/OrcaSlicer/resources/profiles/FibreSeeker3/process/0.12mm Reinforced L5 @FibreSeeker3 SK3.json --load-filaments C:/Users/3ricj/Documents/GitHub/OrcaSlicer/resources/profiles/FibreSeeker3/filament/FibreSeek PETG @FibreSeeker3 SK3.json --slice 0 --outputdir C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/gcode/shook_A_park_wait C:/Users/3ricj/Documents/GitHub/FibreSeeker3/Test_files/2026-09-25 S-hook/S Hook.3mf",
    "exit": 0,
@@ -87,7 +87,7 @@
   {
    "variant": "shook_B_forward_release",
    "gcode": "gcode/shook_B_forward_release.gcode",
-   "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+   "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
    "lines": 19653,
    "cmd": "C:/Users/3ricj/Documents/GitHub/OrcaSlicer/build/src/Release/orca-slicer.exe --datadir C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/datadir --load-settings C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/datadir/user/default/machine/shook_B_forward_release.json;C:/Users/3ricj/Documents/GitHub/OrcaSlicer/resources/profiles/FibreSeeker3/process/0.12mm Reinforced L5 @FibreSeeker3 SK3.json --load-filaments C:/Users/3ricj/Documents/GitHub/OrcaSlicer/resources/profiles/FibreSeeker3/filament/FibreSeek PETG @FibreSeeker3 SK3.json --slice 0 --outputdir C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/gcode/shook_B_forward_release C:/Users/3ricj/Documents/GitHub/FibreSeeker3/Test_files/2026-09-25 S-hook/S Hook.3mf",
    "exit": 0,
@@ -140,7 +140,7 @@
   {
    "variant": "shook_C_release_margin_1mm",
    "gcode": "gcode/shook_C_release_margin_1mm.gcode",
-   "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+   "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
    "lines": 19661,
    "cmd": "C:/Users/3ricj/Documents/GitHub/OrcaSlicer/build/src/Release/orca-slicer.exe --datadir C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/datadir --load-settings C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/datadir/user/default/machine/shook_C_release_margin_1mm.json;C:/Users/3ricj/Documents/GitHub/OrcaSlicer/resources/profiles/FibreSeeker3/process/0.12mm Reinforced L5 @FibreSeeker3 SK3.json --load-filaments C:/Users/3ricj/Documents/GitHub/OrcaSlicer/resources/profiles/FibreSeeker3/filament/FibreSeek PETG @FibreSeeker3 SK3.json --slice 0 --outputdir C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/gcode/shook_C_release_margin_1mm C:/Users/3ricj/Documents/GitHub/FibreSeeker3/Test_files/2026-09-25 S-hook/S Hook.3mf",
    "exit": 0,

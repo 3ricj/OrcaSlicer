@@ -10,3 +10,10 @@
 # resume after `call :label`. With LF endings that offset can land wrong and the
 # label lookup fails, so keep these CRLF whatever the platform.
 *.bat text eol=crlf
+
+# Emitted G-code is hashed. The acceptance manifest records the SHA-256 of the
+# bytes on disk, and the verifier recomputes it, so the working-tree bytes have
+# to equal the blob bytes on every platform. Windows checkouts default to
+# core.autocrlf=true, which would silently rewrite these LF files to CRLF and
+# make a fresh clone fail its own recorded hash. -text pins them.
+*.gcode -text

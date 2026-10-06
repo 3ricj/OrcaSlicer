@@ -36,7 +36,9 @@ def obligations(path):
         nxt = all_wins[k + 1][1] if k + 1 < len(all_wins) else None
         V.measure_window(lines, w, o, cl, cu, bound_idx=nxt)
         wins.append(w)
-    return V.departure_obligations(lines, wins, trans, WANT_DEP, TOL)
+    # classify_closes() is the forward-looking rule; it replaced
+    # departure_obligations() when S06 started sharing the same classification.
+    return V.classify_closes(lines, wins, trans, WANT_DEP, TOL)
 
 
 def fail(msg):
@@ -64,6 +66,8 @@ def main():
     # --- the inter-strand close: on T0, but NOT a departure --------------
     if w1["head"] != 0:
         ok = fail("W1 must close while T0 is selected, got T%s" % w1["head"]) and ok
+    if w1["kind"] != "interstrand":
+        ok = fail("W1 must be classified interstrand, got %s" % w1["kind"]) and ok
     if w1["expected"]:
         ok = fail("W1 is an inter-strand close inside one T0 activation and must "
                   "NOT owe a departure withdrawal, but the rule expects one") and ok
@@ -74,6 +78,8 @@ def main():
     # --- the real departure: on T0, and IS a departure -------------------
     if w2["head"] != 0:
         ok = fail("W2 must close while T0 is selected, got T%s" % w2["head"]) and ok
+    if w2["kind"] != "departure":
+        ok = fail("W2 must be classified departure, got %s" % w2["kind"]) and ok
     if not w2["expected"]:
         ok = fail("W2 is followed by a physical T0->T1 change between windows and "
                   "MUST owe a departure withdrawal, but the rule expects none") and ok
