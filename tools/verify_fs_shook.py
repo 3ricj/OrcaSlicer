@@ -717,12 +717,25 @@ def classify_closes(lines, wins, trans, want_dep, tol):
     owe a withdrawal" wrongly demands one there. The rule looks forward
     instead: to the next fibre window and to the next physical head change.
 
+The three kinds are decided by comparing the two things that can follow a close
+-- the next window opening and the next physical head change -- not by looking
+at which head is selected:
+
       - closes on a head other than T0: T0 is not the outgoing head, nothing owed
-      - no physical head change at all after the close: T0 never leaves
-      - the next window opens before the next head change: T0 stays active
-        between strands, nothing owed
-      - otherwise the head change happens while no window is open, so T0 is
-        genuinely handing over and owes exactly one withdrawal
+      - NEITHER a later window NOR a later head change: terminal. Shutdown
+        follows; there is no incoming head to prepare for.
+      - the next head change comes first, or there is no later window but there
+        IS a later head change: departure. T0 hands over before the next strand
+        (or before a non-depositing tail) and owes exactly one withdrawal.
+      - a later window exists and no head change precedes it: inter-strand. T0
+        stays active across the gap even if the head changes again much later,
+        so nothing is owed here.
+
+Comparing the two forward markers is what makes "no later head change" mean
+terminal rather than inter-strand: the old rule treated a missing head change as
+proof that T0 never leaves, which mislabelled the last strand of a file that
+ends on T0 with no hand-off, and mislabelled a departing activation that has no
+following window.
 
     Deriving this from physical head changes rather than from the window list is
     also what makes several strands inside one T0 activation correct: they are
@@ -742,30 +755,46 @@ def classify_closes(lines, wins, trans, want_dep, tol):
         nxt_ln = lines[nxt_idx].n if nxt_idx is not None else None
         chg = next((t for t in trans if t["idx"] > w.close_idx), None)
         if head != 0:
-            kind, basis = "interstrand", ("closes while T%s is selected, so T0 is "
-                                          "not the outgoing head" % head)
-        elif chg is None:
-            kind, basis = "terminal", ("no physical head change after this close, so "
-                                       "T0 never leaves the station")
-        elif nxt_idx is not None and chg["idx"] > nxt_idx:
-            kind, basis = "interstrand", ("the next fibre window opens at line %d "
-                                         "before the next head change at line %d, "
-                                         "so T0 stays active between strands"
-                                         % (nxt_ln, chg["switch_ln"]))
-        elif nxt_idx is None:
-            kind, basis = "departure", ("last window, T0 hands over to T%d at line "
-                                        "%d" % (chg["to"], chg["switch_ln"]))
+            # T0 is not the outgoing head at all, so it owes nothing here.
+            kind = "interstrand"
+            basis = "closes while T%s is selected, so T0 is not the outgoing head" % head
+            nxt_chg_ln, nxt_chg = nxt_ln, ""
+        elif nxt_idx is None and chg is None:
+            # Nothing follows this close: neither another strand nor a hand-off.
+            kind = "terminal"
+            basis = ("no later window opening and no later physical head change, "
+                     "so this close is followed by shutdown rather than by another "
+                     "strand or an incoming head")
+            nxt_chg_ln, nxt_chg = None, ""
+        elif chg is not None and (nxt_idx is None or chg["idx"] < nxt_idx):
+            # The head change comes first -- including when there is no later
+            # window at all, which is a departure into a non-depositing tail.
+            kind = "departure"
+            nxt_chg_ln, nxt_chg = chg["switch_ln"], (
+                " (next change T%d->T%d)" % (chg["frm"], chg["to"]))
+            basis = ("next physical head change T%d->T%d at line %d precedes the "
+                     "next window opening%s, so T0 hands over before the next strand"
+                     % (chg["frm"], chg["to"], chg["switch_ln"],
+                        "" if nxt_ln is None else " at line %d" % nxt_ln))
         else:
-            kind, basis = "departure", ("head change T%d->T%d at line %d lands "
-                                        "between windows, before the next window at "
-                                        "line %d" % (chg["frm"], chg["to"],
-                                                     chg["switch_ln"], nxt_ln))
+            # A later window exists and no head change precedes it, so T0 stays
+            # active across the gap even if the head changes again much later.
+            kind = "interstrand"
+            nxt_chg_ln, nxt_chg = chg["switch_ln"] if chg else None, (
+                "" if chg is None else
+                " (next change T%d->T%d at line %d)"
+                % (chg["frm"], chg["to"], chg["switch_ln"]))
+            basis = ("next window opens at line %d before any head change%s, so T0 "
+                     "stays active between strands" % (nxt_ln, nxt_chg))
         hits = [ln for ln, val in w.depart_v if near(val, want_dep, tol)]
         w.kind = kind
         rows.append(dict(window=k + 1, head=head, kind=kind, basis=basis,
                          expected=(kind == "departure"), lines=hits,
                          next_open_ln=nxt_ln,
-                         change_ln=chg["switch_ln"] if chg else None,
+                         # next_change_ln is the head change the decision was
+                         # actually made against: the one that comes first.
+                         change_ln=nxt_chg_ln, next_change_ln=nxt_chg_ln,
+                         next_change=nxt_chg,
                          values=[round(v, 3) for _, v in w.depart_v]))
     return rows
 

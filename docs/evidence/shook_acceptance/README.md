@@ -251,6 +251,83 @@ therefore `3 4 d 1 c c ...` rather than a checkoutable SHA. The revision now
 records `34d1cc78a6efc74486bf5b15186bb11ea375084c`. Provenance that cannot be
 checked out is not provenance.
 
+## Detector hardening, fifth round (2026-10-06)
+
+The owner authorised making S06 conditional on the same forward-looking
+classification S11 already uses, and resolved the lift ambiguity: **closing a
+fibre window does not itself require a lift; a physical tool departure does.**
+Inter-strand travel keeps the existing clearance and restart-hop policy.
+
+### One classification, three kinds
+
+`classify_closes()` now returns a *kind*, not a boolean, and decides it by
+comparing the two things that can follow a close -- the next window opening and
+the next physical head change -- rather than by which head is selected:
+
+| Situation | kind | S06 requires | S11 requires |
+|---|---|---|---|
+| Next window opens first, even if a head change comes later | `interstrand` | release + closure before repositioning; a restart hop keeps its clearance | no withdrawal |
+| Next head change comes first, **or no later window but a later change exists** | `departure` | M1002 -> withdrawal -> clearance lift -> station entry | exactly one V-4 |
+| Neither a later window nor a later head change | `terminal` | release + closure before shutdown; no incoming head invented | no withdrawal |
+
+Two errors in the previous rule are gone:
+
+* "no physical head change after the close" was read as *T0 never leaves*, which
+  mislabelled the last strand of a file that simply ends on T0. Nothing following
+  a close is now `terminal` on its own terms.
+* A last window that *does* have a head change coming is a **departure** into a
+  non-depositing tail, not an inter-strand move. The old code needed a following
+  window in order to call something a departure.
+
+Collapsing `terminal` into "expected=False therefore inter-strand" was the trap
+the owner flagged. The test proves the distinction by appending a head change
+after a terminal window and requiring S06 to switch to the departure rule and
+fail.
+
+### A lift is a displacement
+
+`measure_window()` records a Z word that does not rise as `lift_z_repeat` and
+keeps scanning. Re-issuing the current height satisfies no clearance. An
+inter-strand Z rise is judged as the restart hop it is: redundancy is not a
+defect, an inadequate hop is.
+
+### Tests
+
+`tests/fibreseeker/test_fs_s06_close_kinds.py` drives every fixture through the
+verifier's normal CLI path and asserts **S06's own status** per case, so an
+unrelated fixture failure cannot mask a broken S06. Two new fixtures:
+
+* `s06_multi_strand.gcode` -- several strands inside BOTH a departing activation
+  and the final activation. W2 and W4 are each the last strand of their
+  activation and classify **differently**, which is the whole point.
+* `s06_last_window_departure.gcode` -- the last window in the file departs.
+
+17 cases, all passing: three fixtures green unmutated; inter-strand with no hop
+at all passes; removing a departure lift, repeating its Z, removing station
+entry, removing its withdrawal, lifting before release completion or before
+M1002, weakening an inter-strand hop, and converting terminal -> departure each
+fail S06; a withdrawal that becomes spurious after deleting a head change fails
+S11, which owns that rule.
+
+Two shipped-export negatives cover the same rules on real data
+(`t15_all_departure_lifts_deleted`, `t16_lift_before_window_close`): **17/17**.
+
+### Exports unchanged
+
+No `src/` change this round, so the build record stands
+(`source_dirty_patch_sha256` is the empty-string hash, i.e. `src/` is clean).
+The three files were re-sliced anyway: **0 differing command lines** in each of
+A, B and C against the previously accepted set -- only timestamp comments moved.
+All 48 windows classify as `departure`, so the corrected S06 agrees with the old
+one on this project; the change is about the rule being right, not these results
+moving.
+
+### Report correction
+
+The owner's two independent reproductions used three-file manifests with
+Python-captured return codes. The single-file manifests belong to the
+repository's negative-test harness, not to the owner's repros.
+
 ## Export-script root
 
 `run_export.py` and `make_manifest.py` previously derived the repository root by

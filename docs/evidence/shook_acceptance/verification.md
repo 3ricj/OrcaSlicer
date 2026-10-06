@@ -24,7 +24,7 @@ adapter contract, not that the firmware macros behave that way on hardware.
 | filament_preset_sha256 | `51bb091c2465366b7f85122ce4e34aab3c712e57dfe8285c5b6402be61d52d54` |
 | machine_preset_base | `resources/profiles/FibreSeeker3/machine/FibreSeeker3 SK3 CF nozzle.json` |
 | machine_preset_base_sha256 | `3e9f837be6b26239f4672015c9141d5d56d4d06f605cd78fe3a05d99df143e02` |
-| source_revision | `34d1cc78a6efc74486bf5b15186bb11ea375084c` |
+| source_revision | `ff08bb74a62e9aa04457fe72a36ed6c41be6ffc5` |
 | source_dirty_patch_sha256 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
 | build_command | `cmake --build build --target OrcaSlicer --config Release -j 8` |
 | executable | `build/src/Release/orca-slicer.exe` |
@@ -32,7 +32,7 @@ adapter contract, not that the firmware macros behave that way on hardware.
 | runtime_dll | `build/src/Release/OrcaSlicer.dll` |
 | runtime_dll_sha256 | `2490aef02bd0d95de7b086d1df27f44bb488ef9ec669229309954bd11fac6af4` |
 | verifier | `tools/verify_fs_shook.py` |
-| verifier_sha256 | `a9911dd9f3098c61315c2a6b6f34200085f09ef864486f5e78df675dfd102926` |
+| verifier_sha256 | `62048f9e46264b95717009786499865899e7289531ffe0401e0c99d261fea5b2` |
 
 ## Mandatory checks
 
@@ -55,7 +55,7 @@ adapter contract, not that the firmware macros behave that way on hardware.
 ## shook_A_park_wait
 
 - file: `shook_A_park_wait.gcode`
-- SHA-256: `62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0`
+- SHA-256: `004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a`
 - lines: 19595
 
 ### Check detail
@@ -165,7 +165,7 @@ withdrawal the transition owed; E rec is where it was actually paid.
 ## shook_B_forward_release
 
 - file: `shook_B_forward_release.gcode`
-- SHA-256: `f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a`
+- SHA-256: `654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd`
 - lines: 19654
 
 ### Check detail
@@ -275,7 +275,7 @@ withdrawal the transition owed; E rec is where it was actually paid.
 ## shook_C_release_margin_1mm
 
 - file: `shook_C_release_margin_1mm.gcode`
-- SHA-256: `da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c`
+- SHA-256: `133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666`
 - lines: 19662
 
 ### Check detail
@@ -428,22 +428,22 @@ Whether a close is a departure is decided by looking forward to the next fibre w
 
 | window | head at close | next window | next change | departure owed | basis | withdrawal lines | stationary V after close | verdict |
 |---|---|---|---|---|---|---|---|---|
-| 1 | T0 | L1592 | L83 | yes | head change T0->T1 at line 83 lands between windows, before the next window at line 1592 | 73 | -4.000 | ok |
-| 2 | T0 | L2592 | L1968 | yes | head change T0->T1 at line 1968 lands between windows, before the next window at line 2592 | 1956 | -4.000 | ok |
-| 3 | T0 | L3650 | L2980 | yes | head change T0->T1 at line 2980 lands between windows, before the next window at line 3650 | 2968 | -4.000 | ok |
-| 4 | T0 | L4858 | L4054 | yes | head change T0->T1 at line 4054 lands between windows, before the next window at line 4858 | 4042 | -4.000 | ok |
-| 5 | T0 | L6046 | L5242 | yes | head change T0->T1 at line 5242 lands between windows, before the next window at line 6046 | 5230 | -4.000 | ok |
-| 6 | T0 | L7236 | L6432 | yes | head change T0->T1 at line 6432 lands between windows, before the next window at line 7236 | 6420 | -4.000 | ok |
-| 7 | T0 | L8422 | L7617 | yes | head change T0->T1 at line 7617 lands between windows, before the next window at line 8422 | 7605 | -4.000 | ok |
-| 8 | T0 | L9612 | L8808 | yes | head change T0->T1 at line 8808 lands between windows, before the next window at line 9612 | 8796 | -4.000 | ok |
-| 9 | T0 | L10800 | L9996 | yes | head change T0->T1 at line 9996 lands between windows, before the next window at line 10800 | 9984 | -4.000 | ok |
-| 10 | T0 | L11987 | L11185 | yes | head change T0->T1 at line 11185 lands between windows, before the next window at line 11987 | 11173 | -4.000 | ok |
-| 11 | T0 | L13202 | L12372 | yes | head change T0->T1 at line 12372 lands between windows, before the next window at line 13202 | 12360 | -4.000 | ok |
-| 12 | T0 | L14421 | L13586 | yes | head change T0->T1 at line 13586 lands between windows, before the next window at line 14421 | 13574 | -4.000 | ok |
-| 13 | T0 | L15537 | L14811 | yes | head change T0->T1 at line 14811 lands between windows, before the next window at line 15537 | 14799 | -4.000 | ok |
-| 14 | T0 | L16570 | L15925 | yes | head change T0->T1 at line 15925 lands between windows, before the next window at line 16570 | 15913 | -4.000 | ok |
-| 15 | T0 | L17536 | L16940 | yes | head change T0->T1 at line 16940 lands between windows, before the next window at line 17536 | 16928 | -4.000 | ok |
-| 16 | T0 | none | L17908 | yes | last window, T0 hands over to T1 at line 17908 | 17896 | -4.000 | ok |
+| 1 | T0 | L1592 | L83 | yes | next physical head change T0->T1 at line 83 precedes the next window opening at line 1592, so T0 hands over before the next strand | 73 | -4.000 | ok |
+| 2 | T0 | L2592 | L1968 | yes | next physical head change T0->T1 at line 1968 precedes the next window opening at line 2592, so T0 hands over before the next strand | 1956 | -4.000 | ok |
+| 3 | T0 | L3650 | L2980 | yes | next physical head change T0->T1 at line 2980 precedes the next window opening at line 3650, so T0 hands over before the next strand | 2968 | -4.000 | ok |
+| 4 | T0 | L4858 | L4054 | yes | next physical head change T0->T1 at line 4054 precedes the next window opening at line 4858, so T0 hands over before the next strand | 4042 | -4.000 | ok |
+| 5 | T0 | L6046 | L5242 | yes | next physical head change T0->T1 at line 5242 precedes the next window opening at line 6046, so T0 hands over before the next strand | 5230 | -4.000 | ok |
+| 6 | T0 | L7236 | L6432 | yes | next physical head change T0->T1 at line 6432 precedes the next window opening at line 7236, so T0 hands over before the next strand | 6420 | -4.000 | ok |
+| 7 | T0 | L8422 | L7617 | yes | next physical head change T0->T1 at line 7617 precedes the next window opening at line 8422, so T0 hands over before the next strand | 7605 | -4.000 | ok |
+| 8 | T0 | L9612 | L8808 | yes | next physical head change T0->T1 at line 8808 precedes the next window opening at line 9612, so T0 hands over before the next strand | 8796 | -4.000 | ok |
+| 9 | T0 | L10800 | L9996 | yes | next physical head change T0->T1 at line 9996 precedes the next window opening at line 10800, so T0 hands over before the next strand | 9984 | -4.000 | ok |
+| 10 | T0 | L11987 | L11185 | yes | next physical head change T0->T1 at line 11185 precedes the next window opening at line 11987, so T0 hands over before the next strand | 11173 | -4.000 | ok |
+| 11 | T0 | L13202 | L12372 | yes | next physical head change T0->T1 at line 12372 precedes the next window opening at line 13202, so T0 hands over before the next strand | 12360 | -4.000 | ok |
+| 12 | T0 | L14421 | L13586 | yes | next physical head change T0->T1 at line 13586 precedes the next window opening at line 14421, so T0 hands over before the next strand | 13574 | -4.000 | ok |
+| 13 | T0 | L15537 | L14811 | yes | next physical head change T0->T1 at line 14811 precedes the next window opening at line 15537, so T0 hands over before the next strand | 14799 | -4.000 | ok |
+| 14 | T0 | L16570 | L15925 | yes | next physical head change T0->T1 at line 15925 precedes the next window opening at line 16570, so T0 hands over before the next strand | 15913 | -4.000 | ok |
+| 15 | T0 | L17536 | L16940 | yes | next physical head change T0->T1 at line 16940 precedes the next window opening at line 17536, so T0 hands over before the next strand | 16928 | -4.000 | ok |
+| 16 | T0 | none | L17908 | yes | next physical head change T0->T1 at line 17908 precedes the next window opening, so T0 hands over before the next strand | 17896 | -4.000 | ok |
 
 ## Cross-check: cut through release end
 

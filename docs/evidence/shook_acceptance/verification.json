@@ -11,7 +11,7 @@
   "filament_preset_sha256": "51bb091c2465366b7f85122ce4e34aab3c712e57dfe8285c5b6402be61d52d54",
   "machine_preset_base": "resources/profiles/FibreSeeker3/machine/FibreSeeker3 SK3 CF nozzle.json",
   "machine_preset_base_sha256": "3e9f837be6b26239f4672015c9141d5d56d4d06f605cd78fe3a05d99df143e02",
-  "source_revision": "34d1cc78a6efc74486bf5b15186bb11ea375084c",
+  "source_revision": "ff08bb74a62e9aa04457fe72a36ed6c41be6ffc5",
   "source_dirty_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "build_command": "cmake --build build --target OrcaSlicer --config Release -j 8",
   "executable": "build/src/Release/orca-slicer.exe",
@@ -19,7 +19,7 @@
   "runtime_dll": "build/src/Release/OrcaSlicer.dll",
   "runtime_dll_sha256": "2490aef02bd0d95de7b086d1df27f44bb488ef9ec669229309954bd11fac6af4",
   "verifier": "tools/verify_fs_shook.py",
-  "verifier_sha256": "a9911dd9f3098c61315c2a6b6f34200085f09ef864486f5e78df675dfd102926"
+  "verifier_sha256": "62048f9e46264b95717009786499865899e7289531ffe0401e0c99d261fea5b2"
  },
  "clock": {
   "translating": "60 * XYZ distance / modal F",
@@ -788,19 +788,21 @@
    "errors": [],
    "lines": 19595,
    "unsupported": [],
-   "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+   "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
    "close_kinds": [
     {
      "window": 1,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 80 lands between windows, before the next window at line 1589",
+     "basis": "next physical head change T0->T1 at line 80 precedes the next window opening at line 1589, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       70
      ],
      "next_open_ln": 1589,
      "change_ln": 80,
+     "next_change_ln": 80,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -809,13 +811,15 @@
      "window": 2,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 1962 lands between windows, before the next window at line 2586",
+     "basis": "next physical head change T0->T1 at line 1962 precedes the next window opening at line 2586, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       1950
      ],
      "next_open_ln": 2586,
      "change_ln": 1962,
+     "next_change_ln": 1962,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -824,13 +828,15 @@
      "window": 3,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 2970 lands between windows, before the next window at line 3640",
+     "basis": "next physical head change T0->T1 at line 2970 precedes the next window opening at line 3640, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       2958
      ],
      "next_open_ln": 3640,
      "change_ln": 2970,
+     "next_change_ln": 2970,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -839,13 +845,15 @@
      "window": 4,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 4039 lands between windows, before the next window at line 4843",
+     "basis": "next physical head change T0->T1 at line 4039 precedes the next window opening at line 4843, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       4027
      ],
      "next_open_ln": 4843,
      "change_ln": 4039,
+     "next_change_ln": 4039,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -854,13 +862,15 @@
      "window": 5,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 5223 lands between windows, before the next window at line 6027",
+     "basis": "next physical head change T0->T1 at line 5223 precedes the next window opening at line 6027, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       5211
      ],
      "next_open_ln": 6027,
      "change_ln": 5223,
+     "next_change_ln": 5223,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -869,13 +879,15 @@
      "window": 6,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 6410 lands between windows, before the next window at line 7214",
+     "basis": "next physical head change T0->T1 at line 6410 precedes the next window opening at line 7214, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       6398
      ],
      "next_open_ln": 7214,
      "change_ln": 6410,
+     "next_change_ln": 6410,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -884,13 +896,15 @@
      "window": 7,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 7590 lands between windows, before the next window at line 8394",
+     "basis": "next physical head change T0->T1 at line 7590 precedes the next window opening at line 8394, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       7578
      ],
      "next_open_ln": 8394,
      "change_ln": 7590,
+     "next_change_ln": 7590,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -899,13 +913,15 @@
      "window": 8,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 8775 lands between windows, before the next window at line 9579",
+     "basis": "next physical head change T0->T1 at line 8775 precedes the next window opening at line 9579, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       8763
      ],
      "next_open_ln": 9579,
      "change_ln": 8775,
+     "next_change_ln": 8775,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -914,13 +930,15 @@
      "window": 9,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 9959 lands between windows, before the next window at line 10763",
+     "basis": "next physical head change T0->T1 at line 9959 precedes the next window opening at line 10763, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       9947
      ],
      "next_open_ln": 10763,
      "change_ln": 9959,
+     "next_change_ln": 9959,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -929,13 +947,15 @@
      "window": 10,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 11145 lands between windows, before the next window at line 11947",
+     "basis": "next physical head change T0->T1 at line 11145 precedes the next window opening at line 11947, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       11133
      ],
      "next_open_ln": 11947,
      "change_ln": 11145,
+     "next_change_ln": 11145,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -944,13 +964,15 @@
      "window": 11,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 12328 lands between windows, before the next window at line 13158",
+     "basis": "next physical head change T0->T1 at line 12328 precedes the next window opening at line 13158, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       12316
      ],
      "next_open_ln": 13158,
      "change_ln": 12328,
+     "next_change_ln": 12328,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -959,13 +981,15 @@
      "window": 12,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 13538 lands between windows, before the next window at line 14373",
+     "basis": "next physical head change T0->T1 at line 13538 precedes the next window opening at line 14373, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       13526
      ],
      "next_open_ln": 14373,
      "change_ln": 13538,
+     "next_change_ln": 13538,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -974,13 +998,15 @@
      "window": 13,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 14759 lands between windows, before the next window at line 15486",
+     "basis": "next physical head change T0->T1 at line 14759 precedes the next window opening at line 15486, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       14747
      ],
      "next_open_ln": 15486,
      "change_ln": 14759,
+     "next_change_ln": 14759,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -989,13 +1015,15 @@
      "window": 14,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 15867 lands between windows, before the next window at line 16512",
+     "basis": "next physical head change T0->T1 at line 15867 precedes the next window opening at line 16512, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       15855
      ],
      "next_open_ln": 16512,
      "change_ln": 15867,
+     "next_change_ln": 15867,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -1004,13 +1032,15 @@
      "window": 15,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 16878 lands between windows, before the next window at line 17474",
+     "basis": "next physical head change T0->T1 at line 16878 precedes the next window opening at line 17474, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       16866
      ],
      "next_open_ln": 17474,
      "change_ln": 16878,
+     "next_change_ln": 16878,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -1019,13 +1049,15 @@
      "window": 16,
      "head": 0,
      "kind": "departure",
-     "basis": "last window, T0 hands over to T1 at line 17841",
+     "basis": "next physical head change T0->T1 at line 17841 precedes the next window opening, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       17829
      ],
      "next_open_ln": null,
      "change_ln": 17841,
+     "next_change_ln": 17841,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3387,13 +3419,15 @@
      "window": 1,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 80 lands between windows, before the next window at line 1589",
+     "basis": "next physical head change T0->T1 at line 80 precedes the next window opening at line 1589, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       70
      ],
      "next_open_ln": 1589,
      "change_ln": 80,
+     "next_change_ln": 80,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3402,13 +3436,15 @@
      "window": 2,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 1962 lands between windows, before the next window at line 2586",
+     "basis": "next physical head change T0->T1 at line 1962 precedes the next window opening at line 2586, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       1950
      ],
      "next_open_ln": 2586,
      "change_ln": 1962,
+     "next_change_ln": 1962,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3417,13 +3453,15 @@
      "window": 3,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 2970 lands between windows, before the next window at line 3640",
+     "basis": "next physical head change T0->T1 at line 2970 precedes the next window opening at line 3640, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       2958
      ],
      "next_open_ln": 3640,
      "change_ln": 2970,
+     "next_change_ln": 2970,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3432,13 +3470,15 @@
      "window": 4,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 4039 lands between windows, before the next window at line 4843",
+     "basis": "next physical head change T0->T1 at line 4039 precedes the next window opening at line 4843, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       4027
      ],
      "next_open_ln": 4843,
      "change_ln": 4039,
+     "next_change_ln": 4039,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3447,13 +3487,15 @@
      "window": 5,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 5223 lands between windows, before the next window at line 6027",
+     "basis": "next physical head change T0->T1 at line 5223 precedes the next window opening at line 6027, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       5211
      ],
      "next_open_ln": 6027,
      "change_ln": 5223,
+     "next_change_ln": 5223,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3462,13 +3504,15 @@
      "window": 6,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 6410 lands between windows, before the next window at line 7214",
+     "basis": "next physical head change T0->T1 at line 6410 precedes the next window opening at line 7214, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       6398
      ],
      "next_open_ln": 7214,
      "change_ln": 6410,
+     "next_change_ln": 6410,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3477,13 +3521,15 @@
      "window": 7,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 7590 lands between windows, before the next window at line 8394",
+     "basis": "next physical head change T0->T1 at line 7590 precedes the next window opening at line 8394, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       7578
      ],
      "next_open_ln": 8394,
      "change_ln": 7590,
+     "next_change_ln": 7590,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3492,13 +3538,15 @@
      "window": 8,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 8775 lands between windows, before the next window at line 9579",
+     "basis": "next physical head change T0->T1 at line 8775 precedes the next window opening at line 9579, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       8763
      ],
      "next_open_ln": 9579,
      "change_ln": 8775,
+     "next_change_ln": 8775,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3507,13 +3555,15 @@
      "window": 9,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 9959 lands between windows, before the next window at line 10763",
+     "basis": "next physical head change T0->T1 at line 9959 precedes the next window opening at line 10763, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       9947
      ],
      "next_open_ln": 10763,
      "change_ln": 9959,
+     "next_change_ln": 9959,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3522,13 +3572,15 @@
      "window": 10,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 11145 lands between windows, before the next window at line 11947",
+     "basis": "next physical head change T0->T1 at line 11145 precedes the next window opening at line 11947, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       11133
      ],
      "next_open_ln": 11947,
      "change_ln": 11145,
+     "next_change_ln": 11145,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3537,13 +3589,15 @@
      "window": 11,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 12328 lands between windows, before the next window at line 13158",
+     "basis": "next physical head change T0->T1 at line 12328 precedes the next window opening at line 13158, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       12316
      ],
      "next_open_ln": 13158,
      "change_ln": 12328,
+     "next_change_ln": 12328,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3552,13 +3606,15 @@
      "window": 12,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 13538 lands between windows, before the next window at line 14373",
+     "basis": "next physical head change T0->T1 at line 13538 precedes the next window opening at line 14373, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       13526
      ],
      "next_open_ln": 14373,
      "change_ln": 13538,
+     "next_change_ln": 13538,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3567,13 +3623,15 @@
      "window": 13,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 14759 lands between windows, before the next window at line 15486",
+     "basis": "next physical head change T0->T1 at line 14759 precedes the next window opening at line 15486, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       14747
      ],
      "next_open_ln": 15486,
      "change_ln": 14759,
+     "next_change_ln": 14759,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3582,13 +3640,15 @@
      "window": 14,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 15867 lands between windows, before the next window at line 16512",
+     "basis": "next physical head change T0->T1 at line 15867 precedes the next window opening at line 16512, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       15855
      ],
      "next_open_ln": 16512,
      "change_ln": 15867,
+     "next_change_ln": 15867,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3597,13 +3657,15 @@
      "window": 15,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 16878 lands between windows, before the next window at line 17474",
+     "basis": "next physical head change T0->T1 at line 16878 precedes the next window opening at line 17474, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       16866
      ],
      "next_open_ln": 17474,
      "change_ln": 16878,
+     "next_change_ln": 16878,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3612,13 +3674,15 @@
      "window": 16,
      "head": 0,
      "kind": "departure",
-     "basis": "last window, T0 hands over to T1 at line 17841",
+     "basis": "next physical head change T0->T1 at line 17841 precedes the next window opening, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       17829
      ],
      "next_open_ln": null,
      "change_ln": 17841,
+     "next_change_ln": 17841,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -3667,7 +3731,7 @@
    "window_rows": [
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 1,
      "kind": "purge",
@@ -3710,7 +3774,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 2,
      "kind": "model",
@@ -3753,7 +3817,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 3,
      "kind": "model",
@@ -3796,7 +3860,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 4,
      "kind": "model",
@@ -3839,7 +3903,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 5,
      "kind": "model",
@@ -3882,7 +3946,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 6,
      "kind": "model",
@@ -3925,7 +3989,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 7,
      "kind": "model",
@@ -3968,7 +4032,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 8,
      "kind": "model",
@@ -4011,7 +4075,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 9,
      "kind": "model",
@@ -4054,7 +4118,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 10,
      "kind": "model",
@@ -4097,7 +4161,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 11,
      "kind": "model",
@@ -4140,7 +4204,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 12,
      "kind": "model",
@@ -4183,7 +4247,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 13,
      "kind": "model",
@@ -4226,7 +4290,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 14,
      "kind": "model",
@@ -4269,7 +4333,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 15,
      "kind": "model",
@@ -4312,7 +4376,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "62c6ff67b8e190e059b00506d2c65c1b79f5b20a42c7380fee1ffeef5a1e70a0",
+     "sha256": "004d3ae7b8803a4a6e9dfde5115a57d09b9d1ed77ee326e33daa9c1c38d26c2a",
      "variant": "shook_A_park_wait",
      "window": 16,
      "kind": "model",
@@ -5835,19 +5899,21 @@
    "errors": [],
    "lines": 19654,
    "unsupported": [],
-   "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+   "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
    "close_kinds": [
     {
      "window": 1,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 83 lands between windows, before the next window at line 1592",
+     "basis": "next physical head change T0->T1 at line 83 precedes the next window opening at line 1592, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       73
      ],
      "next_open_ln": 1592,
      "change_ln": 83,
+     "next_change_ln": 83,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -5856,13 +5922,15 @@
      "window": 2,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 1968 lands between windows, before the next window at line 2592",
+     "basis": "next physical head change T0->T1 at line 1968 precedes the next window opening at line 2592, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       1956
      ],
      "next_open_ln": 2592,
      "change_ln": 1968,
+     "next_change_ln": 1968,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -5871,13 +5939,15 @@
      "window": 3,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 2980 lands between windows, before the next window at line 3650",
+     "basis": "next physical head change T0->T1 at line 2980 precedes the next window opening at line 3650, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       2968
      ],
      "next_open_ln": 3650,
      "change_ln": 2980,
+     "next_change_ln": 2980,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -5886,13 +5956,15 @@
      "window": 4,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 4054 lands between windows, before the next window at line 4858",
+     "basis": "next physical head change T0->T1 at line 4054 precedes the next window opening at line 4858, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       4042
      ],
      "next_open_ln": 4858,
      "change_ln": 4054,
+     "next_change_ln": 4054,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -5901,13 +5973,15 @@
      "window": 5,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 5241 lands between windows, before the next window at line 6045",
+     "basis": "next physical head change T0->T1 at line 5241 precedes the next window opening at line 6045, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       5229
      ],
      "next_open_ln": 6045,
      "change_ln": 5241,
+     "next_change_ln": 5241,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -5916,13 +5990,15 @@
      "window": 6,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 6430 lands between windows, before the next window at line 7234",
+     "basis": "next physical head change T0->T1 at line 6430 precedes the next window opening at line 7234, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       6418
      ],
      "next_open_ln": 7234,
      "change_ln": 6430,
+     "next_change_ln": 6430,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -5931,13 +6007,15 @@
      "window": 7,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 7614 lands between windows, before the next window at line 8419",
+     "basis": "next physical head change T0->T1 at line 7614 precedes the next window opening at line 8419, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       7602
      ],
      "next_open_ln": 8419,
      "change_ln": 7614,
+     "next_change_ln": 7614,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -5946,13 +6024,15 @@
      "window": 8,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 8804 lands between windows, before the next window at line 9608",
+     "basis": "next physical head change T0->T1 at line 8804 precedes the next window opening at line 9608, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       8792
      ],
      "next_open_ln": 9608,
      "change_ln": 8804,
+     "next_change_ln": 8804,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -5961,13 +6041,15 @@
      "window": 9,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 9991 lands between windows, before the next window at line 10795",
+     "basis": "next physical head change T0->T1 at line 9991 precedes the next window opening at line 10795, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       9979
      ],
      "next_open_ln": 10795,
      "change_ln": 9991,
+     "next_change_ln": 9991,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -5976,13 +6058,15 @@
      "window": 10,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 11179 lands between windows, before the next window at line 11981",
+     "basis": "next physical head change T0->T1 at line 11179 precedes the next window opening at line 11981, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       11167
      ],
      "next_open_ln": 11981,
      "change_ln": 11179,
+     "next_change_ln": 11179,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -5991,13 +6075,15 @@
      "window": 11,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 12365 lands between windows, before the next window at line 13195",
+     "basis": "next physical head change T0->T1 at line 12365 precedes the next window opening at line 13195, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       12353
      ],
      "next_open_ln": 13195,
      "change_ln": 12365,
+     "next_change_ln": 12365,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -6006,13 +6092,15 @@
      "window": 12,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 13578 lands between windows, before the next window at line 14413",
+     "basis": "next physical head change T0->T1 at line 13578 precedes the next window opening at line 14413, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       13566
      ],
      "next_open_ln": 14413,
      "change_ln": 13578,
+     "next_change_ln": 13578,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -6021,13 +6109,15 @@
      "window": 13,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 14803 lands between windows, before the next window at line 15529",
+     "basis": "next physical head change T0->T1 at line 14803 precedes the next window opening at line 15529, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       14791
      ],
      "next_open_ln": 15529,
      "change_ln": 14803,
+     "next_change_ln": 14803,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -6036,13 +6126,15 @@
      "window": 14,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 15917 lands between windows, before the next window at line 16562",
+     "basis": "next physical head change T0->T1 at line 15917 precedes the next window opening at line 16562, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       15905
      ],
      "next_open_ln": 16562,
      "change_ln": 15917,
+     "next_change_ln": 15917,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -6051,13 +6143,15 @@
      "window": 15,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 16932 lands between windows, before the next window at line 17528",
+     "basis": "next physical head change T0->T1 at line 16932 precedes the next window opening at line 17528, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       16920
      ],
      "next_open_ln": 17528,
      "change_ln": 16932,
+     "next_change_ln": 16932,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -6066,13 +6160,15 @@
      "window": 16,
      "head": 0,
      "kind": "departure",
-     "basis": "last window, T0 hands over to T1 at line 17900",
+     "basis": "next physical head change T0->T1 at line 17900 precedes the next window opening, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       17888
      ],
      "next_open_ln": null,
      "change_ln": 17900,
+     "next_change_ln": 17900,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8434,13 +8530,15 @@
      "window": 1,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 83 lands between windows, before the next window at line 1592",
+     "basis": "next physical head change T0->T1 at line 83 precedes the next window opening at line 1592, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       73
      ],
      "next_open_ln": 1592,
      "change_ln": 83,
+     "next_change_ln": 83,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8449,13 +8547,15 @@
      "window": 2,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 1968 lands between windows, before the next window at line 2592",
+     "basis": "next physical head change T0->T1 at line 1968 precedes the next window opening at line 2592, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       1956
      ],
      "next_open_ln": 2592,
      "change_ln": 1968,
+     "next_change_ln": 1968,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8464,13 +8564,15 @@
      "window": 3,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 2980 lands between windows, before the next window at line 3650",
+     "basis": "next physical head change T0->T1 at line 2980 precedes the next window opening at line 3650, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       2968
      ],
      "next_open_ln": 3650,
      "change_ln": 2980,
+     "next_change_ln": 2980,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8479,13 +8581,15 @@
      "window": 4,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 4054 lands between windows, before the next window at line 4858",
+     "basis": "next physical head change T0->T1 at line 4054 precedes the next window opening at line 4858, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       4042
      ],
      "next_open_ln": 4858,
      "change_ln": 4054,
+     "next_change_ln": 4054,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8494,13 +8598,15 @@
      "window": 5,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 5241 lands between windows, before the next window at line 6045",
+     "basis": "next physical head change T0->T1 at line 5241 precedes the next window opening at line 6045, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       5229
      ],
      "next_open_ln": 6045,
      "change_ln": 5241,
+     "next_change_ln": 5241,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8509,13 +8615,15 @@
      "window": 6,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 6430 lands between windows, before the next window at line 7234",
+     "basis": "next physical head change T0->T1 at line 6430 precedes the next window opening at line 7234, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       6418
      ],
      "next_open_ln": 7234,
      "change_ln": 6430,
+     "next_change_ln": 6430,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8524,13 +8632,15 @@
      "window": 7,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 7614 lands between windows, before the next window at line 8419",
+     "basis": "next physical head change T0->T1 at line 7614 precedes the next window opening at line 8419, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       7602
      ],
      "next_open_ln": 8419,
      "change_ln": 7614,
+     "next_change_ln": 7614,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8539,13 +8649,15 @@
      "window": 8,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 8804 lands between windows, before the next window at line 9608",
+     "basis": "next physical head change T0->T1 at line 8804 precedes the next window opening at line 9608, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       8792
      ],
      "next_open_ln": 9608,
      "change_ln": 8804,
+     "next_change_ln": 8804,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8554,13 +8666,15 @@
      "window": 9,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 9991 lands between windows, before the next window at line 10795",
+     "basis": "next physical head change T0->T1 at line 9991 precedes the next window opening at line 10795, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       9979
      ],
      "next_open_ln": 10795,
      "change_ln": 9991,
+     "next_change_ln": 9991,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8569,13 +8683,15 @@
      "window": 10,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 11179 lands between windows, before the next window at line 11981",
+     "basis": "next physical head change T0->T1 at line 11179 precedes the next window opening at line 11981, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       11167
      ],
      "next_open_ln": 11981,
      "change_ln": 11179,
+     "next_change_ln": 11179,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8584,13 +8700,15 @@
      "window": 11,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 12365 lands between windows, before the next window at line 13195",
+     "basis": "next physical head change T0->T1 at line 12365 precedes the next window opening at line 13195, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       12353
      ],
      "next_open_ln": 13195,
      "change_ln": 12365,
+     "next_change_ln": 12365,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8599,13 +8717,15 @@
      "window": 12,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 13578 lands between windows, before the next window at line 14413",
+     "basis": "next physical head change T0->T1 at line 13578 precedes the next window opening at line 14413, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       13566
      ],
      "next_open_ln": 14413,
      "change_ln": 13578,
+     "next_change_ln": 13578,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8614,13 +8734,15 @@
      "window": 13,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 14803 lands between windows, before the next window at line 15529",
+     "basis": "next physical head change T0->T1 at line 14803 precedes the next window opening at line 15529, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       14791
      ],
      "next_open_ln": 15529,
      "change_ln": 14803,
+     "next_change_ln": 14803,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8629,13 +8751,15 @@
      "window": 14,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 15917 lands between windows, before the next window at line 16562",
+     "basis": "next physical head change T0->T1 at line 15917 precedes the next window opening at line 16562, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       15905
      ],
      "next_open_ln": 16562,
      "change_ln": 15917,
+     "next_change_ln": 15917,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8644,13 +8768,15 @@
      "window": 15,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 16932 lands between windows, before the next window at line 17528",
+     "basis": "next physical head change T0->T1 at line 16932 precedes the next window opening at line 17528, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       16920
      ],
      "next_open_ln": 17528,
      "change_ln": 16932,
+     "next_change_ln": 16932,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8659,13 +8785,15 @@
      "window": 16,
      "head": 0,
      "kind": "departure",
-     "basis": "last window, T0 hands over to T1 at line 17900",
+     "basis": "next physical head change T0->T1 at line 17900 precedes the next window opening, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       17888
      ],
      "next_open_ln": null,
      "change_ln": 17900,
+     "next_change_ln": 17900,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -8714,7 +8842,7 @@
    "window_rows": [
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 1,
      "kind": "purge",
@@ -8757,7 +8885,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 2,
      "kind": "model",
@@ -8803,7 +8931,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 3,
      "kind": "model",
@@ -8849,7 +8977,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 4,
      "kind": "model",
@@ -8895,7 +9023,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 5,
      "kind": "model",
@@ -8941,7 +9069,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 6,
      "kind": "model",
@@ -8987,7 +9115,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 7,
      "kind": "model",
@@ -9033,7 +9161,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 8,
      "kind": "model",
@@ -9079,7 +9207,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 9,
      "kind": "model",
@@ -9125,7 +9253,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 10,
      "kind": "model",
@@ -9171,7 +9299,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 11,
      "kind": "model",
@@ -9217,7 +9345,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 12,
      "kind": "model",
@@ -9263,7 +9391,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 13,
      "kind": "model",
@@ -9309,7 +9437,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 14,
      "kind": "model",
@@ -9355,7 +9483,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 15,
      "kind": "model",
@@ -9401,7 +9529,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "f061add4c2d97ce2128ab65b068cfcb78ef39b4087a19a434d73e7c9a0f3be2a",
+     "sha256": "654d6d849a0d6bb86c5c4fc769bfaf99a1ed74070f40e5aaa45a80bc7a6da6cd",
      "variant": "shook_B_forward_release",
      "window": 16,
      "kind": "model",
@@ -10927,19 +11055,21 @@
    "errors": [],
    "lines": 19662,
    "unsupported": [],
-   "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+   "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
    "close_kinds": [
     {
      "window": 1,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 83 lands between windows, before the next window at line 1592",
+     "basis": "next physical head change T0->T1 at line 83 precedes the next window opening at line 1592, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       73
      ],
      "next_open_ln": 1592,
      "change_ln": 83,
+     "next_change_ln": 83,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -10948,13 +11078,15 @@
      "window": 2,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 1968 lands between windows, before the next window at line 2592",
+     "basis": "next physical head change T0->T1 at line 1968 precedes the next window opening at line 2592, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       1956
      ],
      "next_open_ln": 2592,
      "change_ln": 1968,
+     "next_change_ln": 1968,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -10963,13 +11095,15 @@
      "window": 3,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 2980 lands between windows, before the next window at line 3650",
+     "basis": "next physical head change T0->T1 at line 2980 precedes the next window opening at line 3650, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       2968
      ],
      "next_open_ln": 3650,
      "change_ln": 2980,
+     "next_change_ln": 2980,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -10978,13 +11112,15 @@
      "window": 4,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 4054 lands between windows, before the next window at line 4858",
+     "basis": "next physical head change T0->T1 at line 4054 precedes the next window opening at line 4858, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       4042
      ],
      "next_open_ln": 4858,
      "change_ln": 4054,
+     "next_change_ln": 4054,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -10993,13 +11129,15 @@
      "window": 5,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 5242 lands between windows, before the next window at line 6046",
+     "basis": "next physical head change T0->T1 at line 5242 precedes the next window opening at line 6046, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       5230
      ],
      "next_open_ln": 6046,
      "change_ln": 5242,
+     "next_change_ln": 5242,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -11008,13 +11146,15 @@
      "window": 6,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 6432 lands between windows, before the next window at line 7236",
+     "basis": "next physical head change T0->T1 at line 6432 precedes the next window opening at line 7236, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       6420
      ],
      "next_open_ln": 7236,
      "change_ln": 6432,
+     "next_change_ln": 6432,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -11023,13 +11163,15 @@
      "window": 7,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 7617 lands between windows, before the next window at line 8422",
+     "basis": "next physical head change T0->T1 at line 7617 precedes the next window opening at line 8422, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       7605
      ],
      "next_open_ln": 8422,
      "change_ln": 7617,
+     "next_change_ln": 7617,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -11038,13 +11180,15 @@
      "window": 8,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 8808 lands between windows, before the next window at line 9612",
+     "basis": "next physical head change T0->T1 at line 8808 precedes the next window opening at line 9612, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       8796
      ],
      "next_open_ln": 9612,
      "change_ln": 8808,
+     "next_change_ln": 8808,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -11053,13 +11197,15 @@
      "window": 9,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 9996 lands between windows, before the next window at line 10800",
+     "basis": "next physical head change T0->T1 at line 9996 precedes the next window opening at line 10800, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       9984
      ],
      "next_open_ln": 10800,
      "change_ln": 9996,
+     "next_change_ln": 9996,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -11068,13 +11214,15 @@
      "window": 10,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 11185 lands between windows, before the next window at line 11987",
+     "basis": "next physical head change T0->T1 at line 11185 precedes the next window opening at line 11987, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       11173
      ],
      "next_open_ln": 11987,
      "change_ln": 11185,
+     "next_change_ln": 11185,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -11083,13 +11231,15 @@
      "window": 11,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 12372 lands between windows, before the next window at line 13202",
+     "basis": "next physical head change T0->T1 at line 12372 precedes the next window opening at line 13202, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       12360
      ],
      "next_open_ln": 13202,
      "change_ln": 12372,
+     "next_change_ln": 12372,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -11098,13 +11248,15 @@
      "window": 12,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 13586 lands between windows, before the next window at line 14421",
+     "basis": "next physical head change T0->T1 at line 13586 precedes the next window opening at line 14421, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       13574
      ],
      "next_open_ln": 14421,
      "change_ln": 13586,
+     "next_change_ln": 13586,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -11113,13 +11265,15 @@
      "window": 13,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 14811 lands between windows, before the next window at line 15537",
+     "basis": "next physical head change T0->T1 at line 14811 precedes the next window opening at line 15537, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       14799
      ],
      "next_open_ln": 15537,
      "change_ln": 14811,
+     "next_change_ln": 14811,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -11128,13 +11282,15 @@
      "window": 14,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 15925 lands between windows, before the next window at line 16570",
+     "basis": "next physical head change T0->T1 at line 15925 precedes the next window opening at line 16570, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       15913
      ],
      "next_open_ln": 16570,
      "change_ln": 15925,
+     "next_change_ln": 15925,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -11143,13 +11299,15 @@
      "window": 15,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 16940 lands between windows, before the next window at line 17536",
+     "basis": "next physical head change T0->T1 at line 16940 precedes the next window opening at line 17536, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       16928
      ],
      "next_open_ln": 17536,
      "change_ln": 16940,
+     "next_change_ln": 16940,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -11158,13 +11316,15 @@
      "window": 16,
      "head": 0,
      "kind": "departure",
-     "basis": "last window, T0 hands over to T1 at line 17908",
+     "basis": "next physical head change T0->T1 at line 17908 precedes the next window opening, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       17896
      ],
      "next_open_ln": null,
      "change_ln": 17908,
+     "next_change_ln": 17908,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13526,13 +13686,15 @@
      "window": 1,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 83 lands between windows, before the next window at line 1592",
+     "basis": "next physical head change T0->T1 at line 83 precedes the next window opening at line 1592, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       73
      ],
      "next_open_ln": 1592,
      "change_ln": 83,
+     "next_change_ln": 83,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13541,13 +13703,15 @@
      "window": 2,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 1968 lands between windows, before the next window at line 2592",
+     "basis": "next physical head change T0->T1 at line 1968 precedes the next window opening at line 2592, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       1956
      ],
      "next_open_ln": 2592,
      "change_ln": 1968,
+     "next_change_ln": 1968,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13556,13 +13720,15 @@
      "window": 3,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 2980 lands between windows, before the next window at line 3650",
+     "basis": "next physical head change T0->T1 at line 2980 precedes the next window opening at line 3650, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       2968
      ],
      "next_open_ln": 3650,
      "change_ln": 2980,
+     "next_change_ln": 2980,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13571,13 +13737,15 @@
      "window": 4,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 4054 lands between windows, before the next window at line 4858",
+     "basis": "next physical head change T0->T1 at line 4054 precedes the next window opening at line 4858, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       4042
      ],
      "next_open_ln": 4858,
      "change_ln": 4054,
+     "next_change_ln": 4054,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13586,13 +13754,15 @@
      "window": 5,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 5242 lands between windows, before the next window at line 6046",
+     "basis": "next physical head change T0->T1 at line 5242 precedes the next window opening at line 6046, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       5230
      ],
      "next_open_ln": 6046,
      "change_ln": 5242,
+     "next_change_ln": 5242,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13601,13 +13771,15 @@
      "window": 6,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 6432 lands between windows, before the next window at line 7236",
+     "basis": "next physical head change T0->T1 at line 6432 precedes the next window opening at line 7236, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       6420
      ],
      "next_open_ln": 7236,
      "change_ln": 6432,
+     "next_change_ln": 6432,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13616,13 +13788,15 @@
      "window": 7,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 7617 lands between windows, before the next window at line 8422",
+     "basis": "next physical head change T0->T1 at line 7617 precedes the next window opening at line 8422, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       7605
      ],
      "next_open_ln": 8422,
      "change_ln": 7617,
+     "next_change_ln": 7617,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13631,13 +13805,15 @@
      "window": 8,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 8808 lands between windows, before the next window at line 9612",
+     "basis": "next physical head change T0->T1 at line 8808 precedes the next window opening at line 9612, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       8796
      ],
      "next_open_ln": 9612,
      "change_ln": 8808,
+     "next_change_ln": 8808,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13646,13 +13822,15 @@
      "window": 9,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 9996 lands between windows, before the next window at line 10800",
+     "basis": "next physical head change T0->T1 at line 9996 precedes the next window opening at line 10800, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       9984
      ],
      "next_open_ln": 10800,
      "change_ln": 9996,
+     "next_change_ln": 9996,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13661,13 +13839,15 @@
      "window": 10,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 11185 lands between windows, before the next window at line 11987",
+     "basis": "next physical head change T0->T1 at line 11185 precedes the next window opening at line 11987, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       11173
      ],
      "next_open_ln": 11987,
      "change_ln": 11185,
+     "next_change_ln": 11185,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13676,13 +13856,15 @@
      "window": 11,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 12372 lands between windows, before the next window at line 13202",
+     "basis": "next physical head change T0->T1 at line 12372 precedes the next window opening at line 13202, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       12360
      ],
      "next_open_ln": 13202,
      "change_ln": 12372,
+     "next_change_ln": 12372,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13691,13 +13873,15 @@
      "window": 12,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 13586 lands between windows, before the next window at line 14421",
+     "basis": "next physical head change T0->T1 at line 13586 precedes the next window opening at line 14421, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       13574
      ],
      "next_open_ln": 14421,
      "change_ln": 13586,
+     "next_change_ln": 13586,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13706,13 +13890,15 @@
      "window": 13,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 14811 lands between windows, before the next window at line 15537",
+     "basis": "next physical head change T0->T1 at line 14811 precedes the next window opening at line 15537, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       14799
      ],
      "next_open_ln": 15537,
      "change_ln": 14811,
+     "next_change_ln": 14811,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13721,13 +13907,15 @@
      "window": 14,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 15925 lands between windows, before the next window at line 16570",
+     "basis": "next physical head change T0->T1 at line 15925 precedes the next window opening at line 16570, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       15913
      ],
      "next_open_ln": 16570,
      "change_ln": 15925,
+     "next_change_ln": 15925,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13736,13 +13924,15 @@
      "window": 15,
      "head": 0,
      "kind": "departure",
-     "basis": "head change T0->T1 at line 16940 lands between windows, before the next window at line 17536",
+     "basis": "next physical head change T0->T1 at line 16940 precedes the next window opening at line 17536, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       16928
      ],
      "next_open_ln": 17536,
      "change_ln": 16940,
+     "next_change_ln": 16940,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13751,13 +13941,15 @@
      "window": 16,
      "head": 0,
      "kind": "departure",
-     "basis": "last window, T0 hands over to T1 at line 17908",
+     "basis": "next physical head change T0->T1 at line 17908 precedes the next window opening, so T0 hands over before the next strand",
      "expected": true,
      "lines": [
       17896
      ],
      "next_open_ln": null,
      "change_ln": 17908,
+     "next_change_ln": 17908,
+     "next_change": " (next change T0->T1)",
      "values": [
       -4.0
      ]
@@ -13806,7 +13998,7 @@
    "window_rows": [
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 1,
      "kind": "purge",
@@ -13849,7 +14041,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 2,
      "kind": "model",
@@ -13895,7 +14087,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 3,
      "kind": "model",
@@ -13941,7 +14133,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 4,
      "kind": "model",
@@ -13987,7 +14179,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 5,
      "kind": "model",
@@ -14033,7 +14225,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 6,
      "kind": "model",
@@ -14079,7 +14271,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 7,
      "kind": "model",
@@ -14125,7 +14317,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 8,
      "kind": "model",
@@ -14171,7 +14363,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 9,
      "kind": "model",
@@ -14217,7 +14409,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 10,
      "kind": "model",
@@ -14263,7 +14455,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 11,
      "kind": "model",
@@ -14309,7 +14501,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 12,
      "kind": "model",
@@ -14355,7 +14547,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 13,
      "kind": "model",
@@ -14401,7 +14593,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 14,
      "kind": "model",
@@ -14447,7 +14639,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 15,
      "kind": "model",
@@ -14493,7 +14685,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "da0d0703c8a9147ab1f20fc3b8cfad0dfddfaf841f13c65ff8af978cfc244a0c",
+     "sha256": "133991a6832001e671b511c106e9bf281ef9b7cf0f21185045a093f9e26dc666",
      "variant": "shook_C_release_margin_1mm",
      "window": 16,
      "kind": "model",
