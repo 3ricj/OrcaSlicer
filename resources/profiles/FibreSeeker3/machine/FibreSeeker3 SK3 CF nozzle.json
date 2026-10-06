@@ -54,5 +54,12 @@
 	"fs_fiber_wall_pitch": "0.7",
 	"fs_t0_wrap": "1",
 	"fs_t0_temp": "270",
-	"fs_fiber_prime": "when_fiber"
+	"fs_fiber_prime": "when_fiber",
+	"fs_t0_standby_temp": "180",
+	"fs_t1_standby_temp": "150",
+	"fs_toolchange_retract_v": "4",
+	"retract_length_toolchange": [
+		"5"
+	],
+	"fs_tool_preheat_lead_s": "0"
 }

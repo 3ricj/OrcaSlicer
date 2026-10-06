@@ -828,6 +828,16 @@ PreheatPlan plan_tool_preheat(const std::vector<MotionBlock>& outgoing_activatio
     plan.target_c = incoming_target_c;
     plan.requested_lead_s = std::isfinite(lead_s) && lead_s > 0.0 ? lead_s : 0.0;
 
+    // Lead 0 disables predictive preheat: the incoming head is brought to working
+    // temperature only in the paired tool-change block (M104 pre-charge + M109),
+    // so idle heads stay at standby through the pass and streaking from early
+    // reheating is avoided.
+    if (plan.requested_lead_s <= 0.0) {
+        plan.valid     = true;
+        plan.inserted  = false;
+        return plan;
+    }
+
     if (incoming_target_c <= 0 || incoming_tool < 0) {
         plan.findings.push_back({FsCode::ThermalManagementDisabled,
                                  "no working target for the incoming head: thermal management is disabled for it"});
@@ -1398,6 +1408,10 @@ std::string schedule_preheat_into_plastic(const std::string& outgoing_plastic_gc
                                           double initial_z,
                                           const FiberPoint* initial_xy)
 {
+    plan = PreheatPlan{};
+    if (!std::isfinite(lead_s) || lead_s <= 0.0)
+        return outgoing_plastic_gcode;
+
     std::vector<size_t> offsets;
     const std::vector<MotionBlock> blocks =
         blocks_from_gcode(outgoing_plastic_gcode, initial_z, initial_xy, &offsets);

@@ -3046,6 +3046,18 @@ static int fs_plastic_working_temp(const FullPrintConfig &cfg, size_t filament_c
     return (first_layer || other == 0) ? first : other;
 }
 
+// Config index of the plastic (T1) filament. Prefer the writer's active filament; when it is
+// unset the paired tool-change block must still park T1, so fall back to filament 0 on
+// single-material FibreSeeker jobs rather than skipping every M104 S<t1_standby> T1 line.
+static size_t fs_plastic_filament_config_idx(const GCode &gcode, const Print &print)
+{
+    if (gcode.writer().filament())
+        return gcode.get_filament_config_index((int) gcode.writer().filament()->id());
+    if (!print.config().filament_diameter.values.empty())
+        return gcode.get_filament_config_index(0);
+    return size_t(-1);
+}
+
 void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGeneratorCallback thumbnail_cb)
 {
     PROFILE_FUNC();
@@ -7758,8 +7770,11 @@ LayerResult GCode::process_layer(
             // tool-change handling would (GCode::_change_tool): this path
             // bypasses it, so nothing else puts T1 back on its working temperature
             // after a standby dwell.
-            fs_tc.t1_working_c            = m_writer.filament() ?
-                fs_plastic_working_temp(m_config, get_filament_config_index((int) m_writer.filament()->id()), on_first_layer()) : 0;
+            {
+                const size_t fs_plastic_fi = fs_plastic_filament_config_idx(*this, print);
+                fs_tc.t1_working_c = fs_plastic_fi != size_t(-1) ?
+                    fs_plastic_working_temp(m_config, fs_plastic_fi, on_first_layer()) : 0;
+            }
             fs_tc.toolchange_retract_v_mm = m_config.fs_toolchange_retract_v.value;
             fs_tc.toolchange_retract_v_f  = m_config.fs_toolchange_retract_v_speed.value;
             fs_tc.brush_on_toolchange     = m_config.fs_brush_on_toolchange.value;

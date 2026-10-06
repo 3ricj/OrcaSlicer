@@ -5254,6 +5254,14 @@ void TabPrinter::build_fff()
         optgroup->append_single_option_line("fs_fiber_enabled");
         optgroup->append_single_option_line("fs_fiber_nozzle_diameter");
         optgroup->append_single_option_line("fs_t0_wrap");
+        optgroup->append_single_option_line("fs_t0_temp");
+        optgroup->append_single_option_line("fs_t0_standby_temp");
+        optgroup->append_single_option_line("fs_t1_standby_temp");
+        optgroup->append_single_option_line("fs_toolchange_retract_v");
+        optgroup->append_single_option_line("fs_toolchange_retract_v_speed");
+        optgroup->append_single_option_line("fs_brush_on_toolchange");
+        optgroup->append_single_option_line("fs_aux_fans_on_toolchange");
+        optgroup->append_single_option_line("fs_tool_preheat_lead_s");
         optgroup->append_single_option_line("fs_fiber_prime");
         optgroup->append_single_option_line("fs_fiber_prime_length");
         optgroup->append_single_option_line("fs_deposit_feed");

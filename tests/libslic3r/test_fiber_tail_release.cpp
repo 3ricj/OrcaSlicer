@@ -513,16 +513,20 @@ TEST_CASE("FiberTailRelease: a lead longer than the activation clamps to its sta
     CHECK(p.nominal_lead_s == Approx(4.0).margin(1e-9));
 }
 
-TEST_CASE("FiberTailRelease: lead zero still sets the target", "[Fiber][FiberTailRelease]")
+TEST_CASE("FiberTailRelease: lead zero disables predictive preheat", "[Fiber][FiberTailRelease]")
 {
-    // Zero means no predictive lead, not removal of temperature protection.
+    // Zero means no FS_PREHEAT insertion during the pass; the tool-change block
+    // still charges the incoming head with M104/M109 at the station.
     std::vector<MotionBlock> act{deposit(150.0, 3000.0), deposit(150.0, 3000.0)};
     const PreheatPlan p = plan_tool_preheat(act, 1, 250, 0.0);
     CHECK(p.valid);
-    CHECK(p.inserted);
-    CHECK(p.insert_index == 2); // at the end: the target is still commanded
+    CHECK_FALSE(p.inserted);
     CHECK(p.requested_lead_s == 0.0);
-    CHECK_FALSE(emit_tool_preheat(p).empty());
+    CHECK(emit_tool_preheat(p).empty());
+    PreheatPlan scheduled;
+    const std::string unchanged = schedule_preheat_into_plastic("G1 X1 F3000\n", 1, 250, 0.0, scheduled, 0.0);
+    CHECK_FALSE(scheduled.inserted);
+    CHECK(unchanged.find("FS_PREHEAT") == std::string::npos);
 }
 
 TEST_CASE("FiberTailRelease: a disabled thermal target emits no heat command", "[Fiber][FiberTailRelease]")

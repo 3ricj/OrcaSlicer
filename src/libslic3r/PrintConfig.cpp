@@ -4718,7 +4718,7 @@ void PrintConfigDef::init_fff_params()
     // project is byte-identical after the upgrade.
     def = this->add("fs_tool_preheat_lead_s", coFloat);
     def->label = L("Incoming head preheat lead");
-    def->tooltip = L("Nominal seconds before the end of the outgoing head's deposition and release at which the incoming head is given its working temperature with a nonblocking M104, clamped to the outgoing head's own activation interval. 0 means no predictive lead, not no temperature protection: the incoming target is still set and the blocking M109 at the brush station stays mandatory. The clock is nominal: temperature waits and opaque macro calls contribute zero, and acceleration and heater behaviour are not modelled.");
+    def->tooltip = L("Nominal seconds before the end of the outgoing head's deposition and release at which the incoming head is given its working temperature with a nonblocking M104 (FS_PREHEAT), clamped to the outgoing head's own activation interval. 0 disables that predictive preheat entirely so the idle head stays at standby until the brush tool-change block charges it (M104 pre-charge and blocking M109 there). Use 0 when hot idle heads cause streaking; use 15 (default) to shorten waits at the station on long plastic or fiber passes. The clock is nominal: temperature waits and opaque macro calls contribute zero, and acceleration and heater behaviour are not modelled.");
     def->sidetext = L("s");
     def->min = 0;
     def->max = 120;
