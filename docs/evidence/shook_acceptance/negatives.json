@@ -106,11 +106,13 @@
   "exit": 1,
   "expected": "FS_TAIL_DISTANCE_MISMATCH",
   "codes": [
-   "FS_TAIL_DISTANCE_MISMATCH"
+   "FS_TAIL_DISTANCE_MISMATCH",
+   "FS_TAIL_PAYOUT_FORMULA"
   ],
   "failed": [
    "S02",
-   "S03"
+   "S03",
+   "S11"
   ],
   "note": "moved the first window's cut 1 mm later (line 60): C reverted to the B cut"
  },
@@ -144,5 +146,44 @@
    "S00"
   ],
   "note": "changed content while leaving the manifest hash stale"
+ },
+ {
+  "name": "t10_all_hotend_waits_deleted",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_WAIT_MISSING",
+  "codes": [
+   "FS_WAIT_MISSING"
+  ],
+  "failed": [
+   "S07"
+  ],
+  "note": "deleted all 33 M109 hotend waits"
+ },
+ {
+  "name": "t11_tail_payout_times_30",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_TAIL_PAYOUT_FORMULA",
+  "codes": [
+   "FS_TAIL_PAYOUT_FORMULA"
+  ],
+  "failed": [
+   "S11"
+  ],
+  "note": "multiplied post-cut matrix V by 30 on 927 moves"
+ },
+ {
+  "name": "t12_release_on_bead_edge",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_RELEASE_UNSUPPORTED",
+  "codes": [
+   "FS_RELEASE_UNSUPPORTED"
+  ],
+  "failed": [
+   "S13"
+  ],
+  "note": "offset the release at line 9975 by 0.20 mm sideways: centreline still on the bead, outer edge 0.20 mm past the support"
  }
 ]

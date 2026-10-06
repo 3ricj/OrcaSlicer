@@ -47,6 +47,11 @@ TOL_RELEASE_Z = 0.001    # mm
 TOL_TOTAL = 0.10         # mm, cut-through-release-end cross-check
 TOL_LEAD = 0.10          # s, preheat lead tolerance
 TOL_CONTAIN = 0.02       # mm, release containment tolerance
+CONTAIN_PITCH = 0.20     # mm, along-path sampling pitch for the footprint test
+CONTAIN_LAT = 8          # lateral samples across the buffered footprint
+TOL_TAIL_V = 0.05        # mm of matrix V per window (shipped max deviation 0.009)
+TOL_BODY_RATE = 0.02     # relative, body matrix payout rate (shipped max 0.005)
+TOL_STATIONARY_V = 0.002 # mm, per-window stationary V amounts
 
 NOMINAL_TAIL = 54.8      # T
 EXPECTED_LAYERS = 32
@@ -280,6 +285,14 @@ class Win(object):
         self.is_purge = False
         self.errors = []
         self.deposits = []
+        # Payout accounting, measured from emitted coordinates (S11).
+        self.tail_v = 0.0
+        self.tail_len = 0.0
+        self.body_v = 0.0
+        self.body_len = 0.0
+        self.stationary_v = []   # (line, value) for every V-only move
+        self.footprint_worst = None
+        self.footprint_worst_at = None
 
 
 def find_windows(lines):
@@ -364,6 +377,49 @@ def measure_window(lines, w, o, cl, cu):
     w.dep_len = dep
     w.dep_end_xy = pos
 
+    # Tail matrix payout: the positive V the post-cut moves carry, over the path
+    # they travel. This is the quantity the payout formula governs, so it is
+    # measured once here and judged by S11 rather than re-derived there.
+    tv = 0.0
+    tl = 0.0
+    tpos = cut_xy
+    for i in range(cu + 1, v1):
+        c = lines[i]
+        if not RE_MOVE.match(c.cmd):
+            continue
+        if "X" in c.w and "Y" in c.w and math.isfinite(c.x) and math.isfinite(c.y):
+            nxt = (c.x, c.y)
+            tl += seg(tpos, nxt)
+            tpos = nxt
+            tv += max(0.0, c.v)
+    w.tail_v = tv
+    w.tail_len = tl
+
+    # Body payout: the matrix the pre-cut joint deposits carry over the same kind
+    # of path. The tail factor is a fraction of THIS rate, so S11 needs both.
+    bv = 0.0
+    bl = 0.0
+    bpos = None
+    for i in range(o + 1, cu):
+        c = lines[i]
+        if not RE_MOVE.match(c.cmd):
+            continue
+        if "X" in c.w and "Y" in c.w and math.isfinite(c.x) and math.isfinite(c.y):
+            nxt = (c.x, c.y)
+            if bpos is not None:
+                bl += seg(bpos, nxt)
+            bpos = nxt
+            bv += max(0.0, c.v)
+    w.body_v = bv
+    w.body_len = bl
+
+    # Stationary V inventory for this window: every V-only move, whatever it is
+    # commented. S11 classifies by VALUE, so a comment cannot launder a payout.
+    for i in range(o, cl + 1):
+        c = lines[i]
+        if RE_MOVE.match(c.cmd) and c.v != 0.0 and "X" not in c.w and "Y" not in c.w:
+            w.stationary_v.append((c.n, c.v))
+
     # Release: the no-extrusion path AFTER V-1 and BEFORE M1002 / any lift.
     rb = next((i for i in range(v1, cl + 1) if lines[i].comment.startswith("FS_RELEASE_BEGIN")), None)
     re_ = next((i for i in range(v1, cl + 1) if lines[i].comment.startswith("FS_RELEASE_END")), None)
@@ -427,13 +483,18 @@ def measure_window(lines, w, o, cl, cu):
 # Deposited-material mask (S13): independent reconstruction from coordinates
 # --------------------------------------------------------------------------
 
-def layer_deposits(lines, z):
-    """Every deposited segment at physical Z , in file order.
+def layer_deposits(lines, z, fiber_width=0.7, plastic_width=0.4):
+    """Every deposited segment at physical Z, in file order, with its half-width.
 
     A deposit is a translating move that carries material on either channel:
     V>0 (matrix, the composite head) or E>0 (plastic). Fibre payout U is not
     itself a deposition axis - matrix V is what forms the bead - but a joint
     move carries both, so V>0 is the fibre-side test.
+
+    Each segment carries the half-width of the bead that ACTUALLY formed it, not
+    one inherited width for the whole layer. Using the wider fibre width for
+    plastic segments too would invent support that was never deposited, which is
+    the failure mode this whole function exists to catch.
     """
     out = []
     prev = None
@@ -444,10 +505,11 @@ def layer_deposits(lines, z):
             prev = None
             continue
         cur = (c.x, c.y)
-        if prev is not None and near(c.z, z, 1e-6):
-            mat = c.v if c.v > 0 else (c.e if c.e > 0 else 0.0)
-            if mat > 0.0 and seg(prev, cur) > 1e-9:
-                out.append((prev, cur, c.n))
+        if prev is not None and near(c.z, z, 1e-6) and seg(prev, cur) > 1e-9:
+            if c.v > 0.0:
+                out.append((prev, cur, c.n, fiber_width / 2.0))
+            elif c.e > 0.0:
+                out.append((prev, cur, c.n, plastic_width / 2.0))
         prev = cur
     return out
 
@@ -464,28 +526,27 @@ def dist_pt_seg(p, a, b):
     return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
 
 
-def release_supported(lines, w, half_width, before_ln):
-    """Is the release footprint covered by material deposited earlier in the
+def release_supported(lines, w, half_width, before_ln, plastic_width=0.4):
+    """Is the release FOOTPRINT covered by material deposited earlier in the
     SAME physical layer? Reconstructed from emitted coordinates, not from an
-    emitter boolean."""
-    deps = [d for d in layer_deposits(lines, w.z) if d[2] < before_ln]
+    emitter boolean.
+
+    The footprint is the release centreline buffered by half the actual composite
+    bead width, so containment is judged on the whole swept strip. Judging the
+    centreline alone would pass a release sitting on the edge of a supporting
+    bead with half its width over nothing.
+    """
+    deps = [d for d in layer_deposits(lines, w.z, half_width * 2.0, plastic_width)
+            if d[2] < before_ln]
     if not deps:
         return False, "no deposited material at Z %.2f before line %d" % (w.z, before_ln)
-    need = half_width + TOL_CONTAIN
-    # Sample the release path densely; every sample must sit inside the buffered
-    # union of already-deposited segments.
-    pos = w.dep_end_xy
-    step = 0.25
-    for i in range(len(lines)):
-        pass
-    return _contain_check(lines, w, deps, need)
+    return _contain_check(lines, w, deps, half_width)
 
 
-def _contain_check(lines, w, deps, need):
-    # Rebuild the release polyline from the emitted commands.
+def _contain_check(lines, w, deps, half_width):
+    # Rebuild the release polyline from the emitted commands, not the comments.
     pts = []
     pos = w.dep_end_xy
-    started = False
     for c in lines:
         if c.n <= w.v1_ln or c.n >= w.close_ln:
             continue
@@ -499,18 +560,42 @@ def _contain_check(lines, w, deps, need):
         pos = (c.x, c.y)
     if not pts:
         return True, "no release to check"
+    # Sample the swept strip: along the path at CONTAIN_PITCH, and across it at
+    # CONTAIN_LAT samples spanning -half_width..+half_width. Every sample must
+    # lie within TOL_CONTAIN of some deposited segment inflated by that
+    # segment's own half-width.
     worst = 0.0
+    worst_at = None
     for a, b in pts:
         L = seg(a, b)
-        n = max(2, int(L / 0.25) + 1)
-        for k in range(n + 1):
-            t = k / float(n)
-            p = (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
-            d = min(dist_pt_seg(p, s[0], s[1]) for s in deps)
-            worst = max(worst, d - need)
-    if worst > 0.0:
-        return False, "release footprint escapes deposited material by %.3f mm" % worst
-    return True, "release footprint inside deposited material of the same layer"
+        if L <= 1e-9:
+            continue
+        ux, uy = (b[0] - a[0]) / L, (b[1] - a[1]) / L
+        nx, ny = -uy, ux
+        n_along = max(2, int(L / CONTAIN_PITCH) + 1)
+        for si in range(n_along + 1):
+            t = si / float(n_along)
+            px, py = a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t
+            for li in range(CONTAIN_LAT + 1):
+                off = -half_width + (2.0 * half_width) * (li / float(CONTAIN_LAT))
+                q = (px + nx * off, py + ny * off)
+                esc = min(dist_pt_seg(q, s[0], s[1]) - s[3] for s in deps)
+                if esc > worst:
+                    worst = esc
+                    worst_at = (q, esc)
+    w.footprint_worst = worst
+    w.footprint_worst_at = worst_at[0] if worst_at else None
+    if worst > TOL_CONTAIN:
+        where = ""
+        if worst_at:
+            where = " at (%.2f, %.2f)" % (worst_at[0][0], worst_at[0][1])
+        return False, ("release footprint escapes material already deposited in "
+                       "this layer by %.3f mm%s (bead half-width %.3f mm, "
+                       "tolerance %.2f mm)" % (worst, where, half_width, TOL_CONTAIN))
+    return True, ("full release footprint (bead width %.2f mm) inside material "
+                  "deposited earlier in the same layer; worst escape %.3f mm"
+                  % (half_width * 2.0, worst))
+
 
 
 def purge_corridor_ok(w, spec, half_width):
@@ -903,6 +988,11 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
     res["checks"]["S06"] = s06
 
     # ---- S07 station waits --------------------------------------------
+    # Two independent duties. The waits that exist must be PARKED, and the waits
+    # the managed-temperature contract REQUIRES must exist at all. Deleting every
+    # M109 satisfies the first duty vacuously, which is how a previous revision of
+    # this check passed a stripped file by reporting "all 0 hotend waits are
+    # parked". Presence is judged first and is mandatory.
     s07 = Check("S07", "hotend waits execute parked")
     brackets = station_brackets(lines)
     waits = [c for c in lines if c.cmd in ("M109", "M190", "M191")]
@@ -913,16 +1003,44 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
             off.append("line %d: %s" % (c.n, c.raw.strip()))
     s07.measured = len(off)
     s07.expected = 0
+
+    # Required-wait inventory, derived from the fibre windows this file emitted:
+    # T1 is the startup head and pays once at startup plus once per window; T0
+    # pays once per window. A managed activation with no wait is not managed.
+    t1_waits = [c for c in hot_waits if int(c.w.get("T", -1)) == 1]
+    t0_waits = [c for c in hot_waits if int(c.w.get("T", -1)) == 0]
+    need_t1 = len(wins) + 1
+    need_t0 = len(wins)
+    missing = []
+    if not hot_waits:
+        missing.append("no hotend wait of any kind in the file; every managed "
+                       "activation must pay its blocking wait at the station")
+    else:
+        if len(t1_waits) < need_t1:
+            missing.append("T1 waits measured %d, required %d (startup plus one "
+                           "per fibre window)" % (len(t1_waits), need_t1))
+        if len(t0_waits) < need_t0:
+            missing.append("T0 waits measured %d, required %d (one per fibre "
+                           "window)" % (len(t0_waits), need_t0))
+    s07.note("hotend waits measured: %d (T0 %d, T1 %d); required T0 %d + T1 %d for "
+             "%d fibre windows; %d bed/chamber waits are out of scope"
+             % (len(hot_waits), len(t0_waits), len(t1_waits), need_t0, need_t1,
+                len(wins), len(waits) - len(hot_waits)))
+    if missing:
+        s07.bad("required temperature waits missing: %s" % "; ".join(missing),
+                code="FS_WAIT_MISSING")
     if off:
         s07.bad("%d of %d hotend waits outside a station bracket: %s"
                 % (len(off), len(hot_waits), off[0]),
                 code="FS_WAIT_OUTSIDE_STATION")
         for o in off[1:5]:
             s07.note(o)
-    else:
-        s07.ok("all %d hotend waits (including the startup one) execute inside an "
-               "explicit station bracket; %d bed/chamber waits are out of scope"
-               % (len(hot_waits), len(waits) - len(hot_waits)))
+    if not off and not missing:
+        s07.ok("all %d hotend waits (T0 %d, T1 %d, including the startup one) "
+               "execute inside an explicit station bracket and meet the required "
+               "inventory of %d T0 + %d T1 for %d fibre windows"
+               % (len(hot_waits), len(t0_waits), len(t1_waits), need_t0, need_t1,
+                  len(wins)))
     res["checks"]["S07"] = s07
 
     # ---- S08 outgoing thermal order -----------------------------------
@@ -1161,6 +1279,7 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
     # ---- S11 payout / budgets -----------------------------------------
     s11 = Check("S11", "payout formula and budgets")
     bad = []
+    codes11 = []
     for k, w in enumerate(wins, start=1):
         if w.budget_L is None:
             bad.append("W%d M1001 carries no L word" % k)
@@ -1171,32 +1290,132 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
                 su += c.u
         if not (w.budget_L <= su < w.budget_L + 1.0):
             bad.append("W%d L=%d but window U sums %.3f" % (k, w.budget_L, su))
-    # Stationary V ledger: +5 prime, -1 window retract, -4 tool-change.
-    st = dict(prime=0.0, recover=0.0, retract=0.0, tc=0.0)
-    for c in lines:
-        if not RE_MOVE.match(c.cmd) or c.v == 0.0:
-            continue
-        if "X" in c.w or "Y" in c.w:
-            continue
-        if c.v > 0 and "Matrix prime" in c.comment:
-            st["prime"] += c.v
-        elif c.v > 0 and "Recover" in c.comment:
-            st["recover"] += c.v
-        elif c.v < 0 and "Retract" in c.comment:
-            st["retract"] += c.v
-        elif c.v < 0 and "Toolchange" in c.comment:
-            st["tc"] += c.v
-    s11.note("stationary V: prime %+.1f recover %+.1f window-retract %+.1f "
-             "tool-change %+.1f (per window %+.3f)"
-             % (st["prime"], st["recover"], st["retract"], st["tc"],
-                (st["prime"] + st["recover"] + st["retract"] + st["tc"]) /
-                max(1, len(wins))))
+    # --- body matrix payout rate ---------------------------------------
+    # The body deposits matrix at fiber_rate x matrix_ratio mm of V per mm of
+    # path. Judged per window, on windows long enough for the ratio to mean
+    # something, so a wrong rate cannot hide behind a short move.
+    fr = spec.get("fs_fiber_rate")
+    mr = spec.get("fs_matrix_ratio")
+    tvc = spec.get("fs_tail_v_factor")
+    if fr is None or mr is None:
+        bad.append("body payout rate cannot be evaluated: the manifest records no "
+                   "fs_fiber_rate / fs_matrix_ratio for this export")
+        codes11.append("FS_PAYOUT_EVIDENCE_MISSING")
+    else:
+        body_rate = fr * mr
+        worst_b = 0.0
+        worst_b_w = None
+        for k, w in enumerate(wins, start=1):
+            if w.body_len < 20.0:
+                continue
+            obs = w.body_v / w.body_len
+            rel = abs(obs - body_rate) / body_rate
+            if rel > worst_b:
+                worst_b, worst_b_w = rel, (k, obs)
+        if worst_b_w is None:
+            bad.append("no window is long enough to evaluate the body payout rate")
+            codes11.append("FS_PAYOUT_EVIDENCE_MISSING")
+        elif worst_b > TOL_BODY_RATE:
+            bad.append("body matrix payout rate: W%d observed %.5f V/mm against the "
+                       "configured %.5f (fs_fiber_rate %.3f x fs_matrix_ratio %.4f), "
+                       "%.2f percent off, tolerance %.1f percent"
+                       % (worst_b_w[0], worst_b_w[1], body_rate, fr, mr,
+                          worst_b * 100.0, TOL_BODY_RATE * 100.0))
+            codes11.append("FS_TAIL_PAYOUT_FORMULA")
+        s11.note("body payout rate worst relative deviation %.3f percent "
+                 "(tolerance %.1f percent)" % (worst_b * 100.0,
+                                               TOL_BODY_RATE * 100.0))
+
+        # --- tail matrix payout ----------------------------------------
+        # tail V = tail path x fs_tail_v_factor x body rate. The startup purge is
+        # sacrificial and pays at the FULL body rate (factor 1.0); that is a
+        # documented emitter choice, not a discount to be enforced on it.
+        if tvc is None:
+            bad.append("tail payout cannot be evaluated: the manifest records no "
+                       "fs_tail_v_factor for this export")
+            codes11.append("FS_PAYOUT_EVIDENCE_MISSING")
+        else:
+            worst_t = 0.0
+            first_bad = None
+            for k, w in enumerate(wins, start=1):
+                fac = 1.0 if w.is_purge else tvc
+                exp = w.tail_len * fac * body_rate
+                dev = w.tail_v - exp
+                if abs(dev) > worst_t:
+                    worst_t = abs(dev)
+                if abs(dev) > TOL_TAIL_V and first_bad is None:
+                    first_bad = (k, w.tail_v, exp, w.tail_len, fac)
+            if first_bad is not None:
+                k, obs, exp, tl, fac = first_bad
+                bad.append("tail matrix payout: W%d carries %.3f mm of V over "
+                           "%.3f mm of tail path but the formula (fs_tail_v_factor "
+                           "%.2f x fs_fiber_rate %.3f x fs_matrix_ratio %.4f) "
+                           "requires %.3f mm; observed payout is %.1fx the required "
+                           "amount"
+                           % (k, obs, tl, fac, fr, mr, exp,
+                              obs / exp if exp > 0 else float("inf")))
+                codes11.append("FS_TAIL_PAYOUT_FORMULA")
+            s11.note("tail payout worst absolute deviation %.4f mm (tolerance "
+                     "%.2f mm)" % (worst_t, TOL_TAIL_V))
+
+    # --- stationary V amounts ------------------------------------------
+    # Classified by VALUE, never by comment: a re-labelled payout is still a
+    # payout, and a comment-sorted ledger is exactly what let a 30x tail payout
+    # through this check before.
+    if "fs_prime_v" in spec and "fs_retract_v" in spec:
+        # The emitter splits the window-start stationary V into two accounted
+        # lines (FiberEmitter.cpp step 3): recover the previous run's retract,
+        # then any EXTRA configured as an anchor prime, where extra is
+        # fs_prime_v minus fs_retract_v. The prime line is absent entirely when
+        # the two are equal. Expecting fs_prime_v on the prime line is the check
+        # being wrong, not the export.
+        prime_extra = spec["fs_prime_v"] - spec["fs_retract_v"]
+        want_sv = dict(recover=spec["fs_retract_v"],
+                       prime=prime_extra,
+                       retract=-spec["fs_retract_v"],
+                       tc=-(spec.get("fs_toolchange_retract_v", 4.0)))
+        required_keys = ["recover", "retract"] + (["prime"] if prime_extra > 0 else [])
+        sv_bad = []
+        for k, w in enumerate(wins, start=1):
+            got = {}
+            for ln, val in w.stationary_v:
+                for key, want in want_sv.items():
+                    if near(val, want, TOL_STATIONARY_V):
+                        got.setdefault(key, []).append(ln)
+                        break
+                else:
+                    sv_bad.append("W%d line %d: stationary V %+.3f matches none of "
+                                  "the contracted amounts [%s]"
+                                  % (k, ln, val,
+                                     ", ".join("%+.3f" % v for v in
+                                               sorted(set(want_sv.values())))))
+            for key in required_keys:
+                if len(got.get(key, [])) != 1:
+                    sv_bad.append("W%d has %d stationary V %+.3f moves, required "
+                                  "exactly 1 (lines %s)"
+                                  % (k, len(got.get(key, [])), want_sv[key],
+                                     got.get(key, [])))
+        if sv_bad:
+            bad.extend(sv_bad[:6])
+            codes11.append("FS_TAIL_PAYOUT_FORMULA")
+        s11.note("stationary V per window: recover %+.3f, prime extra %+.3f, "
+                 "retract %+.3f, tool-change %+.3f"
+                 % (want_sv["recover"], want_sv["prime"], want_sv["retract"],
+                    want_sv["tc"]))
+    else:
+        bad.append("stationary V amounts cannot be evaluated: the manifest records "
+                   "no fs_prime_v / fs_retract_v")
+        codes11.append("FS_PAYOUT_EVIDENCE_MISSING")
     u55 = sum(1 for c in lines if RE_MOVE.match(c.cmd) and near(c.u, 55.0, 1e-6))
     s11.note("U55 reload present on %d of %d windows" % (u55, len(wins)))
     if bad or u55 != len(wins):
         s11.bad(("; ".join(bad[:4]) if bad else "") +
                 ("U55 reload on %d/%d windows" % (u55, len(wins))
-                 if u55 != len(wins) else ""))
+                 if u55 != len(wins) else ""),
+                code=(codes11[0] if codes11 else None))
+        for cd in sorted(set(codes11)):
+            if cd not in s11.codes:
+                s11.codes.append(cd)
     else:
         s11.ok("M1001 L agrees with the recalculated window U under the established "
                "floor contract in all %d windows; U55 reload preserved on every window"
@@ -1217,7 +1436,8 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
             if w.is_purge:
                 ok, why = purge_corridor_ok(w, spec, half_width)
             else:
-                ok, why = release_supported(lines, w, half_width, w.v1_ln)
+                ok, why = release_supported(lines, w, half_width, w.v1_ln,
+                                            spec.get("plastic_width_mm", 0.4))
             w.support = "SUPPORTED" if ok else "UNSUPPORTED"
             w.support_why = why
             if not ok:
@@ -1444,6 +1664,13 @@ def window_rows(res):
             budget_L=w.budget_L,
             support=getattr(w, "support", "NOT_EVALUATED"),
             support_detail=getattr(w, "support_why", ""),
+            # Worst measured escape of the buffered release footprint past the
+            # material already deposited in this layer, in mm. None for a window
+            # with no release or for the purge corridor.
+            footprint_escape_mm=(None if getattr(w, "footprint_worst", None) is None
+                                 else round(w.footprint_worst, 4)),
+            footprint_worst_xy=(None if getattr(w, "footprint_worst_at", None) is None
+                                else [round(v, 2) for v in w.footprint_worst_at]),
             errors=list(w.errors),
         ))
     return rows
@@ -1539,16 +1766,23 @@ def render_md(payload):
         A("")
         A("### Per-window measurements")
         A("")
+        A("footprint escape is the worst measured distance the buffered release")
+        A("strip reaches past material already deposited in the same layer;")
+        A("negative or zero means the whole strip is covered.")
+        A("")
         A("| W | kind | Z | open | cut | V-1 | rel beg | rel end | close | lift | entry | "
-          "dep mm | rel mm | total mm | rel F | rel Z dev | post-cut U | L | support |")
-        A("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+          "dep mm | rel mm | total mm | rel F | rel Z dev | post-cut U | L | support | "
+          "footprint escape mm |")
+        A("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
         for w in r["window_rows"]:
-            A("| %d | %s | %.2f | %s | %s | %s | %s | %s | %s | %s | %s | %.3f | %.3f | %.3f | %s | %.4f | %.3f | %s | %s |"
+            esc = w.get("footprint_escape_mm")
+            A("| %d | %s | %.2f | %s | %s | %s | %s | %s | %s | %s | %s | %.3f | %.3f | %.3f | %s | %.4f | %.3f | %s | %s | %s |"
               % (w["window"], w["kind"], w["z"], w["open_ln"], w["cut_ln"], w["v1_ln"],
                  w["rel_begin_ln"] or "-", w["rel_end_ln"] or "-", w["close_ln"],
                  w["lift_ln"], w["entry_ln"], w["post_cut_dep_mm"], w["release_mm"],
                  w["total_mm"], w["release_f"] if w["release_f"] is not None else "-",
-                 w["release_z_dev_mm"], w["post_cut_u_mm"], w["budget_L"], w["support"]))
+                 w["release_z_dev_mm"], w["post_cut_u_mm"], w["budget_L"], w["support"],
+                 ("%.4f" % esc) if esc is not None else "-"))
         A("")
         A("### Per-transition measurements")
         A("")
@@ -1631,6 +1865,23 @@ def main(argv=None):
                                         man.get("bead_width_mm", 0.7))
         spec["preheat_lead_s"] = entry.get("preheat_lead_s",
                                            man.get("preheat_lead_s", 15.0))
+        # Payout formula inputs come from the EFFECTIVE merged config the run
+        # used, so the verifier judges the emitted bytes against the numbers the
+        # slicer actually sliced with rather than a re-read of one preset file.
+        eff = entry.get("effective_config") or {}
+        for fk in ("fs_fiber_rate", "fs_matrix_ratio", "fs_tail_v_factor",
+                   "fs_prime_v", "fs_retract_v", "fs_toolchange_retract_v"):
+            if eff.get(fk) is not None:
+                try:
+                    spec[fk] = float(eff[fk])
+                except (TypeError, ValueError):
+                    pass
+        nd = eff.get("nozzle_diameter")
+        if isinstance(nd, list) and nd:
+            try:
+                spec["plastic_width_mm"] = float(nd[0])
+            except (TypeError, ValueError):
+                pass
         r = evaluate_file(variant, path, spec, entry.get("evidence"), macro_status)
         r["effective_config"] = entry.get("effective_config")
         r["command"] = entry.get("cmd")
@@ -1764,7 +2015,22 @@ def main(argv=None):
              for r in payload["files"] for cid in MANDATORY
              if cid in r["checks"] and r["checks"][cid]["status"] != PASS]
     for v, cid, c in fails:
-        print("  FAIL %s %s: %s" % (v, cid, c["detail"][0] if c["detail"] else "no detail"))
+        # The first detail line is often an informational note appended before
+        # the failure, so reporting it made a real failure look like a passing
+        # note. Report the recorded error codes and the first line that actually
+        # states a measured-vs-required mismatch.
+        msg = ""
+        for d in c["detail"]:
+            low = d.lower()
+            if ("required" in low or "expected" in low or "missing" in low
+                    or "matches none" in low or "percent off" in low
+                    or "escapes" in low or "outside" in low):
+                msg = d
+                break
+        if not msg:
+            msg = c["detail"][-1] if c["detail"] else "no detail"
+        print("  FAIL %s %s [%s]: %s"
+              % (v, cid, ",".join(c["codes"]) or "no code", msg))
     return 0 if software == "PASS" else 1
 
 

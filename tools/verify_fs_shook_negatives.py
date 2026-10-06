@@ -291,6 +291,106 @@ def mut_release_across_gap(lines):
                  "deposited material" % (win + 1))
 
 
+def mut_delete_all_hotend_waits(lines):
+    """Delete EVERY M109. S07 must fail on the missing waits, not pass vacuously.
+
+    A previous revision of S07 reported "all 0 hotend waits are parked" and gave
+    this file a clean bill of health, because it only ever asked whether the
+    waits that existed were parked.
+    """
+    out = [l for i, l in enumerate(lines) if cmd_of(lines, i)[0] != "M109"]
+    n = len(lines) - len(out)
+    if n < 16:
+        raise RuntimeError("expected >=16 M109 waits, found %d" % n)
+    return out, "deleted all %d M109 hotend waits" % n
+
+
+def mut_tail_v_times_30(lines):
+    """Multiply the matrix V of every POST-CUT translating move by 30.
+
+    The tail still deposits along the same path at the same feed, so length,
+    release and every geometry check stay green; only the payout formula is
+    violated. A comment-sorted ledger cannot see this, so S11 must judge V by
+    value against the configured rate.
+    """
+    out = list(lines)
+    touched = 0
+    for o, cl in find_windows(out):
+        cut = next((i for i in range(o, cl) if cmd_of(out, i)[0] == "M2800"), None)
+        if cut is None:
+            continue
+        v1 = None
+        for i in range(cut + 1, cl + 1):
+            c, toks = cmd_of(out, i)
+            if c in ("G0", "G1") and (word(toks, "V") or 0) < 0 \
+                    and not has_word(toks, "X"):
+                v1 = i
+                break
+        if v1 is None:
+            continue
+        for i in range(cut + 1, v1):
+            c, toks = cmd_of(out, i)
+            if c not in ("G0", "G1"):
+                continue
+            v = word(toks, "V")
+            if v is None or v <= 0 or not has_word(toks, "X"):
+                continue
+            out[i] = re.sub(r"V[0-9.]+", "V%.3f" % (v * 30.0), out[i], count=1)
+            touched += 1
+    if touched < 100:
+        raise RuntimeError("only %d post-cut moves carried matrix V" % touched)
+    return out, "multiplied post-cut matrix V by 30 on %d moves" % touched
+
+
+def mut_release_on_bead_edge(lines):
+    """Slide ONE release 0.20 mm sideways: centreline still on the supporting
+    bead, outer edge hanging over unprinted material.
+
+    This is the case a centreline-distance test cannot see. The support bead is
+    0.8 mm wide (half-width 0.4), so a 0.20 mm offset leaves the centreline
+    comfortably covered while the buffered footprint's far edge reaches 0.6 mm
+    from the bead axis, i.e. 0.2 mm beyond the material.
+    """
+    out = list(lines)
+    rel = release_move_indices(out)
+    if not rel:
+        raise RuntimeError("no release move found")
+    win = rel[len(rel) // 2]
+    # the window this release belongs to
+    bounds = None
+    for o, cl in find_windows(out):
+        if o < win < cl:
+            bounds = (o, cl)
+    if bounds is None:
+        raise RuntimeError("release window not found")
+    moves = [i for i in rel if bounds[0] < i < bounds[1]]
+    # heading: from the position before the first release move to its endpoint
+    c0, t0 = cmd_of(out, moves[0])
+    x0, y0 = word(t0, "X"), word(t0, "Y")
+    prev = None
+    for i in range(0, moves[0]):
+        c2, t2 = cmd_of(out, i)
+        if c2 in ("G0", "G1") and has_word(t2, "X") and has_word(t2, "Y"):
+            prev = (word(t2, "X"), word(t2, "Y"))
+    if prev is None:
+        raise RuntimeError("no position before the release")
+    ux, uy = x0 - prev[0], y0 - prev[1]
+    L = (ux * ux + uy * uy) ** 0.5
+    if L < 1e-6:
+        raise RuntimeError("degenerate release heading")
+    nx, ny = -uy / L, ux / L
+    OFF = 0.20
+    for i in moves:
+        c2, t2 = cmd_of(out, i)
+        xp = word(t2, "X") + nx * OFF
+        yp = word(t2, "Y") + ny * OFF
+        out[i] = re.sub(r"X[-0-9.]+", "X%.3f" % xp, out[i], count=1)
+        out[i] = re.sub(r"Y[-0-9.]+", "Y%.3f" % yp, out[i], count=1)
+    return out, ("offset the release at line %d by %.2f mm sideways: centreline "
+                 "still on the bead, outer edge 0.20 mm past the support"
+                 % (moves[0] + 1, OFF))
+
+
 def mut_hash_only(lines):
     out = list(lines)
     out.insert(0, "; MUTANT: content changed, manifest hash left stale")
@@ -318,6 +418,15 @@ CASES = [
      "FS_RELEASE_UNSUPPORTED"),
     ("t9_stale_manifest_hash", "shook_B_forward_release", mut_hash_only,
      "FS_HASH_MISMATCH"),
+    # The three holes the owner measured in the shipped verifier: a
+    # vacuously-passing wait check, an unenforced payout formula, and a
+    # containment test that only looked at the centreline.
+    ("t10_all_hotend_waits_deleted", "shook_B_forward_release",
+     mut_delete_all_hotend_waits, "FS_WAIT_MISSING"),
+    ("t11_tail_payout_times_30", "shook_B_forward_release",
+     mut_tail_v_times_30, "FS_TAIL_PAYOUT_FORMULA"),
+    ("t12_release_on_bead_edge", "shook_B_forward_release",
+     mut_release_on_bead_edge, "FS_RELEASE_UNSUPPORTED"),
 ]
 
 

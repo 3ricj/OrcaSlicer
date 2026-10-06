@@ -64,3 +64,6 @@ ctest_results.xml
 # Scratch/build output: never committable. Binaries and throwaway probes
 # landed in history three times from here.
 /tmp/
+# Negative-test scratch: mutated G-code copies and per-case manifests.
+# The durable artifact is the sibling negatives.json summary.
+/docs/evidence/shook_acceptance/negatives/

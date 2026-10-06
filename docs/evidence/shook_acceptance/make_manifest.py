@@ -9,10 +9,30 @@ re-hashes those independently.
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 
-ROOT = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+# The repo root is found by searching upward, not by counting dirname()
+# calls. A fixed count is wrong for at least one of the two places this
+# script lives (out/fs_shook/ and docs/evidence/shook_acceptance/ sit at
+# different depths), and a wrong ROOT silently points every BIN/PROC/FILA
+# path at a directory that does not exist, which reads back as
+# "FATAL: built binary missing".
+def _find_repo(start):
+    d = os.path.abspath(start)
+    while True:
+        has_build = os.path.isdir(os.path.join(d, "build", "src", "Release"))
+        has_res = os.path.isdir(os.path.join(d, "resources", "profiles"))
+        if has_build and has_res:
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            raise SystemExit("FATAL: no repository root above " + start)
+        d = parent
+
+
+ROOT = _find_repo(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "out", "fs_shook")
 RUNS = os.path.join(OUT, "export_runs.json")
 
@@ -66,7 +86,14 @@ def effective_config(preset_path):
     return preset_path
 
 
-def main():
+def main(argv=None):
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__.split(chr(10))[0])
+    ap.add_argument("--evidence-dir", default=None,
+                    help="also publish into this directory, copying each export "
+                         "to gcode/<variant>.gcode and rewriting the paths, so "
+                         "the committed evidence set regenerates in one step")
+    args = ap.parse_args(argv)
     runs = json.load(open(RUNS, encoding="utf-8"))
     by = dict((r["variant"], r) for r in runs)
 
@@ -112,6 +139,9 @@ def main():
                 "fs_fiber_mode", "fs_fiber_z_step", "fs_matrix_ratio",
                 "fs_fiber_rate", "fs_restart_feed", "fs_restart_z_hop",
                 "fs_prime_v", "fs_retract_v", "fs_toolchange_retract_v",
+                # S11 judges the emitted tail payout against this factor, so it
+                # must be in the effective config the verifier may trust.
+                "fs_tail_v_factor",
                 "fs_brush_on_toolchange", "fs_aux_fans_on_toolchange",
                 "nozzle_diameter", "first_layer_height", "layer_height")},
             evidence=dict(kind="independent_reconstruction",
@@ -175,10 +205,25 @@ def main():
     out = os.path.join(OUT, "manifest.json")
     json.dump(man, open(out, "w", encoding="utf-8"), indent=1)
     print("wrote", out)
+    if args.evidence_dir:
+        # Publish the committed form: gcode/<variant>.gcode beside the
+        # manifest, so the verdict reproduces from the evidence directory
+        # alone with one verifier command.
+        ev = os.path.abspath(mnt(args.evidence_dir))
+        os.makedirs(os.path.join(ev, "gcode"), exist_ok=True)
+        for f in man["files"]:
+            src = os.path.join(OUT, f["gcode"])
+            dst = os.path.join(ev, "gcode", f["variant"] + ".gcode")
+            shutil.copyfile(mnt(src) if os.path.isabs(src) else src,
+                            mnt(dst))
+            f["gcode"] = "gcode/" + f["variant"] + ".gcode"
+        evout = os.path.join(ev, "manifest.json")
+        json.dump(man, open(evout, "w", encoding="utf-8"), indent=1)
+        print("published", evout)
     for f in files:
         print("  %s  %s  %d lines" % (f["variant"], f["sha256"][:16], f["lines"]))
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

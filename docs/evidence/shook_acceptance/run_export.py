@@ -16,7 +16,26 @@ import shutil
 import subprocess
 import sys
 
-ROOT = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+# The repo root is found by searching upward, not by counting dirname()
+# calls. A fixed count is wrong for at least one of the two places this
+# script lives (out/fs_shook/ and docs/evidence/shook_acceptance/ sit at
+# different depths), and a wrong ROOT silently points every BIN/PROC/FILA
+# path at a directory that does not exist, which reads back as
+# "FATAL: built binary missing".
+def _find_repo(start):
+    d = os.path.abspath(start)
+    while True:
+        has_build = os.path.isdir(os.path.join(d, "build", "src", "Release"))
+        has_res = os.path.isdir(os.path.join(d, "resources", "profiles"))
+        if has_build and has_res:
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            raise SystemExit("FATAL: no repository root above " + start)
+        d = parent
+
+
+ROOT = _find_repo(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "out", "fs_shook")
 DATADIR = os.path.join(OUT, "datadir")
 BIN = os.path.join(ROOT, "build", "src", "Release", "orca-slicer.exe")

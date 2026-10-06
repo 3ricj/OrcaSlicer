@@ -24,15 +24,15 @@ adapter contract, not that the firmware macros behave that way on hardware.
 | filament_preset_sha256 | `51bb091c2465366b7f85122ce4e34aab3c712e57dfe8285c5b6402be61d52d54` |
 | machine_preset_base | `resources/profiles/FibreSeeker3/machine/FibreSeeker3 SK3 CF nozzle.json` |
 | machine_preset_base_sha256 | `3e9f837be6b26239f4672015c9141d5d56d4d06f605cd78fe3a05d99df143e02` |
-| source_revision | `6 7 b 0 c c 6 f e 6 1 a 7 8 f b d b 5 5 1 f 6 6 5 5 e 5 d 1 8 b a 3 5 e 8 e 7 a` |
-| source_dirty_patch_sha256 | `2331fefb4e1c0800e26a13d9a22936c8c0e9c567aa4bbb7bcbe4e574997d7621` |
+| source_revision | `a e 7 3 f 0 6 8 7 4 a 4 2 b 0 4 c 4 0 7 b 0 d 5 6 3 3 1 7 2 9 9 3 4 3 6 1 e f 0` |
+| source_dirty_patch_sha256 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
 | build_command | `cmake --build build --target OrcaSlicer --config Release -j 8` |
 | executable | `build/src/Release/orca-slicer.exe` |
 | executable_sha256 | `6197d0dfa699b07afb05a7e8659c34aba7d21471ccfeb3b9b5fbf2f052bfff61` |
 | runtime_dll | `build/src/Release/OrcaSlicer.dll` |
-| runtime_dll_sha256 | `9842e0af1ffb62d24374ba3945bcbfacb31e81fb68a4fd826c46b77e758d6ded` |
+| runtime_dll_sha256 | `2490aef02bd0d95de7b086d1df27f44bb488ef9ec669229309954bd11fac6af4` |
 | verifier | `tools/verify_fs_shook.py` |
-| verifier_sha256 | `2c399889d46765ac8878fb24c1273ce54107a06dc3c804dbafb8f202394b1ce4` |
+| verifier_sha256 | `db6b3db10056d3373cc163295fe315673595bb7d2b799c62c96b6658e3f354e3` |
 
 ## Mandatory checks
 
@@ -54,8 +54,8 @@ adapter contract, not that the firmware macros behave that way on hardware.
 
 ## shook_A_park_wait
 
-- file: `plate_1.gcode`
-- SHA-256: `f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c`
+- file: `shook_A_park_wait.gcode`
+- SHA-256: `eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7`
 - lines: 19595
 
 ### Check detail
@@ -75,7 +75,8 @@ adapter contract, not that the firmware macros behave that way on hardware.
 - **S06 window exit sequence - PASS**
   - final deposition -> V-1 -> release -> M1002 -> lift -> station entry in all 16 windows
 - **S07 hotend waits execute parked - PASS**
-  - all 33 hotend waits (including the startup one) execute inside an explicit station bracket; 3 bed/chamber waits are out of scope
+  - hotend waits measured: 33 (T0 16, T1 17); required T0 16 + T1 17 for 16 fibre windows; 3 bed/chamber waits are out of scope
+  - all 33 hotend waits (T0 16, T1 17, including the startup one) execute inside an explicit station bracket and meet the required inventory of 16 T0 + 17 T1 for 16 fibre windows
 - **S08 outgoing thermal order - PASS**
   - in every transition the outgoing head stays at its active target through deposition, release and cleaning; standby follows cleaning and precedes the incoming wait
 - **S09 preheat schedule, both directions - PASS**
@@ -83,7 +84,9 @@ adapter contract, not that the firmware macros behave that way on hardware.
 - **S10 pending E recovery at the deposition start - PASS**
   - 227 recoveries, each at a deposition start after destination travel, each matching the pending ledger; no positive E at a brush exit
 - **S11 payout formula and budgets - PASS**
-  - stationary V: prime +48.0 recover +16.0 window-retract -16.0 tool-change -64.0 (per window -1.000)
+  - body payout rate worst relative deviation 0.477 percent (tolerance 2.0 percent)
+  - tail payout worst absolute deviation 0.0093 mm (tolerance 0.05 mm)
+  - stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000
   - U55 reload present on 16 of 16 windows
   - M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window
 - **S12 comparison isolation - PASS**
@@ -94,24 +97,28 @@ adapter contract, not that the firmware macros behave that way on hardware.
 
 ### Per-window measurements
 
-| W | kind | Z | open | cut | V-1 | rel beg | rel end | close | lift | entry | dep mm | rel mm | total mm | rel F | rel Z dev | post-cut U | L | support |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | purge | 0.24 | 53 | 62 | 67 | - | - | 68 | 71 | 72 | 54.800 | 0.000 | 54.800 | - | 0.0000 | 0.000 | 79 | NOT_EVALUATED |
-| 2 | model | 0.48 | 1589 | 1887 | 1947 | - | - | 1948 | 1951 | 1952 | 54.798 | 0.000 | 54.798 | - | 0.0000 | 0.000 | 233 | NOT_EVALUATED |
-| 3 | model | 0.72 | 2586 | 2897 | 2955 | - | - | 2956 | 2959 | 2960 | 54.802 | 0.000 | 54.802 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED |
-| 4 | model | 0.96 | 3640 | 3924 | 4024 | - | - | 4025 | 4028 | 4029 | 54.799 | 0.000 | 54.799 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED |
-| 5 | model | 1.20 | 4843 | 5143 | 5208 | - | - | 5209 | 5212 | 5213 | 54.805 | 0.000 | 54.805 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED |
-| 6 | model | 1.44 | 6027 | 6340 | 6395 | - | - | 6396 | 6399 | 6400 | 54.803 | 0.000 | 54.803 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED |
-| 7 | model | 1.68 | 7214 | 7486 | 7575 | - | - | 7576 | 7579 | 7580 | 54.801 | 0.000 | 54.801 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED |
-| 8 | model | 1.92 | 8394 | 8674 | 8760 | - | - | 8761 | 8764 | 8765 | 54.784 | 0.000 | 54.784 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED |
-| 9 | model | 2.16 | 9579 | 9831 | 9944 | - | - | 9945 | 9948 | 9949 | 54.796 | 0.000 | 54.796 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED |
-| 10 | model | 2.40 | 10763 | 11075 | 11130 | - | - | 11131 | 11134 | 11135 | 54.810 | 0.000 | 54.810 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED |
-| 11 | model | 2.64 | 11947 | 12231 | 12313 | - | - | 12314 | 12317 | 12318 | 54.806 | 0.000 | 54.806 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED |
-| 12 | model | 2.88 | 13158 | 13459 | 13523 | - | - | 13524 | 13527 | 13528 | 54.800 | 0.000 | 54.800 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED |
-| 13 | model | 3.12 | 14373 | 14635 | 14744 | - | - | 14745 | 14748 | 14749 | 54.801 | 0.000 | 54.801 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED |
-| 14 | model | 3.36 | 15486 | 15745 | 15852 | - | - | 15853 | 15856 | 15857 | 54.800 | 0.000 | 54.800 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED |
-| 15 | model | 3.60 | 16512 | 16761 | 16863 | - | - | 16864 | 16867 | 16868 | 54.807 | 0.000 | 54.807 | - | 0.0000 | 0.000 | 233 | NOT_EVALUATED |
-| 16 | model | 3.84 | 17474 | 17737 | 17826 | - | - | 17827 | 17830 | 17831 | 54.809 | 0.000 | 54.809 | - | 0.0000 | 0.000 | 231 | NOT_EVALUATED |
+footprint escape is the worst measured distance the buffered release
+strip reaches past material already deposited in the same layer;
+negative or zero means the whole strip is covered.
+
+| W | kind | Z | open | cut | V-1 | rel beg | rel end | close | lift | entry | dep mm | rel mm | total mm | rel F | rel Z dev | post-cut U | L | support | footprint escape mm |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | purge | 0.24 | 53 | 62 | 67 | - | - | 68 | 71 | 72 | 54.800 | 0.000 | 54.800 | - | 0.0000 | 0.000 | 79 | NOT_EVALUATED | - |
+| 2 | model | 0.48 | 1589 | 1887 | 1947 | - | - | 1948 | 1951 | 1952 | 54.798 | 0.000 | 54.798 | - | 0.0000 | 0.000 | 233 | NOT_EVALUATED | - |
+| 3 | model | 0.72 | 2586 | 2897 | 2955 | - | - | 2956 | 2959 | 2960 | 54.802 | 0.000 | 54.802 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED | - |
+| 4 | model | 0.96 | 3640 | 3924 | 4024 | - | - | 4025 | 4028 | 4029 | 54.799 | 0.000 | 54.799 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED | - |
+| 5 | model | 1.20 | 4843 | 5143 | 5208 | - | - | 5209 | 5212 | 5213 | 54.805 | 0.000 | 54.805 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED | - |
+| 6 | model | 1.44 | 6027 | 6340 | 6395 | - | - | 6396 | 6399 | 6400 | 54.803 | 0.000 | 54.803 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED | - |
+| 7 | model | 1.68 | 7214 | 7486 | 7575 | - | - | 7576 | 7579 | 7580 | 54.801 | 0.000 | 54.801 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED | - |
+| 8 | model | 1.92 | 8394 | 8674 | 8760 | - | - | 8761 | 8764 | 8765 | 54.784 | 0.000 | 54.784 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED | - |
+| 9 | model | 2.16 | 9579 | 9831 | 9944 | - | - | 9945 | 9948 | 9949 | 54.796 | 0.000 | 54.796 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED | - |
+| 10 | model | 2.40 | 10763 | 11075 | 11130 | - | - | 11131 | 11134 | 11135 | 54.810 | 0.000 | 54.810 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED | - |
+| 11 | model | 2.64 | 11947 | 12231 | 12313 | - | - | 12314 | 12317 | 12318 | 54.806 | 0.000 | 54.806 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED | - |
+| 12 | model | 2.88 | 13158 | 13459 | 13523 | - | - | 13524 | 13527 | 13528 | 54.800 | 0.000 | 54.800 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED | - |
+| 13 | model | 3.12 | 14373 | 14635 | 14744 | - | - | 14745 | 14748 | 14749 | 54.801 | 0.000 | 54.801 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED | - |
+| 14 | model | 3.36 | 15486 | 15745 | 15852 | - | - | 15853 | 15856 | 15857 | 54.800 | 0.000 | 54.800 | - | 0.0000 | 0.000 | 234 | NOT_EVALUATED | - |
+| 15 | model | 3.60 | 16512 | 16761 | 16863 | - | - | 16864 | 16867 | 16868 | 54.807 | 0.000 | 54.807 | - | 0.0000 | 0.000 | 233 | NOT_EVALUATED | - |
+| 16 | model | 3.84 | 17474 | 17737 | 17826 | - | - | 17827 | 17830 | 17831 | 54.809 | 0.000 | 54.809 | - | 0.0000 | 0.000 | 231 | NOT_EVALUATED | - |
 
 ### Per-transition measurements
 
@@ -154,8 +161,8 @@ withdrawal the transition owed; E rec is where it was actually paid.
 
 ## shook_B_forward_release
 
-- file: `plate_1.gcode`
-- SHA-256: `cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f`
+- file: `shook_B_forward_release.gcode`
+- SHA-256: `0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991`
 - lines: 19654
 
 ### Check detail
@@ -175,7 +182,8 @@ withdrawal the transition owed; E rec is where it was actually paid.
 - **S06 window exit sequence - PASS**
   - final deposition -> V-1 -> release -> M1002 -> lift -> station entry in all 16 windows
 - **S07 hotend waits execute parked - PASS**
-  - all 33 hotend waits (including the startup one) execute inside an explicit station bracket; 3 bed/chamber waits are out of scope
+  - hotend waits measured: 33 (T0 16, T1 17); required T0 16 + T1 17 for 16 fibre windows; 3 bed/chamber waits are out of scope
+  - all 33 hotend waits (T0 16, T1 17, including the startup one) execute inside an explicit station bracket and meet the required inventory of 16 T0 + 17 T1 for 16 fibre windows
 - **S08 outgoing thermal order - PASS**
   - in every transition the outgoing head stays at its active target through deposition, release and cleaning; standby follows cleaning and precedes the incoming wait
 - **S09 preheat schedule, both directions - PASS**
@@ -183,7 +191,9 @@ withdrawal the transition owed; E rec is where it was actually paid.
 - **S10 pending E recovery at the deposition start - PASS**
   - 227 recoveries, each at a deposition start after destination travel, each matching the pending ledger; no positive E at a brush exit
 - **S11 payout formula and budgets - PASS**
-  - stationary V: prime +48.0 recover +16.0 window-retract -16.0 tool-change -64.0 (per window -1.000)
+  - body payout rate worst relative deviation 0.291 percent (tolerance 2.0 percent)
+  - tail payout worst absolute deviation 0.0086 mm (tolerance 0.05 mm)
+  - stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000
   - U55 reload present on 16 of 16 windows
   - M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window
 - **S12 comparison isolation - PASS**
@@ -194,24 +204,28 @@ withdrawal the transition owed; E rec is where it was actually paid.
 
 ### Per-window measurements
 
-| W | kind | Z | open | cut | V-1 | rel beg | rel end | close | lift | entry | dep mm | rel mm | total mm | rel F | rel Z dev | post-cut U | L | support |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | purge | 0.24 | 53 | 62 | 67 | 68 | 70 | 71 | 74 | 75 | 54.800 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 79 | SUPPORTED |
-| 2 | model | 0.48 | 1592 | 1874 | 1950 | 1951 | 1953 | 1954 | 1957 | 1958 | 54.804 | 6.798 | 61.601 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 3 | model | 0.72 | 2592 | 2887 | 2962 | 2963 | 2965 | 2966 | 2969 | 2970 | 54.799 | 6.799 | 61.599 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED |
-| 4 | model | 0.96 | 3650 | 3954 | 4035 | 4037 | 4039 | 4040 | 4043 | 4044 | 54.798 | 6.801 | 61.599 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED |
-| 5 | model | 1.20 | 4858 | 5166 | 5223 | 5224 | 5226 | 5227 | 5230 | 5231 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED |
-| 6 | model | 1.44 | 6045 | 6354 | 6412 | 6413 | 6415 | 6416 | 6419 | 6420 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED |
-| 7 | model | 1.68 | 7234 | 7538 | 7596 | 7597 | 7599 | 7600 | 7603 | 7604 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED |
-| 8 | model | 1.92 | 8419 | 8728 | 8785 | 8787 | 8789 | 8790 | 8793 | 8794 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED |
-| 9 | model | 2.16 | 9608 | 9915 | 9973 | 9974 | 9976 | 9977 | 9980 | 9981 | 54.801 | 6.800 | 61.601 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED |
-| 10 | model | 2.40 | 10795 | 11102 | 11160 | 11162 | 11164 | 11165 | 11168 | 11169 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED |
-| 11 | model | 2.64 | 11981 | 12289 | 12347 | 12348 | 12350 | 12351 | 12354 | 12355 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED |
-| 12 | model | 2.88 | 13195 | 13502 | 13560 | 13561 | 13563 | 13564 | 13567 | 13568 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED |
-| 13 | model | 3.12 | 14413 | 14712 | 14785 | 14786 | 14788 | 14789 | 14792 | 14793 | 54.798 | 6.800 | 61.599 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED |
-| 14 | model | 3.36 | 15529 | 15823 | 15899 | 15900 | 15902 | 15903 | 15906 | 15907 | 54.810 | 6.796 | 61.605 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED |
-| 15 | model | 3.60 | 16562 | 16837 | 16914 | 16915 | 16917 | 16918 | 16921 | 16922 | 54.811 | 6.795 | 61.606 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 16 | model | 3.84 | 17528 | 17804 | 17881 | 17883 | 17885 | 17886 | 17889 | 17890 | 54.808 | 6.800 | 61.608 | 600.0 | 0.0000 | 0.000 | 231 | SUPPORTED |
+footprint escape is the worst measured distance the buffered release
+strip reaches past material already deposited in the same layer;
+negative or zero means the whole strip is covered.
+
+| W | kind | Z | open | cut | V-1 | rel beg | rel end | close | lift | entry | dep mm | rel mm | total mm | rel F | rel Z dev | post-cut U | L | support | footprint escape mm |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | purge | 0.24 | 53 | 62 | 67 | 68 | 70 | 71 | 74 | 75 | 54.800 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 79 | SUPPORTED | - |
+| 2 | model | 0.48 | 1592 | 1874 | 1950 | 1951 | 1953 | 1954 | 1957 | 1958 | 54.804 | 6.798 | 61.601 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0038 |
+| 3 | model | 0.72 | 2592 | 2887 | 2962 | 2963 | 2965 | 2966 | 2969 | 2970 | 54.799 | 6.799 | 61.599 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED | 0.0018 |
+| 4 | model | 0.96 | 3650 | 3954 | 4035 | 4037 | 4039 | 4040 | 4043 | 4044 | 54.798 | 6.801 | 61.599 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED | 0.0003 |
+| 5 | model | 1.20 | 4858 | 5166 | 5223 | 5224 | 5226 | 5227 | 5230 | 5231 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED | 0.0014 |
+| 6 | model | 1.44 | 6045 | 6354 | 6412 | 6413 | 6415 | 6416 | 6419 | 6420 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED | 0.0014 |
+| 7 | model | 1.68 | 7234 | 7538 | 7596 | 7597 | 7599 | 7600 | 7603 | 7604 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED | 0.0014 |
+| 8 | model | 1.92 | 8419 | 8728 | 8785 | 8787 | 8789 | 8790 | 8793 | 8794 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED | 0.0014 |
+| 9 | model | 2.16 | 9608 | 9915 | 9973 | 9974 | 9976 | 9977 | 9980 | 9981 | 54.801 | 6.800 | 61.601 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED | 0.0014 |
+| 10 | model | 2.40 | 10795 | 11102 | 11160 | 11162 | 11164 | 11165 | 11168 | 11169 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED | 0.0014 |
+| 11 | model | 2.64 | 11981 | 12289 | 12347 | 12348 | 12350 | 12351 | 12354 | 12355 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED | 0.0014 |
+| 12 | model | 2.88 | 13195 | 13502 | 13560 | 13561 | 13563 | 13564 | 13567 | 13568 | 54.801 | 6.800 | 61.600 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED | 0.0014 |
+| 13 | model | 3.12 | 14413 | 14712 | 14785 | 14786 | 14788 | 14789 | 14792 | 14793 | 54.798 | 6.800 | 61.599 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED | 0.0007 |
+| 14 | model | 3.36 | 15529 | 15823 | 15899 | 15900 | 15902 | 15903 | 15906 | 15907 | 54.810 | 6.796 | 61.605 | 600.0 | 0.0000 | 0.000 | 234 | SUPPORTED | 0.0043 |
+| 15 | model | 3.60 | 16562 | 16837 | 16914 | 16915 | 16917 | 16918 | 16921 | 16922 | 54.811 | 6.795 | 61.606 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0057 |
+| 16 | model | 3.84 | 17528 | 17804 | 17881 | 17883 | 17885 | 17886 | 17889 | 17890 | 54.808 | 6.800 | 61.608 | 600.0 | 0.0000 | 0.000 | 231 | SUPPORTED | 0.0007 |
 
 ### Per-transition measurements
 
@@ -254,8 +268,8 @@ withdrawal the transition owed; E rec is where it was actually paid.
 
 ## shook_C_release_margin_1mm
 
-- file: `plate_1.gcode`
-- SHA-256: `e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de`
+- file: `shook_C_release_margin_1mm.gcode`
+- SHA-256: `310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda`
 - lines: 19662
 
 ### Check detail
@@ -275,7 +289,8 @@ withdrawal the transition owed; E rec is where it was actually paid.
 - **S06 window exit sequence - PASS**
   - final deposition -> V-1 -> release -> M1002 -> lift -> station entry in all 16 windows
 - **S07 hotend waits execute parked - PASS**
-  - all 33 hotend waits (including the startup one) execute inside an explicit station bracket; 3 bed/chamber waits are out of scope
+  - hotend waits measured: 33 (T0 16, T1 17); required T0 16 + T1 17 for 16 fibre windows; 3 bed/chamber waits are out of scope
+  - all 33 hotend waits (T0 16, T1 17, including the startup one) execute inside an explicit station bracket and meet the required inventory of 16 T0 + 17 T1 for 16 fibre windows
 - **S08 outgoing thermal order - PASS**
   - in every transition the outgoing head stays at its active target through deposition, release and cleaning; standby follows cleaning and precedes the incoming wait
 - **S09 preheat schedule, both directions - PASS**
@@ -283,7 +298,9 @@ withdrawal the transition owed; E rec is where it was actually paid.
 - **S10 pending E recovery at the deposition start - PASS**
   - 227 recoveries, each at a deposition start after destination travel, each matching the pending ledger; no positive E at a brush exit
 - **S11 payout formula and budgets - PASS**
-  - stationary V: prime +48.0 recover +16.0 window-retract -16.0 tool-change -64.0 (per window -1.000)
+  - body payout rate worst relative deviation 0.286 percent (tolerance 2.0 percent)
+  - tail payout worst absolute deviation 0.0092 mm (tolerance 0.05 mm)
+  - stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000
   - U55 reload present on 16 of 16 windows
   - M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window
 - **S12 comparison isolation - PASS**
@@ -294,24 +311,28 @@ withdrawal the transition owed; E rec is where it was actually paid.
 
 ### Per-window measurements
 
-| W | kind | Z | open | cut | V-1 | rel beg | rel end | close | lift | entry | dep mm | rel mm | total mm | rel F | rel Z dev | post-cut U | L | support |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | purge | 0.24 | 53 | 62 | 67 | 68 | 70 | 71 | 74 | 75 | 55.800 | 6.800 | 62.600 | 600.0 | 0.0000 | 0.000 | 78 | SUPPORTED |
-| 2 | model | 0.48 | 1592 | 1871 | 1950 | 1951 | 1953 | 1954 | 1957 | 1958 | 55.807 | 6.798 | 62.605 | 600.0 | 0.0000 | 0.000 | 232 | SUPPORTED |
-| 3 | model | 0.72 | 2592 | 2885 | 2962 | 2963 | 2965 | 2966 | 2969 | 2970 | 55.801 | 6.799 | 62.601 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 4 | model | 0.96 | 3650 | 3952 | 4035 | 4037 | 4039 | 4040 | 4043 | 4044 | 55.800 | 6.801 | 62.601 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 5 | model | 1.20 | 4858 | 5165 | 5224 | 5225 | 5227 | 5228 | 5231 | 5232 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 6 | model | 1.44 | 6046 | 6354 | 6414 | 6415 | 6417 | 6418 | 6421 | 6422 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 7 | model | 1.68 | 7236 | 7539 | 7599 | 7600 | 7602 | 7603 | 7606 | 7607 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 8 | model | 1.92 | 8422 | 8730 | 8789 | 8791 | 8793 | 8794 | 8797 | 8798 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 9 | model | 2.16 | 9612 | 9918 | 9978 | 9979 | 9981 | 9982 | 9985 | 9986 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 10 | model | 2.40 | 10800 | 11106 | 11166 | 11168 | 11170 | 11171 | 11174 | 11175 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 11 | model | 2.64 | 11987 | 12294 | 12354 | 12355 | 12357 | 12358 | 12361 | 12362 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 12 | model | 2.88 | 13202 | 13508 | 13568 | 13569 | 13571 | 13572 | 13575 | 13576 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 13 | model | 3.12 | 14421 | 14719 | 14793 | 14794 | 14796 | 14797 | 14800 | 14801 | 55.805 | 6.800 | 62.605 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 14 | model | 3.36 | 15537 | 15829 | 15907 | 15908 | 15910 | 15911 | 15914 | 15915 | 55.808 | 6.796 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED |
-| 15 | model | 3.60 | 16570 | 16842 | 16922 | 16923 | 16925 | 16926 | 16929 | 16930 | 55.814 | 6.795 | 62.609 | 600.0 | 0.0000 | 0.000 | 232 | SUPPORTED |
-| 16 | model | 3.84 | 17536 | 17811 | 17889 | 17891 | 17893 | 17894 | 17897 | 17898 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 230 | SUPPORTED |
+footprint escape is the worst measured distance the buffered release
+strip reaches past material already deposited in the same layer;
+negative or zero means the whole strip is covered.
+
+| W | kind | Z | open | cut | V-1 | rel beg | rel end | close | lift | entry | dep mm | rel mm | total mm | rel F | rel Z dev | post-cut U | L | support | footprint escape mm |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | purge | 0.24 | 53 | 62 | 67 | 68 | 70 | 71 | 74 | 75 | 55.800 | 6.800 | 62.600 | 600.0 | 0.0000 | 0.000 | 78 | SUPPORTED | - |
+| 2 | model | 0.48 | 1592 | 1871 | 1950 | 1951 | 1953 | 1954 | 1957 | 1958 | 55.807 | 6.798 | 62.605 | 600.0 | 0.0000 | 0.000 | 232 | SUPPORTED | 0.0038 |
+| 3 | model | 0.72 | 2592 | 2885 | 2962 | 2963 | 2965 | 2966 | 2969 | 2970 | 55.801 | 6.799 | 62.601 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0018 |
+| 4 | model | 0.96 | 3650 | 3952 | 4035 | 4037 | 4039 | 4040 | 4043 | 4044 | 55.800 | 6.801 | 62.601 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0003 |
+| 5 | model | 1.20 | 4858 | 5165 | 5224 | 5225 | 5227 | 5228 | 5231 | 5232 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0014 |
+| 6 | model | 1.44 | 6046 | 6354 | 6414 | 6415 | 6417 | 6418 | 6421 | 6422 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0014 |
+| 7 | model | 1.68 | 7236 | 7539 | 7599 | 7600 | 7602 | 7603 | 7606 | 7607 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0014 |
+| 8 | model | 1.92 | 8422 | 8730 | 8789 | 8791 | 8793 | 8794 | 8797 | 8798 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0014 |
+| 9 | model | 2.16 | 9612 | 9918 | 9978 | 9979 | 9981 | 9982 | 9985 | 9986 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0014 |
+| 10 | model | 2.40 | 10800 | 11106 | 11166 | 11168 | 11170 | 11171 | 11174 | 11175 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0014 |
+| 11 | model | 2.64 | 11987 | 12294 | 12354 | 12355 | 12357 | 12358 | 12361 | 12362 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0014 |
+| 12 | model | 2.88 | 13202 | 13508 | 13568 | 13569 | 13571 | 13572 | 13575 | 13576 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0014 |
+| 13 | model | 3.12 | 14421 | 14719 | 14793 | 14794 | 14796 | 14797 | 14800 | 14801 | 55.805 | 6.800 | 62.605 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0007 |
+| 14 | model | 3.36 | 15537 | 15829 | 15907 | 15908 | 15910 | 15911 | 15914 | 15915 | 55.808 | 6.796 | 62.603 | 600.0 | 0.0000 | 0.000 | 233 | SUPPORTED | 0.0043 |
+| 15 | model | 3.60 | 16570 | 16842 | 16922 | 16923 | 16925 | 16926 | 16929 | 16930 | 55.814 | 6.795 | 62.609 | 600.0 | 0.0000 | 0.000 | 232 | SUPPORTED | 0.0057 |
+| 16 | model | 3.84 | 17536 | 17811 | 17889 | 17891 | 17893 | 17894 | 17897 | 17898 | 55.803 | 6.800 | 62.603 | 600.0 | 0.0000 | 0.000 | 230 | SUPPORTED | 0.0007 |
 
 ### Per-transition measurements
 

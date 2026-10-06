@@ -11,15 +11,15 @@
   "filament_preset_sha256": "51bb091c2465366b7f85122ce4e34aab3c712e57dfe8285c5b6402be61d52d54",
   "machine_preset_base": "resources/profiles/FibreSeeker3/machine/FibreSeeker3 SK3 CF nozzle.json",
   "machine_preset_base_sha256": "3e9f837be6b26239f4672015c9141d5d56d4d06f605cd78fe3a05d99df143e02",
-  "source_revision": "6 7 b 0 c c 6 f e 6 1 a 7 8 f b d b 5 5 1 f 6 6 5 5 e 5 d 1 8 b a 3 5 e 8 e 7 a",
-  "source_dirty_patch_sha256": "2331fefb4e1c0800e26a13d9a22936c8c0e9c567aa4bbb7bcbe4e574997d7621",
+  "source_revision": "a e 7 3 f 0 6 8 7 4 a 4 2 b 0 4 c 4 0 7 b 0 d 5 6 3 3 1 7 2 9 9 3 4 3 6 1 e f 0",
+  "source_dirty_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "build_command": "cmake --build build --target OrcaSlicer --config Release -j 8",
   "executable": "build/src/Release/orca-slicer.exe",
   "executable_sha256": "6197d0dfa699b07afb05a7e8659c34aba7d21471ccfeb3b9b5fbf2f052bfff61",
   "runtime_dll": "build/src/Release/OrcaSlicer.dll",
-  "runtime_dll_sha256": "9842e0af1ffb62d24374ba3945bcbfacb31e81fb68a4fd826c46b77e758d6ded",
+  "runtime_dll_sha256": "2490aef02bd0d95de7b086d1df27f44bb488ef9ec669229309954bd11fac6af4",
   "verifier": "tools/verify_fs_shook.py",
-  "verifier_sha256": "2c399889d46765ac8878fb24c1273ce54107a06dc3c804dbafb8f202394b1ce4"
+  "verifier_sha256": "db6b3db10056d3373cc163295fe315673595bb7d2b799c62c96b6658e3f354e3"
  },
  "clock": {
   "translating": "60 * XYZ distance / modal F",
@@ -118,7 +118,7 @@
  "files": [
   {
    "variant": "shook_A_park_wait",
-   "gcode": "/mnt/c/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/gcode/shook_A_park_wait/plate_1.gcode",
+   "gcode": "/mnt/c/Users/3ricj/Documents/GitHub/OrcaSlicer/docs/evidence/shook_acceptance/gcode/shook_A_park_wait.gcode",
    "transitions": [
     {
      "idx": 50,
@@ -424,7 +424,8 @@
      "expected": 0,
      "codes": [],
      "detail": [
-      "all 33 hotend waits (including the startup one) execute inside an explicit station bracket; 3 bed/chamber waits are out of scope"
+      "hotend waits measured: 33 (T0 16, T1 17); required T0 16 + T1 17 for 16 fibre windows; 3 bed/chamber waits are out of scope",
+      "all 33 hotend waits (T0 16, T1 17, including the startup one) execute inside an explicit station bracket and meet the required inventory of 16 T0 + 17 T1 for 16 fibre windows"
      ]
     },
     "S08": {
@@ -728,7 +729,9 @@
      "expected": null,
      "codes": [],
      "detail": [
-      "stationary V: prime +48.0 recover +16.0 window-retract -16.0 tool-change -64.0 (per window -1.000)",
+      "body payout rate worst relative deviation 0.477 percent (tolerance 2.0 percent)",
+      "tail payout worst absolute deviation 0.0093 mm (tolerance 0.05 mm)",
+      "stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000",
       "U55 reload present on 16 of 16 windows",
       "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window"
      ]
@@ -783,7 +786,7 @@
    "errors": [],
    "lines": 19595,
    "unsupported": [],
-   "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+   "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
    "preheat_rows": [
     {
      "switch": 80,
@@ -2795,6 +2798,7 @@
     "fs_prime_v": "4",
     "fs_retract_v": "1",
     "fs_toolchange_retract_v": null,
+    "fs_tail_v_factor": "0.72",
     "fs_brush_on_toolchange": null,
     "fs_aux_fans_on_toolchange": null,
     "nozzle_diameter": "['0.4']",
@@ -2805,8 +2809,8 @@
    "exit": 0,
    "window_rows": [
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 1,
      "kind": "purge",
@@ -2840,11 +2844,13 @@
      "budget_L": 79,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 2,
      "kind": "model",
@@ -2878,11 +2884,13 @@
      "budget_L": 233,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 3,
      "kind": "model",
@@ -2916,11 +2924,13 @@
      "budget_L": 234,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 4,
      "kind": "model",
@@ -2954,11 +2964,13 @@
      "budget_L": 234,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 5,
      "kind": "model",
@@ -2992,11 +3004,13 @@
      "budget_L": 234,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 6,
      "kind": "model",
@@ -3030,11 +3044,13 @@
      "budget_L": 234,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 7,
      "kind": "model",
@@ -3068,11 +3084,13 @@
      "budget_L": 234,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 8,
      "kind": "model",
@@ -3106,11 +3124,13 @@
      "budget_L": 234,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 9,
      "kind": "model",
@@ -3144,11 +3164,13 @@
      "budget_L": 234,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 10,
      "kind": "model",
@@ -3182,11 +3204,13 @@
      "budget_L": 234,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 11,
      "kind": "model",
@@ -3220,11 +3244,13 @@
      "budget_L": 234,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 12,
      "kind": "model",
@@ -3258,11 +3284,13 @@
      "budget_L": 234,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 13,
      "kind": "model",
@@ -3296,11 +3324,13 @@
      "budget_L": 234,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 14,
      "kind": "model",
@@ -3334,11 +3364,13 @@
      "budget_L": 234,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 15,
      "kind": "model",
@@ -3372,11 +3404,13 @@
      "budget_L": 233,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "f72a6f2486a010c67095d04150a9f651d997430ff992db8df9cf98c725ed6c7c",
+     "file": "shook_A_park_wait.gcode",
+     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
      "variant": "shook_A_park_wait",
      "window": 16,
      "kind": "model",
@@ -3410,6 +3444,8 @@
      "budget_L": 231,
      "support": "NOT_EVALUATED",
      "support_detail": "",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     }
    ],
@@ -4224,7 +4260,7 @@
   },
   {
    "variant": "shook_B_forward_release",
-   "gcode": "/mnt/c/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/gcode/shook_B_forward_release/plate_1.gcode",
+   "gcode": "/mnt/c/Users/3ricj/Documents/GitHub/OrcaSlicer/docs/evidence/shook_acceptance/gcode/shook_B_forward_release.gcode",
    "transitions": [
     {
      "idx": 50,
@@ -4530,7 +4566,8 @@
      "expected": 0,
      "codes": [],
      "detail": [
-      "all 33 hotend waits (including the startup one) execute inside an explicit station bracket; 3 bed/chamber waits are out of scope"
+      "hotend waits measured: 33 (T0 16, T1 17); required T0 16 + T1 17 for 16 fibre windows; 3 bed/chamber waits are out of scope",
+      "all 33 hotend waits (T0 16, T1 17, including the startup one) execute inside an explicit station bracket and meet the required inventory of 16 T0 + 17 T1 for 16 fibre windows"
      ]
     },
     "S08": {
@@ -4834,7 +4871,9 @@
      "expected": null,
      "codes": [],
      "detail": [
-      "stationary V: prime +48.0 recover +16.0 window-retract -16.0 tool-change -64.0 (per window -1.000)",
+      "body payout rate worst relative deviation 0.291 percent (tolerance 2.0 percent)",
+      "tail payout worst absolute deviation 0.0086 mm (tolerance 0.05 mm)",
+      "stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000",
       "U55 reload present on 16 of 16 windows",
       "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window"
      ]
@@ -4889,7 +4928,7 @@
    "errors": [],
    "lines": 19654,
    "unsupported": [],
-   "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+   "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
    "preheat_rows": [
     {
      "switch": 83,
@@ -6901,6 +6940,7 @@
     "fs_prime_v": "4",
     "fs_retract_v": "1",
     "fs_toolchange_retract_v": null,
+    "fs_tail_v_factor": "0.72",
     "fs_brush_on_toolchange": null,
     "fs_aux_fans_on_toolchange": null,
     "nozzle_diameter": "['0.4']",
@@ -6911,8 +6951,8 @@
    "exit": 0,
    "window_rows": [
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 1,
      "kind": "purge",
@@ -6946,11 +6986,13 @@
      "budget_L": 79,
      "support": "SUPPORTED",
      "support_detail": "purge release inside the validated bed-contact corridor",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 2,
      "kind": "model",
@@ -6983,12 +7025,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.004 mm",
+     "footprint_escape_mm": 0.0038,
+     "footprint_worst_xy": [
+      160.21,
+      158.75
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 3,
      "kind": "model",
@@ -7021,12 +7068,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 234,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.002 mm",
+     "footprint_escape_mm": 0.0018,
+     "footprint_worst_xy": [
+      160.69,
+      157.91
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 4,
      "kind": "model",
@@ -7059,12 +7111,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 234,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.000 mm",
+     "footprint_escape_mm": 0.0003,
+     "footprint_worst_xy": [
+      139.27,
+      142.12
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 5,
      "kind": "model",
@@ -7097,12 +7154,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 234,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 6,
      "kind": "model",
@@ -7135,12 +7197,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 234,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 7,
      "kind": "model",
@@ -7173,12 +7240,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 234,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 8,
      "kind": "model",
@@ -7211,12 +7283,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 234,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 9,
      "kind": "model",
@@ -7249,12 +7326,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 234,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 10,
      "kind": "model",
@@ -7287,12 +7369,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 234,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 11,
      "kind": "model",
@@ -7325,12 +7412,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 234,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 12,
      "kind": "model",
@@ -7363,12 +7455,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 234,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 13,
      "kind": "model",
@@ -7401,12 +7498,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 234,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0007,
+     "footprint_worst_xy": [
+      160.73,
+      157.87
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 14,
      "kind": "model",
@@ -7439,12 +7541,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 234,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.004 mm",
+     "footprint_escape_mm": 0.0043,
+     "footprint_worst_xy": [
+      160.31,
+      158.63
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 15,
      "kind": "model",
@@ -7477,12 +7584,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.006 mm",
+     "footprint_escape_mm": 0.0057,
+     "footprint_worst_xy": [
+      160.23,
+      158.73
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "cf5afda1c8e0ea064f0c88a75a600565a98de4419fc0782753d9d37850b4373f",
+     "file": "shook_B_forward_release.gcode",
+     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
      "variant": "shook_B_forward_release",
      "window": 16,
      "kind": "model",
@@ -7515,7 +7627,12 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 231,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0007,
+     "footprint_worst_xy": [
+      139.53,
+      141.84
+     ],
      "errors": []
     }
    ],
@@ -8330,7 +8447,7 @@
   },
   {
    "variant": "shook_C_release_margin_1mm",
-   "gcode": "/mnt/c/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/gcode/shook_C_release_margin_1mm/plate_1.gcode",
+   "gcode": "/mnt/c/Users/3ricj/Documents/GitHub/OrcaSlicer/docs/evidence/shook_acceptance/gcode/shook_C_release_margin_1mm.gcode",
    "transitions": [
     {
      "idx": 50,
@@ -8636,7 +8753,8 @@
      "expected": 0,
      "codes": [],
      "detail": [
-      "all 33 hotend waits (including the startup one) execute inside an explicit station bracket; 3 bed/chamber waits are out of scope"
+      "hotend waits measured: 33 (T0 16, T1 17); required T0 16 + T1 17 for 16 fibre windows; 3 bed/chamber waits are out of scope",
+      "all 33 hotend waits (T0 16, T1 17, including the startup one) execute inside an explicit station bracket and meet the required inventory of 16 T0 + 17 T1 for 16 fibre windows"
      ]
     },
     "S08": {
@@ -8940,7 +9058,9 @@
      "expected": null,
      "codes": [],
      "detail": [
-      "stationary V: prime +48.0 recover +16.0 window-retract -16.0 tool-change -64.0 (per window -1.000)",
+      "body payout rate worst relative deviation 0.286 percent (tolerance 2.0 percent)",
+      "tail payout worst absolute deviation 0.0092 mm (tolerance 0.05 mm)",
+      "stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000",
       "U55 reload present on 16 of 16 windows",
       "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window"
      ]
@@ -8995,7 +9115,7 @@
    "errors": [],
    "lines": 19662,
    "unsupported": [],
-   "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+   "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
    "preheat_rows": [
     {
      "switch": 83,
@@ -11007,6 +11127,7 @@
     "fs_prime_v": "4",
     "fs_retract_v": "1",
     "fs_toolchange_retract_v": null,
+    "fs_tail_v_factor": "0.72",
     "fs_brush_on_toolchange": null,
     "fs_aux_fans_on_toolchange": null,
     "nozzle_diameter": "['0.4']",
@@ -11017,8 +11138,8 @@
    "exit": 0,
    "window_rows": [
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 1,
      "kind": "purge",
@@ -11052,11 +11173,13 @@
      "budget_L": 78,
      "support": "SUPPORTED",
      "support_detail": "purge release inside the validated bed-contact corridor",
+     "footprint_escape_mm": null,
+     "footprint_worst_xy": null,
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 2,
      "kind": "model",
@@ -11089,12 +11212,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 232,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.004 mm",
+     "footprint_escape_mm": 0.0038,
+     "footprint_worst_xy": [
+      160.21,
+      158.75
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 3,
      "kind": "model",
@@ -11127,12 +11255,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.002 mm",
+     "footprint_escape_mm": 0.0018,
+     "footprint_worst_xy": [
+      160.69,
+      157.91
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 4,
      "kind": "model",
@@ -11165,12 +11298,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.000 mm",
+     "footprint_escape_mm": 0.0003,
+     "footprint_worst_xy": [
+      139.27,
+      142.12
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 5,
      "kind": "model",
@@ -11203,12 +11341,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 6,
      "kind": "model",
@@ -11241,12 +11384,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 7,
      "kind": "model",
@@ -11279,12 +11427,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 8,
      "kind": "model",
@@ -11317,12 +11470,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 9,
      "kind": "model",
@@ -11355,12 +11513,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 10,
      "kind": "model",
@@ -11393,12 +11556,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 11,
      "kind": "model",
@@ -11431,12 +11599,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 12,
      "kind": "model",
@@ -11469,12 +11642,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0014,
+     "footprint_worst_xy": [
+      160.35,
+      158.59
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 13,
      "kind": "model",
@@ -11507,12 +11685,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0007,
+     "footprint_worst_xy": [
+      160.73,
+      157.87
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 14,
      "kind": "model",
@@ -11545,12 +11728,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 233,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.004 mm",
+     "footprint_escape_mm": 0.0043,
+     "footprint_worst_xy": [
+      160.31,
+      158.63
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 15,
      "kind": "model",
@@ -11583,12 +11771,17 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 232,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.006 mm",
+     "footprint_escape_mm": 0.0057,
+     "footprint_worst_xy": [
+      160.23,
+      158.73
+     ],
      "errors": []
     },
     {
-     "file": "plate_1.gcode",
-     "sha256": "e6ae6ae5f671350398179fc9af8724ae5d1d06b2838ef99c189a24be65d065de",
+     "file": "shook_C_release_margin_1mm.gcode",
+     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
      "variant": "shook_C_release_margin_1mm",
      "window": 16,
      "kind": "model",
@@ -11621,7 +11814,12 @@
      "post_cut_u_mm": 0.0,
      "budget_L": 230,
      "support": "SUPPORTED",
-     "support_detail": "release footprint inside deposited material of the same layer",
+     "support_detail": "full release footprint (bead width 0.80 mm) inside material deposited earlier in the same layer; worst escape 0.001 mm",
+     "footprint_escape_mm": 0.0007,
+     "footprint_worst_xy": [
+      139.53,
+      141.84
+     ],
      "errors": []
     }
    ],
