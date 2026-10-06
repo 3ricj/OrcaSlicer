@@ -26,6 +26,9 @@ python tools/verify_fs_shook.py --manifest docs/evidence/shook_acceptance/manife
 python tools/verify_fs_shook_negatives.py \
   --manifest docs/evidence/shook_acceptance/manifest.json \
   --workdir  docs/evidence/shook_acceptance/negatives
+python tests/fibreseeker/test_fs_departure_rule.py    # departure rule, both directions
+python tests/fibreseeker/fs_validate_fixtures.py      # retained dialect fixtures
+python tests/fibreseeker/fs_tail_release_analyzer.py  # retained ordering fixtures
 ```
 
 ## Status
@@ -99,9 +102,10 @@ closed, and each is pinned by a negative test that failed against the old code:
 
 The owner re-tested the hardened verifier and found two more holes that still
 produced a full acceptance PASS. Both were real, both are closed, and both were
-confirmed against the previous revision before being fixed: each mutant was run
-through the old verifier with a complete three-file manifest, where it returned
-`exit=0` / `SOFTWARE_EXPORT_ACCEPTANCE: PASS`.
+confirmed against the previous revision before being fixed. The owner's own
+reproductions used complete three-file manifests with Python-captured return
+codes; the single-file manifests in this section belong to the repository's
+negative-test harness, which mutates one variant at a time.
 
 | Hole | Old behaviour | Now | Negative test |
 |---|---|---|---|
@@ -132,6 +136,56 @@ the startup purge exempt at factor 1.0 because it is sacrificial. Measured
 deviation on the shipped exports is at most 0.0093 mm against a 0.05 mm
 tolerance, and the body rate is within 0.5 percent against a 2 percent
 tolerance, so the gate is tight without being brittle.
+
+## Detector hardening, third round (2026-10-06)
+
+The owner found that the departure rule itself was wrong, not just its coverage.
+
+S11 decided whether a window owed a departure withdrawal from the head selected
+at the close:
+
+    head = head_at(lines, w.close_idx)
+    expect = (head == 0)
+
+Being on T0 when a window closes does not establish that T0 is departing. An
+inter-strand close, where the next strand is still T0, also happens while T0 is
+selected, so the rule demanded a withdrawal there too. The rule now looks
+forward, in `departure_obligations()`:
+
+  - closes on a head other than T0: T0 is not the outgoing head, nothing owed
+  - no physical head change at all after the close: T0 never leaves
+  - the next fibre window opens before the next head change: T0 stays active
+    between strands, nothing owed
+  - otherwise the head change lands between windows, so T0 genuinely hands over
+    and owes exactly one withdrawal
+
+A missing withdrawal at a real departure reports `FS_DEPART_WITHDRAWAL_MISSING`;
+a withdrawal where none is owed now reports its own code,
+`FS_DEPART_WITHDRAWAL_SPURIOUS`, rather than sharing the missing code, so the
+two directions of the same rule cannot be confused in a report.
+
+Two further defects surfaced while building the fixture:
+
+  - The post-close stationary-V scan was unbounded, so an inter-strand close
+    scanned forward *through* the following window and collected that window's
+    own recovery and prime stationary V, and even its later departure
+    withdrawal, as if they belonged to the close. The scan now stops at the next
+    window opening.
+  - The scan only collected once it had found a lift. An inter-strand close has
+    no lift, so a spurious withdrawal injected there was invisible. Collection
+    is now independent of lift discovery.
+
+Pinned by `tests/fibreseeker/test_fs_departure_rule.py` with the two-strand,
+single-activation fixture `tests/fibreseeker/fixtures_departure/`
+`good_interstrand_then_departure.gcode`: both closes are on T0, the first owes
+nothing, the second owes exactly one `V -4.000`, and the test mutates the
+fixture in both directions (inject a withdrawal at the inter-strand close,
+delete the withdrawal at the real departure) and requires both to be detected.
+
+On the shipped S-hook exports the corrected rule agrees with the old one for all
+48 windows across A/B/C, because every window there really does end in a
+departure. The correction is about the rule being right, not about these
+results changing.
 
 ## Export-script root
 

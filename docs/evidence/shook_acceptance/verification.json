@@ -732,7 +732,7 @@
       "body payout rate worst relative deviation 0.477 percent (tolerance 2.0 percent)",
       "tail payout worst absolute deviation 0.0093 mm (tolerance 0.05 mm)",
       "fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal",
-      "departure withdrawal: 16 of 16 windows are a real T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified",
+      "departure withdrawal: 16 of 16 windows are an actual T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified; 0 inter-strand close(s) require none",
       "stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000",
       "U55 reload present on 16 of 16 windows",
       "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one"
@@ -3145,9 +3145,12 @@
      "window": 1,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 80 lands between windows, before the next window at line 1589",
      "lines": [
       70
      ],
+     "next_open_ln": 1589,
+     "change_ln": 80,
      "values": [
       -4.0
      ]
@@ -3156,9 +3159,12 @@
      "window": 2,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 1962 lands between windows, before the next window at line 2586",
      "lines": [
       1950
      ],
+     "next_open_ln": 2586,
+     "change_ln": 1962,
      "values": [
       -4.0
      ]
@@ -3167,9 +3173,12 @@
      "window": 3,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 2970 lands between windows, before the next window at line 3640",
      "lines": [
       2958
      ],
+     "next_open_ln": 3640,
+     "change_ln": 2970,
      "values": [
       -4.0
      ]
@@ -3178,9 +3187,12 @@
      "window": 4,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 4039 lands between windows, before the next window at line 4843",
      "lines": [
       4027
      ],
+     "next_open_ln": 4843,
+     "change_ln": 4039,
      "values": [
       -4.0
      ]
@@ -3189,9 +3201,12 @@
      "window": 5,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 5223 lands between windows, before the next window at line 6027",
      "lines": [
       5211
      ],
+     "next_open_ln": 6027,
+     "change_ln": 5223,
      "values": [
       -4.0
      ]
@@ -3200,9 +3215,12 @@
      "window": 6,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 6410 lands between windows, before the next window at line 7214",
      "lines": [
       6398
      ],
+     "next_open_ln": 7214,
+     "change_ln": 6410,
      "values": [
       -4.0
      ]
@@ -3211,9 +3229,12 @@
      "window": 7,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 7590 lands between windows, before the next window at line 8394",
      "lines": [
       7578
      ],
+     "next_open_ln": 8394,
+     "change_ln": 7590,
      "values": [
       -4.0
      ]
@@ -3222,9 +3243,12 @@
      "window": 8,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 8775 lands between windows, before the next window at line 9579",
      "lines": [
       8763
      ],
+     "next_open_ln": 9579,
+     "change_ln": 8775,
      "values": [
       -4.0
      ]
@@ -3233,9 +3257,12 @@
      "window": 9,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 9959 lands between windows, before the next window at line 10763",
      "lines": [
       9947
      ],
+     "next_open_ln": 10763,
+     "change_ln": 9959,
      "values": [
       -4.0
      ]
@@ -3244,9 +3271,12 @@
      "window": 10,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 11145 lands between windows, before the next window at line 11947",
      "lines": [
       11133
      ],
+     "next_open_ln": 11947,
+     "change_ln": 11145,
      "values": [
       -4.0
      ]
@@ -3255,9 +3285,12 @@
      "window": 11,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 12328 lands between windows, before the next window at line 13158",
      "lines": [
       12316
      ],
+     "next_open_ln": 13158,
+     "change_ln": 12328,
      "values": [
       -4.0
      ]
@@ -3266,9 +3299,12 @@
      "window": 12,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 13538 lands between windows, before the next window at line 14373",
      "lines": [
       13526
      ],
+     "next_open_ln": 14373,
+     "change_ln": 13538,
      "values": [
       -4.0
      ]
@@ -3277,9 +3313,12 @@
      "window": 13,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 14759 lands between windows, before the next window at line 15486",
      "lines": [
       14747
      ],
+     "next_open_ln": 15486,
+     "change_ln": 14759,
      "values": [
       -4.0
      ]
@@ -3288,9 +3327,12 @@
      "window": 14,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 15867 lands between windows, before the next window at line 16512",
      "lines": [
       15855
      ],
+     "next_open_ln": 16512,
+     "change_ln": 15867,
      "values": [
       -4.0
      ]
@@ -3299,9 +3341,12 @@
      "window": 15,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 16878 lands between windows, before the next window at line 17474",
      "lines": [
       16866
      ],
+     "next_open_ln": 17474,
+     "change_ln": 16878,
      "values": [
       -4.0
      ]
@@ -3310,9 +3355,12 @@
      "window": 16,
      "head": 0,
      "expected": true,
+     "basis": "last window, T0 hands over to T1 at line 17841",
      "lines": [
       17829
      ],
+     "next_open_ln": null,
+     "change_ln": 17841,
      "values": [
       -4.0
      ]
@@ -5424,7 +5472,7 @@
       "body payout rate worst relative deviation 0.291 percent (tolerance 2.0 percent)",
       "tail payout worst absolute deviation 0.0086 mm (tolerance 0.05 mm)",
       "fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal",
-      "departure withdrawal: 16 of 16 windows are a real T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified",
+      "departure withdrawal: 16 of 16 windows are an actual T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified; 0 inter-strand close(s) require none",
       "stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000",
       "U55 reload present on 16 of 16 windows",
       "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one"
@@ -7837,9 +7885,12 @@
      "window": 1,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 83 lands between windows, before the next window at line 1592",
      "lines": [
       73
      ],
+     "next_open_ln": 1592,
+     "change_ln": 83,
      "values": [
       -4.0
      ]
@@ -7848,9 +7899,12 @@
      "window": 2,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 1968 lands between windows, before the next window at line 2592",
      "lines": [
       1956
      ],
+     "next_open_ln": 2592,
+     "change_ln": 1968,
      "values": [
       -4.0
      ]
@@ -7859,9 +7913,12 @@
      "window": 3,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 2980 lands between windows, before the next window at line 3650",
      "lines": [
       2968
      ],
+     "next_open_ln": 3650,
+     "change_ln": 2980,
      "values": [
       -4.0
      ]
@@ -7870,9 +7927,12 @@
      "window": 4,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 4054 lands between windows, before the next window at line 4858",
      "lines": [
       4042
      ],
+     "next_open_ln": 4858,
+     "change_ln": 4054,
      "values": [
       -4.0
      ]
@@ -7881,9 +7941,12 @@
      "window": 5,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 5241 lands between windows, before the next window at line 6045",
      "lines": [
       5229
      ],
+     "next_open_ln": 6045,
+     "change_ln": 5241,
      "values": [
       -4.0
      ]
@@ -7892,9 +7955,12 @@
      "window": 6,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 6430 lands between windows, before the next window at line 7234",
      "lines": [
       6418
      ],
+     "next_open_ln": 7234,
+     "change_ln": 6430,
      "values": [
       -4.0
      ]
@@ -7903,9 +7969,12 @@
      "window": 7,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 7614 lands between windows, before the next window at line 8419",
      "lines": [
       7602
      ],
+     "next_open_ln": 8419,
+     "change_ln": 7614,
      "values": [
       -4.0
      ]
@@ -7914,9 +7983,12 @@
      "window": 8,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 8804 lands between windows, before the next window at line 9608",
      "lines": [
       8792
      ],
+     "next_open_ln": 9608,
+     "change_ln": 8804,
      "values": [
       -4.0
      ]
@@ -7925,9 +7997,12 @@
      "window": 9,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 9991 lands between windows, before the next window at line 10795",
      "lines": [
       9979
      ],
+     "next_open_ln": 10795,
+     "change_ln": 9991,
      "values": [
       -4.0
      ]
@@ -7936,9 +8011,12 @@
      "window": 10,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 11179 lands between windows, before the next window at line 11981",
      "lines": [
       11167
      ],
+     "next_open_ln": 11981,
+     "change_ln": 11179,
      "values": [
       -4.0
      ]
@@ -7947,9 +8025,12 @@
      "window": 11,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 12365 lands between windows, before the next window at line 13195",
      "lines": [
       12353
      ],
+     "next_open_ln": 13195,
+     "change_ln": 12365,
      "values": [
       -4.0
      ]
@@ -7958,9 +8039,12 @@
      "window": 12,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 13578 lands between windows, before the next window at line 14413",
      "lines": [
       13566
      ],
+     "next_open_ln": 14413,
+     "change_ln": 13578,
      "values": [
       -4.0
      ]
@@ -7969,9 +8053,12 @@
      "window": 13,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 14803 lands between windows, before the next window at line 15529",
      "lines": [
       14791
      ],
+     "next_open_ln": 15529,
+     "change_ln": 14803,
      "values": [
       -4.0
      ]
@@ -7980,9 +8067,12 @@
      "window": 14,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 15917 lands between windows, before the next window at line 16562",
      "lines": [
       15905
      ],
+     "next_open_ln": 16562,
+     "change_ln": 15917,
      "values": [
       -4.0
      ]
@@ -7991,9 +8081,12 @@
      "window": 15,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 16932 lands between windows, before the next window at line 17528",
      "lines": [
       16920
      ],
+     "next_open_ln": 17528,
+     "change_ln": 16932,
      "values": [
       -4.0
      ]
@@ -8002,9 +8095,12 @@
      "window": 16,
      "head": 0,
      "expected": true,
+     "basis": "last window, T0 hands over to T1 at line 17900",
      "lines": [
       17888
      ],
+     "next_open_ln": null,
+     "change_ln": 17900,
      "values": [
       -4.0
      ]
@@ -10161,7 +10257,7 @@
       "body payout rate worst relative deviation 0.286 percent (tolerance 2.0 percent)",
       "tail payout worst absolute deviation 0.0092 mm (tolerance 0.05 mm)",
       "fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal",
-      "departure withdrawal: 16 of 16 windows are a real T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified",
+      "departure withdrawal: 16 of 16 windows are an actual T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified; 0 inter-strand close(s) require none",
       "stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000",
       "U55 reload present on 16 of 16 windows",
       "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one"
@@ -12574,9 +12670,12 @@
      "window": 1,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 83 lands between windows, before the next window at line 1592",
      "lines": [
       73
      ],
+     "next_open_ln": 1592,
+     "change_ln": 83,
      "values": [
       -4.0
      ]
@@ -12585,9 +12684,12 @@
      "window": 2,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 1968 lands between windows, before the next window at line 2592",
      "lines": [
       1956
      ],
+     "next_open_ln": 2592,
+     "change_ln": 1968,
      "values": [
       -4.0
      ]
@@ -12596,9 +12698,12 @@
      "window": 3,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 2980 lands between windows, before the next window at line 3650",
      "lines": [
       2968
      ],
+     "next_open_ln": 3650,
+     "change_ln": 2980,
      "values": [
       -4.0
      ]
@@ -12607,9 +12712,12 @@
      "window": 4,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 4054 lands between windows, before the next window at line 4858",
      "lines": [
       4042
      ],
+     "next_open_ln": 4858,
+     "change_ln": 4054,
      "values": [
       -4.0
      ]
@@ -12618,9 +12726,12 @@
      "window": 5,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 5242 lands between windows, before the next window at line 6046",
      "lines": [
       5230
      ],
+     "next_open_ln": 6046,
+     "change_ln": 5242,
      "values": [
       -4.0
      ]
@@ -12629,9 +12740,12 @@
      "window": 6,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 6432 lands between windows, before the next window at line 7236",
      "lines": [
       6420
      ],
+     "next_open_ln": 7236,
+     "change_ln": 6432,
      "values": [
       -4.0
      ]
@@ -12640,9 +12754,12 @@
      "window": 7,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 7617 lands between windows, before the next window at line 8422",
      "lines": [
       7605
      ],
+     "next_open_ln": 8422,
+     "change_ln": 7617,
      "values": [
       -4.0
      ]
@@ -12651,9 +12768,12 @@
      "window": 8,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 8808 lands between windows, before the next window at line 9612",
      "lines": [
       8796
      ],
+     "next_open_ln": 9612,
+     "change_ln": 8808,
      "values": [
       -4.0
      ]
@@ -12662,9 +12782,12 @@
      "window": 9,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 9996 lands between windows, before the next window at line 10800",
      "lines": [
       9984
      ],
+     "next_open_ln": 10800,
+     "change_ln": 9996,
      "values": [
       -4.0
      ]
@@ -12673,9 +12796,12 @@
      "window": 10,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 11185 lands between windows, before the next window at line 11987",
      "lines": [
       11173
      ],
+     "next_open_ln": 11987,
+     "change_ln": 11185,
      "values": [
       -4.0
      ]
@@ -12684,9 +12810,12 @@
      "window": 11,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 12372 lands between windows, before the next window at line 13202",
      "lines": [
       12360
      ],
+     "next_open_ln": 13202,
+     "change_ln": 12372,
      "values": [
       -4.0
      ]
@@ -12695,9 +12824,12 @@
      "window": 12,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 13586 lands between windows, before the next window at line 14421",
      "lines": [
       13574
      ],
+     "next_open_ln": 14421,
+     "change_ln": 13586,
      "values": [
       -4.0
      ]
@@ -12706,9 +12838,12 @@
      "window": 13,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 14811 lands between windows, before the next window at line 15537",
      "lines": [
       14799
      ],
+     "next_open_ln": 15537,
+     "change_ln": 14811,
      "values": [
       -4.0
      ]
@@ -12717,9 +12852,12 @@
      "window": 14,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 15925 lands between windows, before the next window at line 16570",
      "lines": [
       15913
      ],
+     "next_open_ln": 16570,
+     "change_ln": 15925,
      "values": [
       -4.0
      ]
@@ -12728,9 +12866,12 @@
      "window": 15,
      "head": 0,
      "expected": true,
+     "basis": "head change T0->T1 at line 16940 lands between windows, before the next window at line 17536",
      "lines": [
       16928
      ],
+     "next_open_ln": 17536,
+     "change_ln": 16940,
      "values": [
       -4.0
      ]
@@ -12739,9 +12880,12 @@
      "window": 16,
      "head": 0,
      "expected": true,
+     "basis": "last window, T0 hands over to T1 at line 17908",
      "lines": [
       17896
      ],
+     "next_open_ln": null,
+     "change_ln": 17908,
      "values": [
       -4.0
      ]

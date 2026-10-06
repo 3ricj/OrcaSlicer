@@ -87,7 +87,7 @@ adapter contract, not that the firmware macros behave that way on hardware.
   - body payout rate worst relative deviation 0.477 percent (tolerance 2.0 percent)
   - tail payout worst absolute deviation 0.0093 mm (tolerance 0.05 mm)
   - fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal
-  - departure withdrawal: 16 of 16 windows are a real T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified
+  - departure withdrawal: 16 of 16 windows are an actual T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified; 0 inter-strand close(s) require none
   - stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000
   - U55 reload present on 16 of 16 windows
   - M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one
@@ -196,7 +196,7 @@ withdrawal the transition owed; E rec is where it was actually paid.
   - body payout rate worst relative deviation 0.291 percent (tolerance 2.0 percent)
   - tail payout worst absolute deviation 0.0086 mm (tolerance 0.05 mm)
   - fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal
-  - departure withdrawal: 16 of 16 windows are a real T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified
+  - departure withdrawal: 16 of 16 windows are an actual T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified; 0 inter-strand close(s) require none
   - stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000
   - U55 reload present on 16 of 16 windows
   - M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one
@@ -305,7 +305,7 @@ withdrawal the transition owed; E rec is where it was actually paid.
   - body payout rate worst relative deviation 0.286 percent (tolerance 2.0 percent)
   - tail payout worst absolute deviation 0.0092 mm (tolerance 0.05 mm)
   - fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal
-  - departure withdrawal: 16 of 16 windows are a real T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified
+  - departure withdrawal: 16 of 16 windows are an actual T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified; 0 inter-strand close(s) require none
   - stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000
   - U55 reload present on 16 of 16 windows
   - M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one
@@ -421,26 +421,26 @@ Each activation must be served by its own station visit waiting for the incoming
 
 ### Departure tool-change withdrawals, one row per fibre window
 
-A window that closes while T0 is selected is a real T0 departure and owes exactly one stationary V withdrawal between M1002 and the lift. An inter-strand close that keeps T0 active owes none.
+Whether a close is a departure is decided by looking forward to the next fibre window and the next physical head change, not by the head selected at the close: an inter-strand close is also on T0 and owes nothing. A real T0 departure owes exactly one stationary V withdrawal between M1002 and the lift.
 
-| window | head at close | departure owed | withdrawal lines | stationary V after close | verdict |
-|---|---|---|---|---|---|
-| 1 | T0 | yes | 73 | -4.000 | ok |
-| 2 | T0 | yes | 1956 | -4.000 | ok |
-| 3 | T0 | yes | 2968 | -4.000 | ok |
-| 4 | T0 | yes | 4042 | -4.000 | ok |
-| 5 | T0 | yes | 5230 | -4.000 | ok |
-| 6 | T0 | yes | 6420 | -4.000 | ok |
-| 7 | T0 | yes | 7605 | -4.000 | ok |
-| 8 | T0 | yes | 8796 | -4.000 | ok |
-| 9 | T0 | yes | 9984 | -4.000 | ok |
-| 10 | T0 | yes | 11173 | -4.000 | ok |
-| 11 | T0 | yes | 12360 | -4.000 | ok |
-| 12 | T0 | yes | 13574 | -4.000 | ok |
-| 13 | T0 | yes | 14799 | -4.000 | ok |
-| 14 | T0 | yes | 15913 | -4.000 | ok |
-| 15 | T0 | yes | 16928 | -4.000 | ok |
-| 16 | T0 | yes | 17896 | -4.000 | ok |
+| window | head at close | next window | next change | departure owed | basis | withdrawal lines | stationary V after close | verdict |
+|---|---|---|---|---|---|---|---|---|
+| 1 | T0 | L1592 | L83 | yes | head change T0->T1 at line 83 lands between windows, before the next window at line 1592 | 73 | -4.000 | ok |
+| 2 | T0 | L2592 | L1968 | yes | head change T0->T1 at line 1968 lands between windows, before the next window at line 2592 | 1956 | -4.000 | ok |
+| 3 | T0 | L3650 | L2980 | yes | head change T0->T1 at line 2980 lands between windows, before the next window at line 3650 | 2968 | -4.000 | ok |
+| 4 | T0 | L4858 | L4054 | yes | head change T0->T1 at line 4054 lands between windows, before the next window at line 4858 | 4042 | -4.000 | ok |
+| 5 | T0 | L6046 | L5242 | yes | head change T0->T1 at line 5242 lands between windows, before the next window at line 6046 | 5230 | -4.000 | ok |
+| 6 | T0 | L7236 | L6432 | yes | head change T0->T1 at line 6432 lands between windows, before the next window at line 7236 | 6420 | -4.000 | ok |
+| 7 | T0 | L8422 | L7617 | yes | head change T0->T1 at line 7617 lands between windows, before the next window at line 8422 | 7605 | -4.000 | ok |
+| 8 | T0 | L9612 | L8808 | yes | head change T0->T1 at line 8808 lands between windows, before the next window at line 9612 | 8796 | -4.000 | ok |
+| 9 | T0 | L10800 | L9996 | yes | head change T0->T1 at line 9996 lands between windows, before the next window at line 10800 | 9984 | -4.000 | ok |
+| 10 | T0 | L11987 | L11185 | yes | head change T0->T1 at line 11185 lands between windows, before the next window at line 11987 | 11173 | -4.000 | ok |
+| 11 | T0 | L13202 | L12372 | yes | head change T0->T1 at line 12372 lands between windows, before the next window at line 13202 | 12360 | -4.000 | ok |
+| 12 | T0 | L14421 | L13586 | yes | head change T0->T1 at line 13586 lands between windows, before the next window at line 14421 | 13574 | -4.000 | ok |
+| 13 | T0 | L15537 | L14811 | yes | head change T0->T1 at line 14811 lands between windows, before the next window at line 15537 | 14799 | -4.000 | ok |
+| 14 | T0 | L16570 | L15925 | yes | head change T0->T1 at line 15925 lands between windows, before the next window at line 16570 | 15913 | -4.000 | ok |
+| 15 | T0 | L17536 | L16940 | yes | head change T0->T1 at line 16940 lands between windows, before the next window at line 17536 | 16928 | -4.000 | ok |
+| 16 | T0 | none | L17908 | yes | last window, T0 hands over to T1 at line 17908 | 17896 | -4.000 | ok |
 
 ## Cross-check: cut through release end
 

@@ -285,12 +285,29 @@ def planned_for_file(manifest_path, base):
     return [None] + [r.get("actual_release_mm") for r in mine]
 
 
+def _default_evidence_dir():
+    """Locate docs/evidence/tail_release by searching upward from this file.
+
+    Deriving it by counting ".." components broke: this file sits at
+    tests/fibreseeker, so the previous default resolved to tests/docs/... and
+    the suite reported "no exports" unless --dir was passed explicitly.
+    """
+    d = os.path.dirname(os.path.abspath(__file__))
+    while True:
+        cand = os.path.join(d, "docs", "evidence", "tail_release")
+        if os.path.isdir(cand):
+            return cand
+        parent = os.path.dirname(d)
+        if parent == d:
+            return cand
+        d = parent
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Measure fibre release geometry from coordinates, not comments")
-    ap.add_argument("--dir", default=os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "..", "docs", "evidence", "tail_release"))
+    ap.add_argument("--dir", default=_default_evidence_dir(),
+                    help="directory of tail-release exports to measure")
     ap.add_argument("--json", default=None, help="evidence manifest to compare against")
     ap.add_argument("--report", default=None, help="write a JSON report to this path")
     ap.add_argument("-v", "--verbose", action="store_true")

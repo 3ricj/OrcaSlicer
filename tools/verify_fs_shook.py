@@ -325,7 +325,7 @@ def find_windows(lines):
     return wins
 
 
-def measure_window(lines, w, o, cl, cu):
+def measure_window(lines, w, o, cl, cu, bound_idx=None):
     """Measure one window from emitted coordinates."""
     # Line indices the thermal checks need, recorded before any early return so a
     # malformed window still has an identity in the report.
@@ -475,18 +475,34 @@ def measure_window(lines, w, o, cl, cu):
     # the stationary V moves on the way. Stopping at the lift is the point: the
     # previous revision of the S11 ledger ended at M1002 and therefore never
     # judged the departure amount at all.
-    for i in range(cl, len(lines)):
+    #
+    # The scan also stops at the next window opening (bound_idx). A close that
+    # does not depart is followed by another window rather than by a station
+    # visit, so an unbounded scan would read that window's own recovery/prime
+    # stationary V, and even its later departure withdrawal, as if they belonged
+    # to this close.
+    scan_end = bound_idx if bound_idx is not None else len(lines)
+    lift_i = None
+    for i in range(cl, scan_end):
         c = lines[i]
-        if w.lift_ln is None and RE_MOVE.match(c.cmd) and "Z" in c.w:
+        if lift_i is None and RE_MOVE.match(c.cmd) and "Z" in c.w:
+            lift_i = i
             w.lift_ln = c.n
-            for j in range(cl + 1, i):
-                cc = lines[j]
-                if RE_MOVE.match(cc.cmd) and cc.v != 0.0 and "X" not in cc.w and "Y" not in cc.w:
-                    w.depart_v.append((cc.n, cc.v))
         if w.entry_ln is None and c.cmd in STATION_IN:
             w.entry_ln = c.n
-        if w.lift_ln is not None and w.entry_ln is not None:
+        if lift_i is not None and w.entry_ln is not None:
             break
+    # Stationary V between the close and the departure lift, or, when this close
+    # does not lift at all (an inter-strand close is followed by the next window,
+    # not by a station visit), up to that next window opening. Collecting only
+    # after a lift was found would leave a spurious withdrawal at an
+    # inter-strand close invisible.
+    stop_i = lift_i if lift_i is not None else scan_end
+    for j in range(cl + 1, stop_i):
+        cc = lines[j]
+        if (RE_MOVE.match(cc.cmd) and cc.v != 0.0
+                and "X" not in cc.w and "Y" not in cc.w):
+            w.depart_v.append((cc.n, cc.v))
 
     w.total_len = w.dep_len + w.rel_len
     return w
@@ -652,6 +668,60 @@ def find_transitions(lines):
             continue
         out.append(dict(idx=i, frm=frm, to=to, switch_ln=c.n))
     return out
+
+
+def departure_obligations(lines, wins, trans, want_dep, tol):
+    """Decide, per fibre window, whether its close is an ACTUAL T0 departure.
+
+    Being on T0 when a window closes does not establish that T0 is departing.
+    An inter-strand close -- the next strand is still T0 -- also happens while
+    T0 is selected, so a rule of the form "head at close == 0 therefore owe a
+    withdrawal" wrongly demands one there. The rule looks forward instead: to
+    the next fibre window and to the next physical head change.
+
+      - closes on a head other than T0: T0 is not the outgoing head, nothing owed
+      - no physical head change at all after the close: T0 never leaves
+      - the next window opens before the next head change: T0 stays active
+        between strands, nothing owed
+      - otherwise the head change happens while no window is open, so T0 is
+        genuinely handing over and owes exactly one withdrawal
+
+    Deriving this from physical head changes rather than from the window list is
+    also what makes several strands inside one T0 activation correct: they are
+    one activation, so only the last of them departs.
+    """
+    rows = []
+    n = len(wins)
+    for k, w in enumerate(wins):
+        head = head_at(lines, w.close_idx)
+        nxt_idx = wins[k + 1].open_idx if k + 1 < n else None
+        nxt_ln = lines[nxt_idx].n if nxt_idx is not None else None
+        chg = next((t for t in trans if t["idx"] > w.close_idx), None)
+        if head != 0:
+            expected, basis = False, ("closes while T%s is selected, so T0 is not "
+                                      "the outgoing head" % head)
+        elif chg is None:
+            expected, basis = False, ("no physical head change after this close, so "
+                                      "T0 never leaves the station")
+        elif nxt_idx is not None and chg["idx"] > nxt_idx:
+            expected, basis = False, ("the next fibre window opens at line %d before "
+                                      "the next head change at line %d, so T0 stays "
+                                      "active between strands" % (nxt_ln,
+                                                                  chg["switch_ln"]))
+        elif nxt_idx is None:
+            expected, basis = True, ("last window, T0 hands over to T%d at line %d"
+                                     % (chg["to"], chg["switch_ln"]))
+        else:
+            expected, basis = True, ("head change T%d->T%d at line %d lands between "
+                                     "windows, before the next window at line %d"
+                                     % (chg["frm"], chg["to"], chg["switch_ln"],
+                                        nxt_ln))
+        hits = [ln for ln, val in w.depart_v if near(val, want_dep, tol)]
+        rows.append(dict(window=k + 1, head=head, expected=expected, basis=basis,
+                         lines=hits, next_open_ln=nxt_ln,
+                         change_ln=chg["switch_ln"] if chg else None,
+                         values=[round(v, 3) for _, v in w.depart_v]))
+    return rows
 
 
 def head_at(lines, idx):
@@ -928,8 +998,10 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
 
     raw_lines = raw.decode("utf-8", "replace").split("\n")
     wins = []
-    for w, o, cl, cu in find_windows(lines):
-        measure_window(lines, w, o, cl, cu)
+    _all_wins = find_windows(lines)
+    for k, (w, o, cl, cu) in enumerate(_all_wins):
+        nxt = _all_wins[k + 1][1] if k + 1 < len(_all_wins) else None
+        measure_window(lines, w, o, cl, cu, bound_idx=nxt)
         wins.append(w)
     res["windows"] = wins
 
@@ -1512,7 +1584,10 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
     # departure withdrawal begins, so it never judged that amount. Spec section
     # 3 step 4 requires the additional V withdrawal ONCE for an actual T0
     # departure, between the window close and the lift, and NONE for a close
-    # that keeps T0 active. Deleting all 16 of them used to pass S11.
+    # that keeps T0 active. Deleting all 16 of them used to pass S11. Whether a
+    # close is a departure is decided by looking FORWARD (see
+    # departure_obligations), not by the head selected at the close, because an
+    # inter-strand close is also on T0 and owes nothing.
     tcv = spec.get("fs_toolchange_retract_v")
     if tcv is None:
         tcv = 4.0
@@ -1522,42 +1597,42 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
     if tcv > 0.0:
         want_dep = -tcv
         dep_bad = []
-        dep_ok = 0
-        dep_rows = []
-        for k, w in enumerate(wins, start=1):
-            head = head_at(lines, w.close_idx)
-            expect = (head == 0)
-            hits = [ln for ln, val in w.depart_v if near(val, want_dep,
-                                                         TOL_STATIONARY_V)]
-            dep_rows.append(dict(window=k, head=head, expected=expect,
-                                 lines=hits, values=[round(v, 3) for _, v in
-                                                     w.depart_v]))
-            if expect and len(hits) != 1:
-                dep_bad.append("W%d closes while T0 is selected, so it is a real "
-                               "T0 departure: requires exactly 1 stationary V %+.3f "
-                               "between M1002 at line %d and the first lift at line "
-                               "%d, found %d (window carries stationary V %s after "
-                               "the close)"
-                               % (k, want_dep, w.close_ln, w.lift_ln or 0,
-                                  len(hits),
-                                  ", ".join("%+.3f@%d" % (v, ln) for ln, v in
-                                            w.depart_v) or "none"))
-            elif (not expect) and hits:
-                dep_bad.append("W%d closes while T%d is still active (inter-strand "
-                               "move, no physical head change): must carry NO "
-                               "departure withdrawal, found %d at lines %s"
-                               % (k, head, len(hits), hits))
-            elif expect:
-                dep_ok += 1
+        dep_missing = []
+        dep_spurious = []
+        dep_rows = departure_obligations(lines, wins, trans, want_dep,
+                                         TOL_STATIONARY_V)
+        for d, w in zip(dep_rows, wins):
+            k = d["window"]
+            if d["expected"] and len(d["lines"]) != 1:
+                dep_missing.append(k)
+                dep_bad.append(
+                    "W%d is an actual T0 departure (%s): requires exactly 1 "
+                    "stationary V %+.3f between M1002 at line %d and the first lift "
+                    "at line %d, found %d (window carries stationary V %s after the "
+                    "close)"
+                    % (k, d["basis"], want_dep, w.close_ln, w.lift_ln or 0,
+                       len(d["lines"]),
+                       ", ".join("%+.3f@%d" % (v, ln) for ln, v in
+                                 w.depart_v) or "none"))
+            elif (not d["expected"]) and d["lines"]:
+                dep_spurious.append(k)
+                dep_bad.append(
+                    "W%d is not a T0 departure (%s): must carry NO departure "
+                    "withdrawal, found %d at lines %s"
+                    % (k, d["basis"], len(d["lines"]), d["lines"]))
         res["departure_withdrawals"] = dep_rows
-        n_exp = sum(1 for r in dep_rows if r["expected"])
-        s11.note("departure withdrawal: %d of %d windows are a real T0 departure "
+        n_exp = sum(1 for d in dep_rows if d["expected"])
+        s11.note("departure withdrawal: %d of %d windows are an actual T0 departure "
                  "and each requires exactly one stationary V %+.3f after M1002 and "
-                 "before the lift; %d verified"
-                 % (n_exp, len(wins), want_dep, dep_ok))
+                 "before the lift; %d verified; %d inter-strand close(s) require none"
+                 % (n_exp, len(wins), want_dep, n_exp - len(dep_missing),
+                    len(wins) - n_exp))
+        if dep_missing:
+            codes11.append("FS_DEPART_WITHDRAWAL_MISSING")
+        if dep_spurious:
+            codes11.append("FS_DEPART_WITHDRAWAL_SPURIOUS")
         if dep_bad:
             bad.extend(dep_bad[:4])
-            codes11.append("FS_DEPART_WITHDRAWAL_MISSING")
             for b in dep_bad[4:8]:
                 s11.note(b)
 
@@ -2044,17 +2119,22 @@ def render_md(payload):
     if r.get("departure_withdrawals"):
         A("### Departure tool-change withdrawals, one row per fibre window")
         A("")
-        A("A window that closes while T0 is selected is a real T0 departure and "
-          "owes exactly one stationary V withdrawal between M1002 and the lift. "
-          "An inter-strand close that keeps T0 active owes none.")
+        A("Whether a close is a departure is decided by looking forward to the "
+          "next fibre window and the next physical head change, not by the head "
+          "selected at the close: an inter-strand close is also on T0 and owes "
+          "nothing. A real T0 departure owes exactly one stationary V withdrawal "
+          "between M1002 and the lift.")
         A("")
-        A("| window | head at close | departure owed | withdrawal lines | "
-          "stationary V after close | verdict |")
-        A("|---|---|---|---|---|---|")
+        A("| window | head at close | next window | next change | departure owed "
+          "| basis | withdrawal lines | stationary V after close | verdict |")
+        A("|---|---|---|---|---|---|---|---|---|")
         for d in r["departure_withdrawals"]:
             ok = (len(d["lines"]) == 1) if d["expected"] else (not d["lines"])
-            A("| %d | T%s | %s | %s | %s | %s |"
-              % (d["window"], d["head"], "yes" if d["expected"] else "no",
+            A("| %d | T%s | %s | %s | %s | %s | %s | %s | %s |"
+              % (d["window"], d["head"],
+                 "L%s" % d["next_open_ln"] if d.get("next_open_ln") else "none",
+                 "L%s" % d["change_ln"] if d.get("change_ln") else "none",
+                 "yes" if d["expected"] else "no", d["basis"],
                  ", ".join(str(x) for x in d["lines"]) or "-",
                  ", ".join("%+.3f" % v for v in d["values"]) or "-",
                  "ok" if ok else "FAIL"))
