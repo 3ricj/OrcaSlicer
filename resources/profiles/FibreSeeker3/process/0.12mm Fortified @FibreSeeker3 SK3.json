@@ -28,6 +28,7 @@
 	"fs_fill_min_wall_width": "0",
 	"fs_fill_min_area": "0",
 	"fs_fiber_schedule": "macro_layer",
+	"fs_fiber_z_step": "0.36",
 	"fs_tail_v_factor": "0.72",
 	"fs_fiber_rate": "0.98",
 	"fs_matrix_ratio": "0.034",

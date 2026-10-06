@@ -289,5 +289,66 @@ std::string fiber_enforce_violation(size_t layer_id, size_t num_rings, size_t nu
     return std::string();
 }
 
+bool plan_fiber_prime_placement(double bed_min_x, double bed_min_y,
+                                double bed_max_x, double bed_max_y,
+                                bool has_part,
+                                double part_min_x, double part_min_y,
+                                double part_max_x, double part_max_y,
+                                double length_mm,
+                                FiberPrimePlacement& out)
+{
+    out = FiberPrimePlacement{};
+
+    const bool bed_ok = std::isfinite(bed_min_x) && std::isfinite(bed_min_y) &&
+                        std::isfinite(bed_max_x) && std::isfinite(bed_max_y) &&
+                        bed_max_x > bed_min_x && bed_max_y > bed_min_y;
+    if (!bed_ok || !std::isfinite(length_mm) || !(length_mm > 0.0))
+        return false;
+
+    // A footprint is usable only if it is finite and has a real extent. A part
+    // reduced to a point would centre the line on that point, which is legal,
+    // but a zero-extent bbox is far more likely to mean "nothing was measured",
+    // so it is treated as no footprint at all.
+    const bool part_ok = has_part &&
+        std::isfinite(part_min_x) && std::isfinite(part_min_y) &&
+        std::isfinite(part_max_x) && std::isfinite(part_max_y) &&
+        part_max_x > part_min_x && part_max_y > part_min_y;
+
+    double cx = (bed_min_x + bed_max_x) * 0.5;
+    double cy = (bed_min_y + bed_max_y) * 0.5;
+    bool   along_x = true;
+
+    if (part_ok) {
+        cx = (part_min_x + part_max_x) * 0.5;
+        cy = (part_min_y + part_max_y) * 0.5;
+        along_x = (part_max_x - part_min_x) >= (part_max_y - part_min_y);
+        out.under_part = true;
+    }
+
+    // Centre the line on the chosen point, then slide it back inside the bed
+    // rather than shortening or refusing it: a wide part near an edge still
+    // needs its prime, and a clamped line is still under the part in the axis
+    // that matters.
+    const double half = length_mm * 0.5;
+    if (along_x) {
+        double x0 = cx - half;
+        double x1 = cx + half;
+        if (x0 < bed_min_x) { x1 += bed_min_x - x0; x0 = bed_min_x; }
+        if (x1 > bed_max_x) { x0 -= x1 - bed_max_x; x1 = bed_max_x; }
+        if (x0 < bed_min_x) x0 = bed_min_x;              // line longer than bed
+        out.from = FiberPoint{x0, cy};
+        out.to   = FiberPoint{x1, cy};
+    } else {
+        double y0 = cy - half;
+        double y1 = cy + half;
+        if (y0 < bed_min_y) { y1 += bed_min_y - y0; y0 = bed_min_y; }
+        if (y1 > bed_max_y) { y0 -= y1 - bed_max_y; y1 = bed_max_y; }
+        if (y0 < bed_min_y) y0 = bed_min_y;
+        out.from = FiberPoint{cx, y0};
+        out.to   = FiberPoint{cx, y1};
+    }
+    return true;
+}
+
 } // namespace Fiber
 } // namespace Slic3r

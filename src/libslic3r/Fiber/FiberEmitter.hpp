@@ -157,5 +157,36 @@ bool emit_fiber_prime_line(const FiberPrimeLine& line, const FiberEmitParams& pa
 // perimeter rings is never a violation.
 std::string fiber_enforce_violation(size_t layer_id, size_t num_rings, size_t num_runs, size_t num_skipped);
 
+// ---- priming line PLACEMENT -------------------------------------------------
+// Where the sacrificial priming line goes is a policy decision, so it lives
+// here as a pure function rather than inline in the exporter: the exporter
+// supplies the bed and the part footprint, this decides the line.
+//
+// The owner ruling is that the purge belongs UNDER the part, not at a fixed
+// corner. Two reasons, both measured: a corner of a 300 mm bed is the
+// worst-leveled region so the same commanded Z lands as a squash there and as
+// a good bead at mid-bed, and a purge laid beside the part is a loose strip
+// the operator has to peel off, whereas one under the part is buried by the
+// first layer and simply never seen again.
+struct FiberPrimePlacement
+{
+    FiberPoint from;            // line start, absolute bed mm
+    FiberPoint to;              // line end
+    bool       under_part = false; // false => fell back to bed centre
+};
+
+// Lay `length_mm` of priming line centred on the part's first-layer footprint,
+// along the footprint's longer axis, clamped (never refused) into the bed.
+// `has_part` false, or a degenerate footprint, falls back to bed centre --
+// deliberately NOT to the old front-left corner. Pure and total: non-finite
+// inputs degrade to the bed-centre fallback rather than emitting NaN.
+bool plan_fiber_prime_placement(double bed_min_x, double bed_min_y,
+                                double bed_max_x, double bed_max_y,
+                                bool has_part,
+                                double part_min_x, double part_min_y,
+                                double part_max_x, double part_max_y,
+                                double length_mm,
+                                FiberPrimePlacement& out);
+
 } // namespace Fiber
 } // namespace Slic3r

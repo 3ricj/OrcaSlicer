@@ -14,6 +14,8 @@
 // paid out by the matrix, never commanded by U); the release (handshake,
 // retract, lift, M1002) happens at the strand ENDPOINT, not at the cut.
 
+#include <limits>
+
 #include <catch2/catch_all.hpp>
 using Catch::Approx;
 
@@ -525,4 +527,86 @@ TEST_CASE("emit_fiber_prime_line surfaces the strand's own refusal", "[Fiber][Fi
     CHECK_FALSE(emit_fiber_prime_line(line, FiberEmitParams{}, false, out, &err));
     CHECK(out.empty());
     CHECK_FALSE(err.empty());
+}
+
+TEST_CASE("plan_fiber_prime_placement lays the purge under the part, not in the corner", "[Fiber][FiberEmitter][Prime]")
+{
+    // The owner ruling: the sacrificial line belongs UNDER the part. A corner of
+    // a 300 mm bed is the worst-leveled region, so the same commanded Z reads as
+    // a squash there and as a good bead at mid-bed -- which is why the old
+    // front-left placement looked "smashed" while the part printed fine.
+    FiberPrimePlacement p;
+    REQUIRE(plan_fiber_prime_placement(0., 0., 300., 300., true, 100., 100., 200., 120., 80., p));
+    CHECK(p.under_part);
+    CHECK(p.from.y == Approx(110.0));
+    CHECK(p.to.y   == Approx(110.0));
+    CHECK(p.from.x == Approx(110.0));
+    CHECK(p.to.x   == Approx(190.0));
+    // Explicitly NOT the old corner. Decomposed: Catch2 refuses a chained
+    // expression inside an assertion macro.
+    const bool at_old_corner = (p.from.x == Approx(10.0)) && (p.from.y == Approx(10.0));
+    CHECK_FALSE(at_old_corner);
+}
+
+TEST_CASE("plan_fiber_prime_placement runs the line along the footprint's longer axis", "[Fiber][FiberEmitter][Prime]")
+{
+    FiberPrimePlacement p;
+    // Tall part: the line must run along Y so it follows the part, not the axis
+    // the old hard-coded block always used.
+    REQUIRE(plan_fiber_prime_placement(0., 0., 300., 300., true, 140., 60., 160., 240., 80., p));
+    CHECK(p.from.x == Approx(150.0));
+    CHECK(p.to.x   == Approx(150.0));
+    CHECK(p.from.y == Approx(110.0));
+    CHECK(p.to.y   == Approx(190.0));
+}
+
+TEST_CASE("plan_fiber_prime_placement clamps an edge part into the bed rather than refusing it", "[Fiber][FiberEmitter][Prime]")
+{
+    FiberPrimePlacement p;
+    REQUIRE(plan_fiber_prime_placement(0., 0., 300., 300., true, 10., 10., 60., 60., 80., p));
+    CHECK(p.under_part);
+    CHECK(p.from.x == Approx(0.0));
+    CHECK(p.to.x   == Approx(80.0));
+    CHECK(p.from.x >= 0.0);
+    CHECK(p.to.x   <= 300.0);
+}
+
+TEST_CASE("plan_fiber_prime_placement falls back to bed centre, never to the corner", "[Fiber][FiberEmitter][Prime]")
+{
+    FiberPrimePlacement p;
+    // No footprint at all.
+    REQUIRE(plan_fiber_prime_placement(0., 0., 300., 300., false, 0., 0., 0., 0., 80., p));
+    CHECK_FALSE(p.under_part);
+    CHECK(p.from.x == Approx(110.0));
+    CHECK(p.from.y == Approx(150.0));
+    // A zero-extent footprint is "nothing measured", not a part at a point.
+    REQUIRE(plan_fiber_prime_placement(0., 0., 300., 300., true, 150., 150., 150., 150., 80., p));
+    CHECK_FALSE(p.under_part);
+    CHECK(p.from.y == Approx(150.0));
+    // A non-finite footprint degrades to the fallback instead of emitting NaN.
+    REQUIRE(plan_fiber_prime_placement(0., 0., 300., 300., true,
+                                       std::numeric_limits<double>::infinity(), 0., 100., 100., 80., p));
+    CHECK_FALSE(p.under_part);
+    CHECK(std::isfinite(p.from.x));
+    CHECK(std::isfinite(p.from.y));
+}
+
+TEST_CASE("plan_fiber_prime_placement refuses a degenerate request rather than inventing one", "[Fiber][FiberEmitter][Prime]")
+{
+    FiberPrimePlacement p;
+    CHECK_FALSE(plan_fiber_prime_placement(0., 0., 300., 300., true, 100., 100., 200., 120., 0., p));
+    CHECK_FALSE(plan_fiber_prime_placement(0., 0., 300., 300., true, 100., 100., 200., 120., -5., p));
+    CHECK_FALSE(plan_fiber_prime_placement(0., 0., 300., 300., true, 100., 100., 200., 120.,
+                                           std::numeric_limits<double>::infinity(), p));
+    CHECK_FALSE(plan_fiber_prime_placement(std::numeric_limits<double>::quiet_NaN(), 0., 300., 300.,
+                                           true, 100., 100., 200., 120., 80., p));
+    CHECK_FALSE(plan_fiber_prime_placement(300., 300., 0., 0., true, 100., 100., 200., 120., 80., p));
+}
+
+TEST_CASE("plan_fiber_prime_placement keeps an oversized line inside the bed", "[Fiber][FiberEmitter][Prime]")
+{
+    FiberPrimePlacement p;
+    REQUIRE(plan_fiber_prime_placement(0., 0., 100., 100., true, 40., 40., 60., 60., 250., p));
+    CHECK(p.from.x >= 0.0);
+    CHECK(p.to.x   <= 100.0);
 }

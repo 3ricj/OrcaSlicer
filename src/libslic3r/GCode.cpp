@@ -3866,8 +3866,13 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
         fs_sched.band_z_max_mm         = m_config.fs_fiber_band_z_max.value;
         if (m_config.fs_fiber_prime.value == FiberPrimeMode::fpmAlways ||
             Fiber::print_carries_fiber(print, fs_sched)) {
-            // Front-left of the bed, clear of the part: sacrificial material goes where the
-            // operator expects it, not under the print. The line runs along +X.
+            // Placement comes from the part, never from a fixed corner. The owner
+            // ruling is that the purge belongs UNDER the part: it is buried by the
+            // first layer instead of being peeled off the bed, and it shares the
+            // part's own bit of glass, so a bed that is level where the part prints
+            // is level where the purge is laid. The old front-left corner was the
+            // worst-leveled region of a 300 mm bed, which is a large part of why the
+            // same commanded Z looked "smashed" on a purge and fine on the part.
             std::string fs_prime_err;
             // The wrap is mandatory here, unlike elsewhere: the preamble's tool context is
             // the plastic head, so nothing may select the composite head from the start
@@ -3881,15 +3886,51 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
                 fs_prime_err = "no printable area to place the priming line on";
             } else if (fs_prime_err.empty()) {
                 Vec2d bed_min = Vec2d::Constant(std::numeric_limits<double>::infinity());
-                for (const Vec2d& p : bed_pts)
+                Vec2d bed_max = Vec2d::Constant(-std::numeric_limits<double>::infinity());
+                for (const Vec2d& p : bed_pts) {
                     bed_min = bed_min.cwiseMin(p);
-                const double fs_margin = 10.0;
-                const double fs_x0     = bed_min.x() + fs_margin;
-                const double fs_y0     = bed_min.y() + fs_margin;
+                    bed_max = bed_max.cwiseMax(p);
+                }
+                // The part footprint, in print-space mm, over every instance of
+                // every valid object: the union of the instance bounding boxes.
+                // Instance boxes are object-local, so they go through the same
+                // print-space transform the exporter uses everywhere else.
+                Vec2d part_min = Vec2d::Constant(std::numeric_limits<double>::infinity());
+                Vec2d part_max = Vec2d::Constant(-std::numeric_limits<double>::infinity());
+                bool  have_part = false;
+                for (const PrintObject* object : print.objects()) {
+                    if (object == nullptr || object->instances().empty())
+                        continue;
+                    for (const PrintInstance& inst : object->instances()) {
+                        const BoundingBoxf3 bb = inst.get_bounding_box();
+                        const Vec2d lo = print.translate_to_print_space(Vec2d(bb.min.x(), bb.min.y()));
+                        const Vec2d hi = print.translate_to_print_space(Vec2d(bb.max.x(), bb.max.y()));
+                        part_min = part_min.cwiseMin(Vec2d(std::min(lo.x(), hi.x()), std::min(lo.y(), hi.y())));
+                        part_max = part_max.cwiseMax(Vec2d(std::max(lo.x(), hi.x()), std::max(lo.y(), hi.y())));
+                        have_part = true;
+                    }
+                }
+                Fiber::FiberPrimePlacement fs_place;
+                const bool fs_placed = Fiber::plan_fiber_prime_placement(
+                    bed_min.x(), bed_min.y(), bed_max.x(), bed_max.y(),
+                    have_part, part_min.x(), part_min.y(), part_max.x(), part_max.y(),
+                    m_config.fs_fiber_prime_length.value, fs_place);
                 Fiber::FiberPrimeLine fs_line;
-                if (Fiber::plan_fiber_prime_line({fs_x0, fs_y0},
-                                                 {fs_x0 + m_config.fs_fiber_prime_length.value, fs_y0},
-                                                 fs_first_print_z(print, m_config), 1,
+                // The prime is a FIBER deposit, so its bead height is the fiber
+                // pitch, not the plastic first layer's height. fs_first_print_z()
+                // answers "where does this plate start laying material", which on
+                // the shipped stack is 0.24 mm -- a height sized against the 0.4 mm
+                // plastic nozzle and validated against it (Print.cpp), while the
+                // composite orifice is 0.7 mm. Squeezing a 0.7 mm bead through a
+                // 0.24 mm gap is the squash the operator sees, and it is worst on
+                // the purge because bare glass shows it. Flooring the deposit Z at
+                // the configured fiber pitch gives the composite bead its own
+                // height without touching the plastic first layer at all.
+                double fs_prime_z = fs_first_print_z(print, m_config);
+                if (m_config.fs_fiber_z_step.value > fs_prime_z)
+                    fs_prime_z = m_config.fs_fiber_z_step.value;
+                if (fs_placed &&
+                    Fiber::plan_fiber_prime_line(fs_place.from, fs_place.to, fs_prime_z, 1,
                                                  m_config.fs_matrix_ratio.value, m_config.fs_fiber_rate.value,
                                                  m_config.fs_deposit_feed.value, m_config.fs_tail_length.value,
                                                  fs_line, &fs_prime_err)) {
@@ -3926,6 +3967,22 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
                     fs_ep.restart_z_mm    = m_config.fs_restart_z_hop.value;
                     fs_ep.prime_v_mm      = m_config.fs_prime_v.value;
                     fs_ep.retract_v_mm    = m_config.fs_retract_v.value;
+                    // Three-zone deposition speed, wired EXACTLY as the model call
+                    // site wires it. The purge is the one deposit whose job is to
+                    // ANCHOR the tow, so it must run at the slow start-zone speed, not
+                    // at the strand's flat fallback feed. Before this the prime call
+                    // site left the five zone fields at 0, so zone_feed_mm_min() fell
+                    // through to fs_deposit_feed (1200 = 20 mm/s) for the whole line:
+                    // the anchor ran 4x the model's own start speed and 4x Rocket's
+                    // first joint deposit. Wiring the same keys the model uses makes
+                    // the purge start slow and sticky and speed up through the body,
+                    // matching both the model strands and the vendor. All-zero (an
+                    // unconfigured profile) still degrades to the single feedrate.
+                    fs_ep.start_speed_mm_s  = m_config.fs_fiber_speed_start.value;
+                    fs_ep.start_length_mm   = m_config.fs_fiber_speed_start_length.value;
+                    fs_ep.normal_speed_mm_s = m_config.fs_fiber_speed_normal.value;
+                    fs_ep.finish_speed_mm_s = m_config.fs_fiber_speed_finish.value;
+                    fs_ep.finish_length_mm  = m_config.fs_fiber_speed_finish_length.value;
                     // Forward dry release on the purge. The purge is the spec's ONE
                     // exception to same-layer deposited-material containment: it is
                     // sacrificial material on bare bed, so what legitimises its forward

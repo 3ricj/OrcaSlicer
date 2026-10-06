@@ -49,10 +49,32 @@ would print without a complete fiber window.
 
 ## Composite-head priming
 
-`fs_fiber_prime` lays one sacrificial composite strand on bare bed, in the plate
-preamble, before the plate's real deposition. The composite head is charged by
-the same restart-plus-prime lifecycle a strand uses, so the first strand of a
-plate does not start on the stale tow left by the last one.
+`fs_fiber_prime` lays one sacrificial composite strand in the plate preamble,
+before the plate's real deposition. The composite head is charged by the same
+restart-plus-prime lifecycle a strand uses, so the first strand of a plate does
+not start on the stale tow left by the last one.
+
+Placement is derived from the part, never from a fixed bed coordinate. The line
+is centred on the union of the first-layer footprints of everything being
+printed, along that footprint's longer axis, and clamped (not refused) into the
+printable area; a plate with no usable footprint falls back to bed centre. The
+owner ruling behind this is that the purge belongs UNDER the part: it is buried
+by the first layer instead of being peeled off the glass afterwards, and it
+shares the part's own patch of bed, so a bed that is level where the part prints
+is level where the purge is laid. The previous front-left corner placement sat
+in the worst-leveled region of a 300 mm bed, which is a large part of why the
+same commanded Z looked "smashed" on the purge while the part printed correctly.
+The policy is a pure function, `Fiber::plan_fiber_prime_placement`, so it is
+unit-testable without a print.
+
+Deposit Z is the plate's first deposition height floored at `fs_fiber_z_step`.
+The floor matters: `fs_first_print_z()` answers "where does this plate start
+laying material", which on the shipped stack is the plastic first-layer height,
+a value sized and validated against the 0.4 mm plastic nozzle. The composite
+bead is extruded through a 0.7 mm orifice, so inheriting the plastic height
+squashes it. Flooring at the configured fibre pitch gives the composite bead its
+own height without touching the plastic first layer, which drives the whole
+plastic bed and must not move to satisfy a fibre deposit.
 
 The gate for `when_fiber` is `Fiber::print_carries_fiber`, which evaluates the
 layer schedule over the whole plate. It calls `Fiber::fiber_layer_scheduled`,

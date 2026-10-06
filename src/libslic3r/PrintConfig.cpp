@@ -4615,7 +4615,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("fs_fiber_z_step", coFloat);
     def->label = L("Fiber macro layer height");
-    def->tooltip = L("Height of one fiber macro layer, mm: how tall the deposited composite bead is, and therefore how far apart consecutive fiber layers sit. The plastic layer height should divide it exactly, so that a whole number of plastic layers fills each macro layer - the reference machine pairs 0.12 mm plastic layers into a 0.24 mm macro layer. Used by the Z band and macro layer schedules.");
+    def->tooltip = L("Height of one fiber macro layer, mm: how tall the deposited composite bead is, and therefore how far apart consecutive fiber layers sit. The plastic layer height should divide it exactly, so that a whole number of plastic layers fills each macro layer. The shipped 0.12 mm plastic profiles pair three plastic layers into a 0.36 mm macro layer, which gives the 0.7 mm composite orifice a bead it can actually lay; the earlier 0.24 mm value was inherited from the 0.4 mm plastic head and squashed the composite bead. Used by the Z band and macro layer schedules.");
     def->sidetext = L("mm");
     def->min = 0.01;
     def->mode = comExpert;
