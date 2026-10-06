@@ -785,6 +785,25 @@ private:
     // switch, so the wait is per fibre WINDOW rather than per plate. With the
     // tool wrap off the latch stays once-per-plate, as before.
     bool m_fs_t0_hot = false;
+    // One pending-plastic-withdrawal ledger, shared by the fibre tool change and
+    // ordinary travel retraction. A composite tool change withdraws the plastic
+    // channel and then spends the whole window plus the travel to the next
+    // deposition before any plastic is laid again; recovering at the brush exit
+    // (the behaviour this replaces) put the filament back in the nozzle for a
+    // head that was about to sit idle, and left the recovery 8 mm of travel away
+    // from the deposition that needed it. The ledger keeps the withdrawal pending
+    // through the travel and pays it once, at the next real deposition start.
+    //
+    // It is the single producer of the pending amount: the tool-change site adds
+    // what it actually emitted, and _extrude() suppresses a redundant ordinary
+    // retraction when the pending amount already covers the travel requirement.
+    // Pending amount in mm and the one-shot recovery request. Kept as scalars
+    // rather than a Fiber::EWithdrawalLedger so this header does not have to pull
+    // the Fiber module into every translation unit that includes GCode.hpp; the
+    // ledger semantics (never stack, recover exactly once, then clear) are
+    // implemented at the two call sites and pinned by the module's own unit test.
+    double m_fs_e_pending_mm = 0.0;
+    bool   m_fs_e_recovery_pending = false;
     // Fiber mode mapping: counts layers that actually
     // EMIT fiber (not skipped plastic layers) for the laydown angle cycle. The
     // GCode object is constructed per print, so this resets with every export.

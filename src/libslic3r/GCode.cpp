@@ -2694,6 +2694,27 @@ void GCode::do_export(Print* print, const char* path, GCodeProcessorResult* resu
     //BBS: add some log for error output
     BOOST_LOG_TRIVIAL(debug) << boost::format("Finished processing gcode to %1% ") % path_tmp;
 
+    // FibreSeeker3: whole-file predictive-preheat pass (owner spec section 4).
+    // The per-layer and per-window schedulers can only see the outgoing material
+    // they were handed, so a transition whose activation spans layers is led too
+    // short. Now that the final bytes are on disk, re-place each marked preheat
+    // against the real activation between physical switches, using the same
+    // deterministic clock the acceptance verifier runs. Gated on fibre + a
+    // positive lead, so a non-fibre export is untouched.
+    if (m_config.fs_fiber_enabled.value && m_config.fs_tool_preheat_lead_s.value > 0.0) {
+        bool fs_pp_changed = false;
+        std::string fs_pp_report;
+        std::string fs_pp_err;
+        if (Fiber::apply_preheat_schedule_file(path_tmp, m_config.fs_tool_preheat_lead_s.value,
+                                              fs_pp_changed, fs_pp_report, &fs_pp_err)) {
+            if (fs_pp_changed)
+                BOOST_LOG_TRIVIAL(info) << "FibreSeeker3 preheat schedule pass re-placed commands:\n"
+                                        << fs_pp_report;
+        } else {
+            BOOST_LOG_TRIVIAL(warning) << "FibreSeeker3 preheat schedule pass skipped: " << fs_pp_err;
+        }
+    }
+
     std::error_code ret = rename_file(path_tmp, path);
     if (ret) {
         {
@@ -3788,6 +3809,23 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
             file.write(m_writer.set_chamber_temperature(max_chamber_temp, true)); // set chamber_temperature
     }
 
+    // Startup park (owner audit of the 001021 export, S07): the reviewed file had
+    // 32 of 33 blocking hotend waits inside an explicit station bracket, and the one
+    // exception was the vendor startup M109, which sits before the brush visit that
+    // establishes a park. The rule is that a hotend wait happens at an established
+    // park, and the first wait of the plate is not exempt. Bed and chamber waits stay
+    // where they are. If the profile has no station-entry macro after the wait we
+    // leave the text alone and say so, rather than inventing a park coordinate.
+    if (m_config.fs_fiber_enabled.value) {
+        bool fs_startup_parked = false;
+        machine_start_gcode = Fiber::park_initial_hotend_wait(machine_start_gcode, fs_startup_parked);
+        if (!fs_startup_parked)
+            BOOST_LOG_TRIVIAL(warning)
+                << "FibreSeeker3: startup hotend wait left unparked - the machine start"
+                << " g-code has no station-entry macro after its first M109, so there is"
+                << " no established park to move it to";
+    }
+
     // Write the custom start G-code
     file.writeln(machine_start_gcode);
     // T0 (composite) preheat (G-code review finding #3): after the start sequence so the
@@ -3843,13 +3881,77 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
                                                  m_config.fs_matrix_ratio.value, m_config.fs_fiber_rate.value,
                                                  m_config.fs_deposit_feed.value, m_config.fs_tail_length.value,
                                                  fs_line, &fs_prime_err)) {
+                    // Tail margin on the purge, by the same arithmetic as on a model
+                    // strand: shortening the nominal tail moves the blade M mm earlier
+                    // and makes the severed tail T+M of deposition. The purge line is a
+                    // real strand lifecycle, so it carries the margin the same way.
+                    const double fs_p_line_len =
+                        std::hypot(fs_line.to.x - fs_line.from.x, fs_line.to.y - fs_line.from.y);
+                    const double fs_p_margin = m_config.fs_fiber_tail_margin_mm.value;
+                    const double fs_p_release = m_config.fs_fiber_release_length_mm.value;
+                    // Release plan out here, NOT inside the block that fills it: the
+                    // emit params hold a pointer to it, and that pointer has to stay
+                    // live until emit_fiber_prime_line() has run.
+                    Fiber::ReleasePlan fs_p_rel;
+                    if (fs_p_margin > 0.0) {
+                        // Same sign as apply_tail_margin(): the margin ADDS to the
+                        // nominal tail, which moves the blade M mm EARLIER and makes the
+                        // severed tail T+M. The spec's purge table pins it: cut X 35.2 at
+                        // M=0, 34.2 at M=1.
+                        fs_line.tail_length_mm += fs_p_margin;
+                        if (!(fs_line.tail_length_mm < fs_p_line_len))
+                            BOOST_LOG_TRIVIAL(warning)
+                                << "FibreSeeker3: purge tail margin " << fs_p_margin
+                                << " mm leaves no body before the purge cut";
+                    }
                     Fiber::FiberEmitParams fs_ep;
+                    // Same deferred-lift contract as a model window: the purge is
+                    // closed by the same paired tool change, so its lift belongs after
+                    // the matrix withdrawal. The spec pins the result - release stays
+                    // at Z0.24 and the subsequent lift reaches Z0.84.
+                    fs_ep.defer_departure_lift = true;
                     fs_ep.restart_feed_mm = m_config.fs_restart_feed.value;
                     fs_ep.restart_z_mm    = m_config.fs_restart_z_hop.value;
                     fs_ep.prime_v_mm      = m_config.fs_prime_v.value;
                     fs_ep.retract_v_mm    = m_config.fs_retract_v.value;
-                    std::string fs_prime;
-                    if (Fiber::emit_fiber_prime_line(fs_line, fs_ep, false, fs_prime, &fs_prime_err)) {
+                    // Forward dry release on the purge. The purge is the spec's ONE
+                    // exception to same-layer deposited-material containment: it is
+                    // sacrificial material on bare bed, so what legitimises its forward
+                    // extension is a validated bed-contact corridor, not earlier
+                    // deposition. The corridor is the band the line sweeps, extended
+                    // forward by exactly the requested release, and a footprint that
+                    // reaches past it is refused rather than clipped.
+                    if (fs_p_release > 0.0) {
+                        Fiber::TailReleaseParams fs_p_trp;
+                        fs_p_trp.nominal_tail_mm    = m_config.fs_tail_length.value;
+                        fs_p_trp.margin_mm          = fs_p_margin;
+                        fs_p_trp.release_mm         = fs_p_release;
+                        fs_p_trp.release_speed_mm_s = m_config.fs_fiber_release_speed_mm_s.value;
+                        fs_p_trp.anchor_mm          = m_config.fs_fiber_release_anchor_mm.value;
+                        fs_p_trp.bead_width_mm      = m_config.fs_fiber_bead_width.value > 0.0 ?
+                                                        m_config.fs_fiber_bead_width.value :
+                                                        m_config.fs_fiber_nozzle_diameter.value;
+                        std::string fs_p_trp_err;
+                        if (Fiber::validate_tail_release_params(fs_p_trp, &fs_p_trp_err)) {
+                            Fiber::PurgeCorridorSupport fs_corr;
+                            const double fs_half = fs_p_trp.bead_width_mm / 2.0;
+                            fs_corr.min_x = fs_line.from.x;
+                            fs_corr.max_x = fs_line.to.x + fs_p_release;
+                            fs_corr.min_y = fs_line.from.y - fs_half;
+                            fs_corr.max_y = fs_line.from.y + fs_half;
+                            fs_corr.tolerance_mm = 0.02;
+                            std::vector<Fiber::FiberPoint> fs_ppath{fs_line.from, fs_line.to};
+                            std::string fs_p_rel_err;
+                            if (Fiber::plan_fiber_release(fs_ppath, false, fs_line.z,
+                                                          fs_p_trp, &fs_corr, fs_p_rel, &fs_p_rel_err)
+                                && fs_p_rel.valid && !fs_p_rel.path.empty())
+                                fs_ep.release = &fs_p_rel;
+                            else
+                                BOOST_LOG_TRIVIAL(warning)
+                                    << "FibreSeeker3: purge forward release refused: " << fs_p_rel_err;
+                        }
+                    }
+                    std::string fs_prime;                    if (Fiber::emit_fiber_prime_line(fs_line, fs_ep, false, fs_prime, &fs_prime_err)) {
                         // Startup runs the SAME paired tool-change handling the model
                         // uses, not a bare T0/T1 bracket around the window. Both halves
                         // are emitted here, and the priming window is emitted UNWRAPPED
@@ -3885,6 +3987,8 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
                         fs_tc.t1_working_c            = fs_plastic_working_temp(m_config, get_filament_config_index((int) initial_non_support_extruder_id), true);
                         fs_tc.toolchange_retract_v_mm = m_config.fs_toolchange_retract_v.value;
                         fs_tc.toolchange_retract_v_f  = m_config.fs_toolchange_retract_v_speed.value;
+                        fs_tc.departure_lift_z_mm     = fs_line.z + fs_ep.lift_z_mm;
+                        fs_tc.departure_lift_f        = fs_ep.lift_f;
                         fs_tc.brush_on_toolchange     = m_config.fs_brush_on_toolchange.value;
                         fs_tc.aux_fans_on_toolchange  = m_config.fs_aux_fans_on_toolchange.value;
                         fs_tc.part_cooling_pct        = -1;
@@ -3907,6 +4011,22 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
                         // start g-code, so there is no pending writer state to pair.
                         file.write("M400\n");
                         file.write(Fiber::emit_toolchange_to_fiber(fs_tc));
+
+                        // Predictive preheat of the incoming plastic head over the
+                        // priming window, by the same clock as the model windows. The
+                        // purge is SHORT: its whole post-cut activation is a little over
+                        // four nominal seconds, so the 15 s target cannot be met and the
+                        // scheduler clamps to the earliest allowed insertion point after
+                        // the T0 entry setup. That clamp is the spec's rule for a short
+                        // purge, not a failure: what matters is that the nonblocking
+                        // target is issued as early as the activation permits, so the
+                        // blocking M109 at the station is not paid cold.
+                        if (fs_tc.t1_working_c > 0) {
+                            Fiber::PreheatPlan fs_pp0;
+                            fs_prime = Fiber::schedule_preheat_into_plastic(
+                                fs_prime, 1, fs_tc.t1_working_c,
+                                m_config.fs_tool_preheat_lead_s.value, fs_pp0, fs_line.z);
+                        }
 
                         file.write(fs_prime);
 
@@ -6138,7 +6258,14 @@ LayerResult GCode::process_layer(
     std::string              fs_macro_note;
     Fiber::StrandLayerParams fs_slp;
     Fiber::StrandLayerResult fs_slres;
-    size_t fs_emit_failed = 0;
+    // Tail / release parameters, resolved once per layer below and reused by the
+    // emitter. Declared at this scope because the planner block and the emission
+    // block are separate scopes and must agree on one set of numbers: the planner
+    // needs them to place the release seam BEFORE a strand is finalized, and the
+    // emitter needs the same values for the margin and the dry move.
+    Fiber::TailReleaseParams fs_trp;
+    bool fs_trp_ok = false;
+    bool fs_want_release = false;    size_t fs_emit_failed = 0;
     // Reservation mutates the sliced collections for this export only. Restore
     // afterwards so a second export of the same slice does not double-cut plastic.
     struct FiberReserveGuard {
@@ -6330,8 +6457,35 @@ LayerResult GCode::process_layer(
                 fs_slp.wall_inner_loops   = 0;
                 ++ m_fs_fiber_layer_idx; // this layer emits fiber: advance the angle cycle
             }
-            fs_slres = Fiber::build_layer_strands(rings, fs_slp);
-            // Plastic reservation (fs_fiber_reserve). band = the physical pass: subtract
+            // Tail / release parameters, resolved ONCE per layer and shared by the
+            // planner (seam placement) and the emitter (margin + release). The
+            // planner needs them before build_layer_strands() because a forward dry
+            // release forces the deterministic seam, and a finalized strand cannot
+            // be reordered afterwards. (fs_trp itself is declared at the enclosing
+            // scope so the emission block below reads the very same values.)
+            fs_trp.nominal_tail_mm    = m_config.fs_tail_length.value;
+            fs_trp.margin_mm          = m_config.fs_fiber_tail_margin_mm.value;
+            fs_trp.release_mm         = m_config.fs_fiber_release_length_mm.value;
+            fs_trp.release_speed_mm_s = m_config.fs_fiber_release_speed_mm_s.value;
+            fs_trp.anchor_mm          = m_config.fs_fiber_release_anchor_mm.value;
+            // The ACTUAL composite bead width, not the plastic nozzle width: the
+            // support test buffers the dry path by half of this. Same resolution the
+            // bead-width laws use, recomputed because that binding is scoped tighter.
+            fs_trp.bead_width_mm      = m_config.fs_fiber_bead_width.value > 0.0 ?
+                                          m_config.fs_fiber_bead_width.value :
+                                          m_config.fs_fiber_nozzle_diameter.value;
+            std::string fs_trp_err;
+            fs_trp_ok = Fiber::validate_tail_release_params(fs_trp, &fs_trp_err);
+            fs_want_release = m_config.fs_fiber_release_length_mm.value > 0.0;
+            if (!fs_trp_ok && fs_want_release)
+                BOOST_LOG_TRIVIAL(warning)
+                    << "FibreSeeker3: tail/release parameters rejected: " << fs_trp_err;
+            // Hand the release parameters to the planner only when a release is
+            // actually requested AND the numbers are valid, so an untouched profile
+            // keeps the seam policy (and the whole export) byte-identical.
+            fs_slp.release_seam_params =
+                (fs_want_release && fs_trp_ok) ? &fs_trp : nullptr;
+            fs_slres = Fiber::build_layer_strands(rings, fs_slp);            // Plastic reservation (fs_fiber_reserve). band = the physical pass: subtract
             // the exclusion band d(w) = composite/2 + w/2 - bond_overlap from the external
             // perimeters, internal perimeters and all fills (gap fills included - they live
             // inside layerm->fills) of every region of THIS object layer. outer_wall =
@@ -7685,6 +7839,15 @@ LayerResult GCode::process_layer(
             ep.finish_speed_mm_s = m_config.fs_fiber_speed_finish.value;
             ep.finish_length_mm  = m_config.fs_fiber_speed_finish_length.value;
             ep.verbose_comments  = m_config.fs_fiber_verbose_comments.value;
+            // When the window is closed by a paired tool change, its departure Z
+            // lift is emitted by that block instead, after the matrix withdrawal.
+            // The owner transition contract pins M1002 -> V-4 -> lift -> station
+            // entry (spec section 3 steps 4-5, check S06); lifting while the window
+            // is still open raises the carriage off the part while matrix is being
+            // withdrawn through it. The number the block needs is the last fibre
+            // window's deposition Z plus the configured clearance, both carried out
+            // of the strand loop below.
+            ep.defer_departure_lift = m_config.fs_t0_wrap.value;
             // Exactly one ; LAYER: marker covers every strand of this layer.
             bool marker_done = false;
             // Vendor-shaped macro-layer comment once per fiber layer when the
@@ -7701,27 +7864,15 @@ LayerResult GCode::process_layer(
             // and the strand endpoint - and therefore the part - is untouched. A
             // strand that cannot carry the margin is emitted unshifted rather than
             // silently shortened.
-            const double fs_margin = m_config.fs_fiber_tail_margin_mm.value;
-            const bool fs_want_release = m_config.fs_fiber_release_length_mm.value > 0.0;
-            Fiber::TailReleaseParams fs_trp;
-            fs_trp.nominal_tail_mm    = m_config.fs_tail_length.value;
-            fs_trp.margin_mm          = fs_margin;
-            fs_trp.release_mm         = m_config.fs_fiber_release_length_mm.value;
-            fs_trp.release_speed_mm_s = m_config.fs_fiber_release_speed_mm_s.value;
-            fs_trp.anchor_mm          = m_config.fs_fiber_release_anchor_mm.value;
-            // The ACTUAL composite bead width, not the plastic nozzle width: the
-            // support test buffers the dry path by half of this. Same resolution the
-            // bead-width laws use, recomputed because that binding is scoped tighter.
-            fs_trp.bead_width_mm      = m_config.fs_fiber_bead_width.value > 0.0 ?
-                                          m_config.fs_fiber_bead_width.value :
-                                          m_config.fs_fiber_nozzle_diameter.value;
-            std::string fs_trp_err;
-            const bool fs_trp_ok =
-                Fiber::validate_tail_release_params(fs_trp, &fs_trp_err);
-            if (!fs_trp_ok && (fs_want_release || fs_margin > 0.0))
-                BOOST_LOG_TRIVIAL(warning)
-                    << "FibreSeeker3: tail/release parameters rejected: " << fs_trp_err;
+            // fs_trp / fs_trp_ok / fs_want_release were resolved once per layer
+            // above build_layer_strands(), because the planner needs the same
+            // numbers to place the release seam.
+            const double fs_margin = fs_trp.margin_mm;
             std::string fs_release_detail;
+            // Last fibre window emitted on this layer: the outgoing activation the
+            // fibre -> plastic preheat clock runs over, and the Z it deposited at.
+            std::string fs_last_window;
+            double      fs_last_window_z = std::nan("");
             for (const Fiber::FiberStrand& strand_in : fs_slres.strands) {
                 // Margin, as a re-finalized copy. On failure the original stands.
                 Fiber::FiberStrand fs_shifted;
@@ -7763,30 +7914,89 @@ LayerResult GCode::process_layer(
                 if (Fiber::emit_strand(strand, ep, fs_gcode)) {
 
                     gcode += fs_gcode;
+                    // The window text is the outgoing activation for the
+                    // fibre -> plastic preheat clock; keep the last one emitted on
+                    // this layer along with the Z it deposited at.
+                    fs_last_window = fs_gcode;
+                    fs_last_window_z = strand.z;
                     marker_done = true;
                 } else {
                     ++fs_emit_failed;
-                }
-            }
+                }            }
             if (!fs_release_detail.empty())
                 BOOST_LOG_TRIVIAL(warning)
                     << "FibreSeeker3: tail/release not applied on at least one strand: "
                     << fs_release_detail;
+            // Predictive preheat of the INCOMING plastic head, in the other
+            // direction. The outgoing activation is the fibre window just emitted,
+            // and its timing endpoint is the end of deposition plus the dry release,
+            // NOT the station visit: departure travel and the brush dwell buy the
+            // incoming head no head-start at all, so counting them would be the
+            // scheduler paying itself for time the printer never spends heating.
+            // The window text is therefore cut back to its last release end (or to
+            // the tail retract when the release is off) before the clock runs.
+            //
+            // Without this half the plastic head is only ever charged by the blocking
+            // M109 inside the station visit, so the printer waits cold at the station
+            // on every window: the reviewed export measured 15 blocking T1 waits with
+            // zero advance preheat.
+            if (m_config.fs_t0_temp.value > 0 && fs_tc.t1_working_c > 0 && !fs_last_window.empty()) {
+                const size_t fs_rel_end = fs_last_window.rfind("; FS_RELEASE_END");
+                const size_t fs_v1 = fs_last_window.rfind(" ; Retract");
+                const size_t fs_ep = (fs_rel_end != std::string::npos) ? fs_rel_end : fs_v1;
+                size_t fs_split = std::string::npos;
+                if (fs_ep != std::string::npos) {
+                    const size_t fs_nl = fs_last_window.find('\n', fs_ep);
+                    if (fs_nl != std::string::npos)
+                        fs_split = fs_nl + 1;
+                }
+                const std::string fs_out = (fs_split == std::string::npos) ?
+                    fs_last_window : fs_last_window.substr(0, fs_split);
+                const std::string fs_wtail = (fs_split == std::string::npos) ?
+                    std::string() : fs_last_window.substr(fs_split);
+                Fiber::PreheatPlan fs_pp1;
+                const std::string fs_rewritten = Fiber::schedule_preheat_into_plastic(
+                    fs_out, 1, fs_tc.t1_working_c,
+                    m_config.fs_tool_preheat_lead_s.value, fs_pp1, fs_last_window_z);
+                if (fs_pp1.valid && fs_pp1.inserted) {
+                    const std::string fs_new_window = fs_rewritten + fs_wtail;
+                    const size_t fs_at = gcode.rfind(fs_last_window);
+                    if (fs_at != std::string::npos)
+                        gcode = gcode.substr(0, fs_at) + fs_new_window +
+                                gcode.substr(fs_at + fs_last_window.size());
+                }
+            }
             if (m_config.fs_t0_wrap.value) {
+                // Departure lift for the window that just closed. Same 0.6 mm
+                // clearance the emitter would have used, same 1200 mm/min, just
+                // placed after the withdrawal instead of before M1002. A layer that
+                // emitted no window has nothing to lift away from, and emits none.
+                fs_tc.departure_lift_z_mm = std::isfinite(fs_last_window_z) ?
+                    fs_last_window_z + ep.lift_z_mm : 0.0;
+                fs_tc.departure_lift_f = ep.lift_f;
                 gcode += Fiber::emit_toolchange_to_plastic(fs_tc);
-                // Full recovery of the outgoing withdrawal, emitted after T1 is
-                // selected because E is the active-extruder axis. GCode::unretract()
-                // is unlift() + unretract(), so BOTH halves of the pairing come out of
-                // the window: the Z hop registered by the eager_lift() above is
-                // released here rather than being left pending for the next plastic
-                // extrusion, and the filament is re-primed at deretraction_speed. The
-                // real CF export shows both halves (G1 Z.6 lift going out, G1 Z.2
-                // restore plus G1 E10 coming back); the pristine base emits the lift
-                // and never restores it at the switch.
-                // Guarded on the filament being tracked, exactly as GCode::retract()
-                // is, so an export without a writer filament is a no-op rather than a
-                // null dereference.                if (m_writer.filament() != nullptr)
-                    gcode += this->unretract();
+                // The outgoing withdrawal is NOT recovered here. Recovering at the
+                // brush exit put the filament back in a nozzle that was about to sit
+                // idle, and left the recovery a full travel move away from the
+                // deposition that needed it (owner audit of the 001021 export: E10 at
+                // line 2199, destination travel at 2207). The pending amount goes on
+                // the shared ledger and _extrude() pays it once, immediately before
+                // the next real deposition, after the travel has established the
+                // destination.
+                //
+                // The Z half of the pairing is still released here: GCode::unretract()
+                // is unlift() + unretract(), and leaving the tool-change Z hop pending
+                // would leave the writer's cached Z wrong for the station exit. Only
+                // the E half is deferred, so the lift is emitted explicitly rather than
+                // through the combined helper.
+                if (m_writer.filament() != nullptr) {
+                    gcode += m_writer.unlift();
+                    // Record what was actually withdrawn so the pending total is a
+                    // number, not an assumption, and so an ordinary travel retraction
+                    // on the way to the next deposition is recognised as redundant.
+                    m_fs_e_pending_mm = m_writer.filament()->retracted();
+                    m_fs_e_recovery_pending = true;
+                }
                 // Re-arm the thermal wait for the next window: the standby pair above
                 // took T0 off its working temperature, so the next plastic->fibre switch
                 // must wait for it again. This is the per-window re-arm that replaces the
@@ -8817,6 +9027,23 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
     // should be already done by travel_to, but just in case
     m_writer.add_object_change_labels(gcode);
 
+    // Deferred composite tool-change E recovery. The fibre -> plastic switch left
+    // the plastic channel withdrawn on purpose: recovering it at the brush exit
+    // re-primed a nozzle that was about to sit idle for a whole window plus the
+    // travel here. This is the first real deposition after that switch, the travel
+    // above has established the deposition start, and the recovery is emitted
+    // immediately before the first extrusion of that start - which is where the
+    // filament actually has to be pressurised.
+    //
+    // One producer, one payment: the ordinary unretract() below is idempotent
+    // against the filament model, so this only has to run FIRST and clear the
+    // request. The pending amount was recorded from the model at the switch, so
+    // the ledger reflects what was actually withdrawn rather than a constant.
+    if (m_fs_e_recovery_pending) {
+        m_fs_e_recovery_pending = false;
+        m_fs_e_pending_mm = 0.0;
+        gcode += this->unretract();
+    }
     // compensate retraction
     gcode += this->unretract();
     m_config.apply(m_calib_config);

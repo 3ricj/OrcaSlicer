@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "../ClipperUtils.hpp"
-
+#include "FiberTailRelease.hpp" // release-seam selection for the forward dry release
 namespace Slic3r {
 namespace Fiber {
 
@@ -226,6 +226,29 @@ void reverse_direction(std::vector<FiberPoint>& closed)
     closed.swap(out);
 }
 
+// Deterministic release seam: when a forward dry release is requested, rotate
+// the closed ring so its start sits R + 0.01 mm before the forward end of the
+// longest qualifying straight run. The release then retraces the first R mm of
+// the loop forward over material this same strand deposited at its opening,
+// which is what makes its support true by construction.
+//
+// The ring keeps its traversal direction and its centreline locus: only the
+// start moves. A loop with no qualifying run is left on the seam the policy
+// already chose; the emission side then refuses the release with
+// FS_RELEASE_UNSUPPORTED rather than shortening it, so this helper never has to
+// decide whether the release happens.
+void place_release_seam(std::vector<FiberPoint>& closed, const TailReleaseParams& rp)
+{
+    if (rp.release_mm <= 0.0 || closed.size() < 3)
+        return;
+    ReleaseSeam seam;
+    std::string err;
+    if (!select_release_seam(closed, true, rp, seam, &err) || !seam.valid)
+        return;
+    std::vector<FiberPoint> rotated = rotate_closed_path(closed, seam.seam_distance_mm);
+    if (rotated.size() >= 3)
+        closed.swap(rotated);
+}
 // ---------------------------------------------------------------------------
 // Serpentine interior fill helpers (operator ruling 2026-10-01, fill build).
 // ---------------------------------------------------------------------------
@@ -879,8 +902,9 @@ StrandLayerResult build_layer_strands(const std::vector<std::vector<FiberPoint>>
                 place_seam(closed, params, island_idx, 0, parity);
                 if ((island_idx + parity) % 2 != 0)
                     reverse_direction(closed);
-                ++parity;
-                std::vector<Point> scaled;
+                if (params.release_seam_params != nullptr)
+                    place_release_seam(closed, *params.release_seam_params);
+                ++parity;                std::vector<Point> scaled;
                 scaled.reserve(closed.size());
                 for (const FiberPoint& p : closed)
                     scaled.push_back(Point::new_scale(p.x, p.y));
@@ -1224,8 +1248,12 @@ StrandLayerResult build_layer_strands(const std::vector<std::vector<FiberPoint>>
                 place_seam(closed, params, island_idx, level, loop_parity);
                 if ((island_idx + loop_parity) % 2 != 0)
                     reverse_direction(closed); // alternate direction: wear and reaction symmetry
+                // Release seam last: the run search must see the direction the
+                // strand will actually be printed in, and the rotation preserves
+                // that direction.
+                if (params.release_seam_params != nullptr)
+                    place_release_seam(closed, *params.release_seam_params);
                 ++loop_parity;
-
                 // One planned path (the ring itself, or an open piece of it when
                 // the split policy cut a tight corner) -> one strand.
                 const auto emit_loop_path = [&](std::vector<FiberPoint> pts, bool is_piece) {

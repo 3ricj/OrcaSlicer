@@ -265,6 +265,29 @@ public:
     virtual SupportVerdict query(const ReleaseSupportQuery& q) const = 0;
 };
 
+// Bed-contact purge corridor: the ONE exception the spec grants to the rule that
+// a release footprint must lie inside material already deposited in the same
+// physical layer. The startup purge is sacrificial material laid on bare bed, so
+// there is by definition no earlier deposition under its forward extension; what
+// makes the extension legal instead is that the bed-contact corridor has been
+// validated to that X. The oracle therefore answers from the corridor bounds, not
+// from a deposition mask, and a release that reaches past the validated limit is
+// refused (FS_PURGE_RELEASE_OUT_OF_BOUNDS) rather than clipped.
+//
+// The purge line is laid along +X by construction (plan_fiber_prime_line), so the
+// corridor is the axis-aligned band the line sweeps, extended forward to
+// `max_x`. Half the ACTUAL composite bead width is applied to the footprint, so a
+// wider bead narrows the usable band exactly as it does for model material.
+struct PurgeCorridorSupport : ReleaseSupportModel
+{
+    double min_x = 0.0;        // corridor rear bound (purge start, inclusive)
+    double max_x = 0.0;        // validated corridor forward limit
+    double min_y = 0.0;        // corridor lateral bounds (purge line band)
+    double max_y = 0.0;
+    double tolerance_mm = 0.02;
+
+    SupportVerdict query(const ReleaseSupportQuery& q) const override;
+};
 // Builds the buffered footprint polyline of a dry release path: the centreline
 // advanced by half the composite bead width at each end, so containment can be
 // tested against deposited material. Exposed because the evidence record names
@@ -513,14 +536,14 @@ class FiberStrand;
 struct FiberEmitParams;
 
 // The tail margin M applied to one strand, as a copy with its nominal tail
-// shortened by M.
+// LENGTHENED by M.
 //
 // The strand carries its own tail length and finalize() cuts at
-// total_path - tail_length, so subtracting M from the tail is exactly what
-// moves the blade M mm EARLIER: the severed tail becomes T+M of path, which is
-// the post-cut deposition the spec asks for, while the strand endpoint is
-// untouched. The copy is re-finalized rather than the original mutated, so the
-// caller's planning result stays valid for the evidence record.
+// total_path - tail_length_mm, so ADDING M to the tail is exactly what moves the
+// blade M mm EARLIER: the severed tail becomes T+M of path, which is the post-cut
+// deposition the spec asks for, while the strand endpoint is untouched. The copy
+// is re-finalized rather than the original mutated, so the caller's planning
+// result stays valid for the evidence record.
 //
 // Returns false, leaving `out` untouched, when the strand cannot carry the
 // margin (S <= T + M leaves no body). The caller then emits the strand
@@ -529,7 +552,6 @@ bool apply_tail_margin(const FiberStrand& strand,
                        double margin_mm,
                        FiberStrand& out,
                        std::string* error = nullptr);
-
 // Builds the nominal MotionBlock list for one emitted fibre window: the
 // activation the preheat clock reasons about. The blocks mirror emit_strand()
 // move for move - window open and the macro-layer comment are Macros, the Z/XY
@@ -600,6 +622,43 @@ std::string schedule_preheat_into_plastic(const std::string& outgoing_plastic_gc
                                           PreheatPlan& plan,
                                           double initial_z = std::nan(""),
                                           const FiberPoint* initial_xy = nullptr);
+
+// Whole-file predictive-preheat pass (owner spec section 4, 2026-10-05).
+//
+// The per-layer scheduler above can only see the activation of ONE layer: a
+// transition whose outgoing material spans several layers gets clamped to the
+// last one, and the per-window fibre scheduler cannot see the entry moves the
+// acceptance clock counts. This pass runs over the FINAL g-code text, so the
+// activation is the real, full interval between physical switches, and it
+// re-places the marked preheat line of every physical transition to exactly
+// min(lead_s, available) nominal seconds before the outgoing endpoint, using
+// the same deterministic clock the verifier runs. It also removes the incoming
+// head's standby line when it would clobber the scheduled preheat: the
+// both-heads clause is still met by the working pre-charge that follows.
+//
+// Mirrors tools/verify_fs_shook.py exactly. Transitions are bare T words with a
+// different previous tool; the endpoint is M1002 for a fibre outgoing head and
+// the last extruding move before the station visit for a plastic one; the clock
+// is 60*dXYZ/F translating, 60*max(E,U,V abs)/F stationary, G4 P, zero for
+// waits and macros. The startup transition (no outgoing activation) is left
+// alone: S07 owns the startup wait, and there is no outgoing deposition to run
+// a clock over.
+//
+// Returns the rewritten text. The report string receives one line per
+// transition for the build log. Idempotent: a preheat already within 50 ms of
+// its target is left exactly where it is.
+std::string apply_preheat_schedule_pass(const std::string& gcode,
+                                        double lead_s,
+                                        bool& changed,
+                                        std::string& report);
+
+// File wrapper: reads the path, runs the pass, writes it back only when the
+// text changed. Returns false with a message in error when unreadable.
+bool apply_preheat_schedule_file(const std::string& path,
+                                 double lead_s,
+                                 bool& changed,
+                                 std::string& report,
+                                 std::string* error);
 
 } // namespace Fiber
 } // namespace Slic3r

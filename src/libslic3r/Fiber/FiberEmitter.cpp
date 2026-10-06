@@ -175,7 +175,18 @@ bool emit_strand(const FiberStrand& strand, const FiberEmitParams& params, std::
     // reserves nothing and never claims a measured clearance.
     if (params.release != nullptr && params.release->valid && !params.release->path.empty())
         s += emit_fiber_release(*params.release);
-    s += "G1 F" + fmt("%.0f", params.lift_f) + " Z" + fmt("%.2f", strand.z + params.lift_z_mm) + "\n";
+    // The departure Z lift. When this window is closed by a paired tool change,
+    // the lift is DEFERRED out of the window and into that block, immediately
+    // after the departure matrix withdrawal and before station entry. The owner
+    // transition contract (section 3 steps 4-5, and check S06) pins the order as
+    //     V-1 -> release -> M1002 -> V-4 -> lift -> station entry
+    // and lifting before the window closes puts the carriage above the part while
+    // the matrix is still being withdrawn through it. The withdrawal is a V-axis
+    // move on the head that is still selected, so it stays legal either way; the
+    // lift is what has to move. Unwrapped output (no paired tool change) keeps the
+    // lift here, because nothing downstream would emit it.
+    if (!params.defer_departure_lift)
+        s += "G1 F" + fmt("%.0f", params.lift_f) + " Z" + fmt("%.2f", strand.z + params.lift_z_mm) + "\n";
     s += "M1002\n";
 
     out = s;

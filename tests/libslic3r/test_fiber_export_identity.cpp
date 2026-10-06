@@ -207,6 +207,7 @@ TEST_CASE("Composite export reaches the fibre window and emits the tool-change w
     const size_t n_fan_off   = count_of("M106 P1 S0");
     const size_t n_aux_on    = count_of("M106 P3 S255");
     const size_t n_aux_off   = count_of("M106 P3 S0");
+    const size_t n_precharge = count_of("M104 S270 T0 ; pre-charge");
 
     // Several windows, so "once per plate" cannot satisfy a floor.
     REQUIRE(n_windows >= 20);
@@ -218,8 +219,15 @@ TEST_CASE("Composite export reaches the fibre window and emits the tool-change w
     CHECK(n_standby_t1 == n_windows / 2);
     CHECK(n_wait == n_windows / 2);
     CHECK(n_v_retract == n_windows / 2);
-    // Both heads carry a standby target at both switch directions, so twice.
-    CHECK(n_standby_t0 == n_windows);
+    // The composite head is parked to standby on the way OUT of every window,
+    // i.e. once per fibre->plastic switch, so half the window count. It is NOT
+    // also dropped to standby on the way back in: the owner transition contract
+    // (2026-10-05, section 3) forbids parking a head immediately before
+    // reheating it, and the working-temperature pre-charge below carries the
+    // both-heads target on that half instead. The pre-charge count is what
+    // proves the clause is still met.
+    CHECK(n_standby_t0 == n_windows / 2);
+    CHECK(n_precharge >= n_windows / 2);
     // Brush at every tool change (both directions) plus the start-gcode clean.
     CHECK(n_brush == n_windows + 1);
     // Part-cooling is explicitly zeroed while the fibre head is depositing, once

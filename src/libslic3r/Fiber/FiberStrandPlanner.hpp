@@ -54,7 +54,6 @@
 
 #include "FiberStrand.hpp"
 #include "../PrintConfig.hpp" // FiberInfillPattern
-
 namespace Slic3r {
 namespace Fiber {
 
@@ -137,6 +136,18 @@ struct StrandLayerParams
     // move the start along the ring, inserting a collinear vertex where the new
     // start falls mid-edge, so the geometry and its length never change.
     FiberSeamPosition seam_position = FiberSeamPosition::fspAligned;
+    // Forward dry release (fs_fiber_release_length_mm > 0): when set, a closed
+    // loop's seam is placed by the deterministic release-seam rule instead of by
+    // seam_position, because the dry move has to retrace material the strand
+    // itself deposited, which is only true where the release lies on the same
+    // qualifying straight run as the seam. Null (release off) leaves the seam
+    // policy byte-identical to the legacy behaviour.
+    //
+    // The rotation happens HERE, before finalize(), because a finalized strand is
+    // immutable. The emission side still re-validates the opening run and refuses
+    // the release (FS_RELEASE_UNSUPPORTED) when a loop has no qualifying run, so
+    // a refused release never silently becomes R = 0.
+    const class TailReleaseParams* release_seam_params = nullptr;
     // Longest segment the strand may be reported as, mm. Segments above it are
     // split at collinear points, so the geometry and its length are unchanged
     // and only the deposition resolution rises (the reference machine reports

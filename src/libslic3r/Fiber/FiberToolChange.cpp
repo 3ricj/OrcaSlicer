@@ -4,6 +4,10 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cctype>
+#include <sstream>
+#include <string>
+#include <vector>
 
 namespace Slic3r {
 namespace Fiber {
@@ -196,31 +200,46 @@ std::string emit_toolchange_to_plastic(const FiberToolChangeParams& p)
                       p.toolchange_retract_v_f, p.toolchange_retract_v_mm);
         put(s, buf);
     }
-    // Standby on the head being put away (T0), always emitted when the slicer
-    // owns thermals. Then the plastic head's working temperature is RESTORED
-    // with a blocking M109, not M104: the incoming head is T1, it was dropped to
-    // standby when this window opened, and nothing else on this path puts it back
-    // (the fibre block bypasses the exporter's own tool-change temperature
-    // handling), so resuming plastic deposition without the wait would extrude
-    // cold. This is the "incoming temperature readiness" half of the vendor
-    // sequence and it is not gated by emit_readiness_wait: the standby dwell this
-    // wait pays for happens on EVERY window, including the first.
-    // Same ordering rule as the other half, and the same reason: the clean
-    // happens while the composite head is still hot, the outgoing head is only
-    // parked after it has been cleaned, and the blocking wait for the incoming
-    // plastic head is paid while parked at the station rather than over the part.
+    // Departure lift, after the withdrawal and before the station visit. See
+    // departure_lift_z_mm in the header for why the lift lives here rather than
+    // at the end of the fibre window.
+    if (p.departure_lift_z_mm > 0.0 && std::isfinite(p.departure_lift_z_mm)) {
+        char lift_buf[96];
+        std::snprintf(lift_buf, sizeof(lift_buf), "G1 F%.0f Z%.2f",
+                      p.departure_lift_f, p.departure_lift_z_mm);
+        put(s, lift_buf);
+    }
+    // Thermal order inside the visit, per the owner transition contract
+    // (2026-10-05, section 3 of the tail/release spec):
+    //
+    //   1. the composite head being put away is parked to standby, AFTER its
+    //      clean (dropping the selected head to standby before the brush visit
+    //      is the FS_COOL_BEFORE_CLEAN defect) and BEFORE the incoming wait;
+    //   2. the plastic head's working temperature is RESTORED with a blocking
+    //      M109, not M104: the incoming head is T1, it was dropped to standby
+    //      when this window opened, and nothing else on this path puts it back
+    //      (the fibre block bypasses the exporter's own tool-change temperature
+    //      handling), so resuming plastic deposition without the wait would
+    //      extrude cold. This is the "incoming temperature readiness" half of
+    //      the vendor sequence and it is not gated by emit_readiness_wait: the
+    //      standby dwell this wait pays for happens on EVERY window.
+    //
+    // The standby-first ordering is the whole point of this half: the outgoing
+    // head must be off its working target before the printer starts spending
+    // wall-clock waiting for the incoming one, otherwise the composite head
+    // cooks matrix for the whole duration of the M109. The blocking wait is
+    // paid while parked at the station rather than over the part.
     std::string thermal;
     if (p.t0_temp_c > 0) {
+        // Park the composite head being put away, AFTER its clean and BEFORE the
+        // incoming wait.
+        append_standby(thermal, p.t0_standby_c, 0);
         if (p.t1_working_c > 0) {
             // Pre-charge the plastic head before waiting on it, matching the
             // vendor's M104 S<working> T1 / M109 S<working> T1 pair.
             put(thermal, "M104 S" + std::to_string(p.t1_working_c) + " T1 ; pre-charge");
             put(thermal, "M109 S" + std::to_string(p.t1_working_c) + " T1");
         }
-        // Park the composite head being put away, AFTER its clean. Dropping the
-        // selected head to standby before the brush visit is the defect the
-        // analyzer names FS_COOL_BEFORE_CLEAN.
-        append_standby(thermal, p.t0_standby_c, 0);
     }
     // Clean against the head being put away (T0) while it is still selected.
     append_brush(s, p.brush_on_toolchange, thermal);
@@ -235,6 +254,92 @@ double fiber_cycle_net_stationary_v_mm(double prime_v_mm, double retract_v_mm, d
     if (!std::isfinite(prime_v_mm) || !std::isfinite(retract_v_mm) || !std::isfinite(toolchange_retract_v_mm))
         return 0.0;
     return prime_v_mm - retract_v_mm - toolchange_retract_v_mm;
+}
+
+
+// Startup park: hoist the FIRST blocking hotend wait in the machine start g-code
+// into the station bracket that follows it.
+//
+// Why this exists: the reviewed export's one unparked thermal wait was the vendor
+// startup M109 S250 T1, which sits between M400 and T1, i.e. before the
+// MOVE_TO_BRUSH_STATION / CLEAN_NOZZLE / MOVE_OUT_BRUSH_STATION bracket a few lines
+// later. Every one of the 32 model-window waits was correctly bracketed; the startup
+// one was inherited from the vendor profile untouched. The rule the owner set is that
+// a hotend wait happens at an established park, and the startup case is not exempt
+// just because it is the first one.
+//
+// The transform is deliberately narrow:
+//   * Bed (M190) and chamber (M191) waits are NOT touched. Soaking a bed or a chamber
+//     at a brush station is meaningless, and the owner put them outside this rule
+//     explicitly.
+//   * The wait only moves DOWN into an existing station bracket, never to an invented
+//     coordinate. If the profile has no station-entry macro after the wait, the text
+//     is returned unchanged and the caller reports it, rather than us guessing a park
+//     position we cannot prove is safe.
+//   * The wait lands directly after the entry macro, so the head is parked while it
+//     waits and the cleaning that follows is still hot, exactly as the vendor intended.
+std::string park_initial_hotend_wait(const std::string& machine_start_gcode, bool& out_parked)
+{
+    out_parked = false;
+    if (machine_start_gcode.empty())
+        return machine_start_gcode;
+
+    std::vector<std::string> lines;
+    {
+        std::istringstream ss(machine_start_gcode);
+        std::string        line;
+        while (std::getline(ss, line))
+            lines.push_back(line);
+    }
+
+    // First blocking HOTEND wait: M109. M190/M191 are the bed and chamber equivalents
+    // and are out of scope by the rule above.
+    auto command_of = [](const std::string& l) {
+        const size_t sc = l.find(';');
+        std::string  s  = (sc == std::string::npos) ? l : l.substr(0, sc);
+        const size_t a  = s.find_first_not_of(" \t\r\n");
+        if (a == std::string::npos)
+            return std::string();
+        const size_t b = s.find_first_of(" \t\r\n", a);
+        std::string  c = s.substr(a, b == std::string::npos ? std::string::npos : b - a);
+        for (char& ch : c)
+            ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        return c;
+    };
+
+    size_t wait_idx = std::string::npos;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        if (command_of(lines[i]) == "M109") {
+            wait_idx = i;
+            break;
+        }
+    }
+    if (wait_idx == std::string::npos)
+        return machine_start_gcode;
+
+    // First station-entry macro AFTER the wait.
+    size_t entry_idx = std::string::npos;
+    for (size_t i = wait_idx + 1; i < lines.size(); ++i) {
+        const std::string c = command_of(lines[i]);
+        if (c.find("MOVE_TO_BRUSH_STATION") != std::string::npos ||
+            c.find("PARK") != std::string::npos) {
+            entry_idx = i;
+            break;
+        }
+    }
+    if (entry_idx == std::string::npos)
+        return machine_start_gcode;
+
+    const std::string wait_line = lines[wait_idx];
+    lines.erase(lines.begin() + wait_idx);
+    // Erasing above the entry shifted it down by one.
+    lines.insert(lines.begin() + entry_idx, wait_line);
+
+    std::string out;
+    for (const std::string& l : lines)
+        out += l + "\n";
+    out_parked = true;
+    return out;
 }
 
 } // namespace Fiber

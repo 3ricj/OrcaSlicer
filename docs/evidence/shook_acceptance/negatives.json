@@ -1,0 +1,148 @@
+[
+ {
+  "name": "t1_001021_profile_no_release",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_RELEASE_NOT_EXECUTED",
+  "codes": [
+   "FS_PREHEAT_SCHEDULE",
+   "FS_RELEASE_EXTRUSION",
+   "FS_RELEASE_NOT_EXECUTED"
+  ],
+  "failed": [
+   "S02",
+   "S03",
+   "S04",
+   "S09"
+  ],
+  "note": "deleted all 16 release moves (reconstructed 001021 profile)"
+ },
+ {
+  "name": "t2_delete_one_release",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_RELEASE_NOT_EXECUTED",
+  "codes": [
+   "FS_PREHEAT_SCHEDULE",
+   "FS_RELEASE_EXTRUSION",
+   "FS_RELEASE_NOT_EXECUTED"
+  ],
+  "failed": [
+   "S02",
+   "S03",
+   "S04",
+   "S09"
+  ],
+  "note": "deleted the release move at line 9975"
+ },
+ {
+  "name": "t3_recovery_before_travel",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_E_RECOVERY_LOCATION",
+  "codes": [
+   "FS_E_RECOVERY_LOCATION"
+  ],
+  "failed": [
+   "S10"
+  ],
+  "note": "moved the E recovery from line 1978 to before the destination travel at line 1976"
+ },
+ {
+  "name": "t4a_standby_after_wait",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_STANDBY_AFTER_WAIT",
+  "codes": [
+   "FS_STANDBY_AFTER_WAIT"
+  ],
+  "failed": [
+   "S08"
+  ],
+  "note": "moved the outgoing T0 standby from line 77 to after the incoming T1 wait at line 79"
+ },
+ {
+  "name": "t4b_standby_before_clean",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_COOL_BEFORE_CLEAN",
+  "codes": [
+   "FS_COOL_BEFORE_CLEAN"
+  ],
+  "failed": [
+   "S08"
+  ],
+  "note": "moved the outgoing T0 standby from line 77 to before its clean at line 76"
+ },
+ {
+  "name": "t5_wait_outside_station",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_WAIT_OUTSIDE_STATION",
+  "codes": [
+   "FS_WAIT_OUTSIDE_STATION"
+  ],
+  "failed": [
+   "S07"
+  ],
+  "note": "moved the M109 at line 8798 outside its station bracket"
+ },
+ {
+  "name": "t6_preheat_command_deleted",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_PREHEAT_MISSING",
+  "codes": [
+   "FS_PREHEAT_MISSING"
+  ],
+  "failed": [
+   "S09"
+  ],
+  "note": "deleted the preheat command at line 52, comment retained"
+ },
+ {
+  "name": "t7_c_cut_at_b_position",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_TAIL_DISTANCE_MISMATCH",
+  "codes": [
+   "FS_TAIL_DISTANCE_MISMATCH"
+  ],
+  "failed": [
+   "S02",
+   "S03"
+  ],
+  "note": "moved the first window's cut 1 mm later (line 60): C reverted to the B cut"
+ },
+ {
+  "name": "t8_release_across_unprinted_gap",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_RELEASE_UNSUPPORTED",
+  "codes": [
+   "FS_PREHEAT_SCHEDULE",
+   "FS_RELEASE_UNSUPPORTED",
+   "FS_TAIL_DISTANCE_MISMATCH"
+  ],
+  "failed": [
+   "S02",
+   "S03",
+   "S09",
+   "S13"
+  ],
+  "note": "translated the release at line 9975 (and its window) 40 mm off the deposited material"
+ },
+ {
+  "name": "t9_stale_manifest_hash",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_HASH_MISMATCH",
+  "codes": [
+   "FS_HASH_MISMATCH"
+  ],
+  "failed": [
+   "S00"
+  ],
+  "note": "changed content while leaving the manifest hash stale"
+ }
+]

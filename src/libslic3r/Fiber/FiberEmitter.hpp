@@ -57,6 +57,10 @@ struct FiberEmitParams
     double retract_f        = 600.0;
     double lift_z_mm        = 0.6;
     double lift_f           = 1200.0;
+    // Emit the departure Z lift OUT of the window instead of inside it, so a
+    // paired tool change can place it after its matrix withdrawal. See
+    // emit_strand() and FiberToolChangeParams::departure_lift_z_mm.
+    bool   defer_departure_lift = false;
     bool   emit_layer_marker = true;
     // Three-zone deposition speed (fs_fiber_speed_*), mm/s, measured along the
     // whole deposited path. A zone speed of 0 means "not configured" and

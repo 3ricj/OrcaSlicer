@@ -113,6 +113,17 @@ struct FiberToolChangeParams
     double toolchange_retract_v_mm = 4.0;
     double toolchange_retract_v_f  = 600.0;
 
+    // Departure Z lift, emitted immediately AFTER the matrix withdrawal and
+    // BEFORE station entry, so the window order is
+    //     M1002 -> V-4 -> lift -> MOVE_TO_BRUSH_STATION
+    // as the owner transition contract requires (spec section 3 steps 4-5, check
+    // S06). The caller sets this to the last fibre window's deposition Z plus the
+    // configured 0.6 mm clearance, and sets FiberEmitParams::defer_departure_lift
+    // to match. 0 emits no lift, which is correct for a caller that never
+    // deferred one.
+    double departure_lift_z_mm = 0.0;
+    double departure_lift_f    = 1200.0;
+
     // Visit the brush station at the switch. The clean is emitted against the
     // head being PUT AWAY, while it is still the selected tool, because that
     // is the head that carries fresh material to the switch station.
@@ -191,6 +202,15 @@ std::string emit_toolchange_to_plastic(const FiberToolChangeParams& p);
 // than the vendor; with no tool-change withdrawal it returns +3.000 mm.
 // Closing the last millimetre is a prime change, i.e. a profile decision.
 double fiber_cycle_net_stationary_v_mm(double prime_v_mm, double retract_v_mm, double toolchange_retract_v_mm);
+
+// Rewrite the machine start g-code so its FIRST blocking hotend wait (M109) lands
+// inside the station bracket that follows it, i.e. at an established park. Bed (M190)
+// and chamber (M191) waits are deliberately untouched: soaking a bed or chamber at a
+// brush station is meaningless. If the profile has no station-entry macro after the
+// wait the text is returned unchanged and out_parked stays false, so the caller can
+// report the unparked startup wait instead of the slicer inventing a park position.
+// Returns the (possibly rewritten) text.
+std::string park_initial_hotend_wait(const std::string& machine_start_gcode, bool& out_parked);
 
 } // namespace Fiber
 } // namespace Slic3r

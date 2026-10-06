@@ -717,27 +717,28 @@ TEST_CASE("FiberTailRelease: the margin moves the cut earlier and never the endp
         CHECK(Approx(out.body_pts.back().x).margin(1e-6) == cut0);
     }
 
-    // M = 1 shifts the blade 1 mm earlier and leaves the endpoint alone.
+    // M = 1 shifts the blade 1 mm EARLIER (45.2 -> 44.2 along +X) and leaves the
+    // endpoint alone. The severed tail becomes T + M of deposition, which is the
+    // whole point of the margin and the reason C measures 55.8 mm, not 53.8.
     {
         FiberStrand out;
         REQUIRE(apply_tail_margin(base, 1.0, out));
-        CHECK(Approx(out.tail_length_mm).margin(1e-9) == 53.8);
-        CHECK(Approx(out.body_pts.back().x).margin(1e-6) == 46.2);
+        CHECK(Approx(out.tail_length_mm).margin(1e-9) == 55.8);
+        CHECK(Approx(out.body_pts.back().x).margin(1e-6) == 44.2);
         CHECK(ends_at(out, 100.0, 0.0));
-        // The severed tail is now T + M of deposition, which is the point.
-        CHECK(Approx(out.tail_length_mm + 1.0).margin(1e-9) == 54.8);
+        CHECK(Approx(out.tail_length_mm).margin(1e-9) == 54.8 + 1.0);
     }
 
-    // A margin the strand cannot carry is refused, not silently clamped.
+    // A margin the strand cannot carry is refused, not silently clamped: a 100 mm
+    // strand cannot carry a tail of T + M >= S.
     {
         FiberStrand out;
         std::string err;
-        CHECK_FALSE(apply_tail_margin(base, 54.8, out, &err));
+        CHECK_FALSE(apply_tail_margin(base, 45.2, out, &err));
         CHECK_FALSE(err.empty());
         CHECK_FALSE(apply_tail_margin(base, 60.0, out, &err));
         CHECK_FALSE(apply_tail_margin(base, std::nan(""), out, &err));
     }
-
     // The original is never mutated: the caller still needs it for the record.
     CHECK(Approx(base.tail_length_mm).margin(1e-9) == 54.8);
     CHECK(Approx(base.body_pts.back().x).margin(1e-6) == 45.2);
