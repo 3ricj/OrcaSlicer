@@ -291,6 +291,11 @@ class Win(object):
         self.body_v = 0.0
         self.body_len = 0.0
         self.stationary_v = []   # (line, value) for every V-only move
+        # Stationary V issued AFTER the window closes and up to the first lift:
+        # this is where the departure tool-change withdrawal lives, so a ledger
+        # that stops at M1002 never sees it (S11).
+        self.depart_v = []       # (line, value)
+        self.leaves_t0 = None    # True when this close is followed by a real T0 exit
         self.footprint_worst = None
         self.footprint_worst_at = None
 
@@ -466,10 +471,18 @@ def measure_window(lines, w, o, cl, cu):
     w.post_cut_u = su
 
     # First lift after the close, and the first station entry after that.
+    # Between the close and that lift sits the departure withdrawal, so collect
+    # the stationary V moves on the way. Stopping at the lift is the point: the
+    # previous revision of the S11 ledger ended at M1002 and therefore never
+    # judged the departure amount at all.
     for i in range(cl, len(lines)):
         c = lines[i]
         if w.lift_ln is None and RE_MOVE.match(c.cmd) and "Z" in c.w:
             w.lift_ln = c.n
+            for j in range(cl + 1, i):
+                cc = lines[j]
+                if RE_MOVE.match(cc.cmd) and cc.v != 0.0 and "X" not in cc.w and "Y" not in cc.w:
+                    w.depart_v.append((cc.n, cc.v))
         if w.entry_ln is None and c.cmd in STATION_IN:
             w.entry_ln = c.n
         if w.lift_ln is not None and w.entry_ln is not None:
@@ -641,6 +654,15 @@ def find_transitions(lines):
     return out
 
 
+def head_at(lines, idx):
+    """Tool selected at a line index, from the last T command at or before it."""
+    for j in range(idx, -1, -1):
+        c = lines[j]
+        if len(c.cmd) > 1 and c.cmd[0] == "T" and c.cmd[1:].isdigit():
+            return int(c.cmd[1:])
+    return None
+
+
 def station_brackets(lines):
     """(entry_line, exit_line) pairs from the actual station macros."""
     pairs = []
@@ -654,6 +676,79 @@ def station_brackets(lines):
                 pairs.append((open_at, c.n))
                 open_at = None
     return pairs
+
+
+def wait_obligations(lines, brackets, spec):
+    """Blocking-wait obligations, one per managed activation.
+
+    Derived from PHYSICAL head changes, never from a file-wide tally. Each head
+    selection - startup included - must be preceded by a station visit that
+    waits for the incoming head at its active temperature, and the visit that
+    satisfies an obligation must be the one immediately before the activation.
+    Two waits at startup therefore cannot discharge a missing wait later, and
+    several fibre windows inside one T0 activation correctly share a single
+    obligation because there is only one physical change into T0.
+    """
+    want = {0: spec.get("fs_t0_temp"), 1: spec.get("fs_t1_temp")}
+    sw = find_transitions(lines)
+    # The startup head is the FIRST T command in the file. find_transitions()
+    # skips it because it has no predecessor to compare against, so taking the
+    # startup head from sw[0] would describe the first CHANGE rather than the
+    # first ACTIVATION and leave the vendor startup wait with no obligation at
+    # all - i.e. deleting it would pass.
+    first = None
+    for c in lines:
+        if len(c.cmd) > 1 and c.cmd[0] == "T" and c.cmd[1:].isdigit():
+            first = dict(head=int(c.cmd[1:]), ln=c.n)
+            break
+    acts = []
+    if first is not None:
+        acts.append(dict(kind="startup", head=first["head"], ln=first["ln"]))
+    # Every recorded change is its own obligation, including sw[0]: the startup
+    # activation above is the first T command, not the first change, so sw[0]
+    # (the first physical head change) is a separate activation needing its own
+    # wait.
+    for k in range(len(sw)):
+        acts.append(dict(kind="switch", head=sw[k]["to"], ln=sw[k]["switch_ln"],
+                         frm=(sw[k - 1]["to"] if k > 0 else first["head"])))
+    hot = [c for c in lines if c.cmd == "M109"]
+
+    def serving_bracket(ln, head, want_s):
+        """The station visit that must carry this activation's wait.
+
+        Preference order: the last visit that CLOSES before the activation, then
+        the first visit that OPENS after it. Backward-first is the normal case -
+        the head is waited for at the station and only then selected. Forward is
+        needed only for the startup head, which the vendor selects before any
+        station visit exists. A bracket serves at most one obligation, so a wait
+        cannot be reused across activations.
+        """
+        back = [b for b in brackets if b[1] < ln]
+        fwd = [b for b in brackets if b[0] > ln]
+        cands = ([back[-1]] if back else []) + ([fwd[0]] if fwd else [])
+        for b in cands:
+            if b in claimed:
+                continue
+            for c in hot:
+                if (b[0] <= c.n <= b[1] and want_s is not None
+                        and int(c.w.get("T", -1)) == head
+                        and c.w.get("S") is not None
+                        and abs(c.w["S"] - want_s) < 0.5):
+                    return b, c
+        return (cands[0] if cands else None), None
+
+    out = []
+    claimed = set()
+    for a in acts:
+        o = dict(a)
+        o["want_s"] = want.get(a["head"])
+        b, c = serving_bracket(a["ln"], a["head"], o["want_s"])
+        o["bracket"] = b
+        o["wait"] = c
+        if b is not None and c is not None:
+            claimed.add(b)
+        out.append(o)
+    return out
 
 
 def thermal_events(lines, window_start, window_end):
@@ -988,12 +1083,18 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
     res["checks"]["S06"] = s06
 
     # ---- S07 station waits --------------------------------------------
-    # Two independent duties. The waits that exist must be PARKED, and the waits
-    # the managed-temperature contract REQUIRES must exist at all. Deleting every
-    # M109 satisfies the first duty vacuously, which is how a previous revision of
-    # this check passed a stripped file by reporting "all 0 hotend waits are
-    # parked". Presence is judged first and is mandatory.
-    s07 = Check("S07", "hotend waits execute parked")
+    # Three independent duties. (a) Every wait that exists must be PARKED. (b)
+    # Every managed ACTIVATION must be preceded by its own parked wait for the
+    # incoming head at its active temperature. (c) That wait must belong to the
+    # station visit immediately before the activation it serves.
+    #
+    # A previous revision judged only a file-wide tally, so deleting every M109
+    # passed vacuously ("all 0 hotend waits are parked") and relocating a wait
+    # passed on count alone. Judging per activation closes both: duplicate waits
+    # at startup cannot discharge a later obligation, and several fibre windows
+    # inside one T0 activation correctly need one wait, not one per window,
+    # because there is one physical change into T0.
+    s07 = Check("S07", "hotend waits parked, one per managed activation")
     brackets = station_brackets(lines)
     waits = [c for c in lines if c.cmd in ("M109", "M190", "M191")]
     hot_waits = [c for c in waits if c.cmd == "M109"]
@@ -1004,43 +1105,91 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
     s07.measured = len(off)
     s07.expected = 0
 
-    # Required-wait inventory, derived from the fibre windows this file emitted:
-    # T1 is the startup head and pays once at startup plus once per window; T0
-    # pays once per window. A managed activation with no wait is not managed.
-    t1_waits = [c for c in hot_waits if int(c.w.get("T", -1)) == 1]
-    t0_waits = [c for c in hot_waits if int(c.w.get("T", -1)) == 0]
-    need_t1 = len(wins) + 1
-    need_t0 = len(wins)
-    missing = []
-    if not hot_waits:
-        missing.append("no hotend wait of any kind in the file; every managed "
-                       "activation must pay its blocking wait at the station")
-    else:
-        if len(t1_waits) < need_t1:
-            missing.append("T1 waits measured %d, required %d (startup plus one "
-                           "per fibre window)" % (len(t1_waits), need_t1))
-        if len(t0_waits) < need_t0:
-            missing.append("T0 waits measured %d, required %d (one per fibre "
-                           "window)" % (len(t0_waits), need_t0))
-    s07.note("hotend waits measured: %d (T0 %d, T1 %d); required T0 %d + T1 %d for "
-             "%d fibre windows; %d bed/chamber waits are out of scope"
-             % (len(hot_waits), len(t0_waits), len(t1_waits), need_t0, need_t1,
-                len(wins), len(waits) - len(hot_waits)))
-    if missing:
-        s07.bad("required temperature waits missing: %s" % "; ".join(missing),
-                code="FS_WAIT_MISSING")
+    ob = wait_obligations(lines, brackets, spec)
+    res["wait_obligations"] = []
+    unmet = []
+    codes07 = []
+    for o in ob:
+        row = dict(kind=o["kind"], head=o["head"], activation_ln=o["ln"],
+                   required_s=o["want_s"],
+                   station=("%d..%d" % o["bracket"]) if o["bracket"] else None,
+                   wait_ln=None, wait_s=None, ok=False, why=None)
+        if o["want_s"] is None:
+            row["why"] = "FS_WAIT_TEMP_UNKNOWN"
+            unmet.append("%s activation of T%d at line %d: the manifest records no "
+                         "active temperature for that head, so its required wait "
+                         "cannot be evaluated"
+                         % (o["kind"], o["head"], o["ln"]))
+            codes07.append("FS_WAIT_TEMP_UNKNOWN")
+            res["wait_obligations"].append(row)
+            continue
+        if o["bracket"] is None:
+            row["why"] = "FS_WAIT_NO_STATION"
+            unmet.append("%s activation of T%d at line %d has no station visit "
+                         "around it at all, so its M109 S%d T%d cannot be parked"
+                         % (o["kind"], o["head"], o["ln"], o["want_s"], o["head"]))
+            codes07.append("FS_WAIT_NO_STATION")
+            res["wait_obligations"].append(row)
+            continue
+        if o["wait"] is None:
+            row["why"] = "FS_WAIT_MISSING"
+            lo, hi = o["bracket"]
+            inb = [c for c in lines if c.cmd == "M109" and lo <= c.n <= hi]
+            wrong = [c for c in inb if int(c.w.get("T", -1)) == o["head"]]
+            if wrong:
+                row["wait_ln"] = wrong[0].n
+                row["wait_s"] = wrong[0].w.get("S")
+                row["why"] = "FS_WAIT_WRONG_TEMP"
+                codes07.append("FS_WAIT_WRONG_TEMP")
+                unmet.append("%s activation of T%d at line %d: the serving station "
+                             "visit at %d..%d waits for T%d at S%s but the active "
+                             "temperature is %s; required M109 S%d T%d"
+                             % (o["kind"], o["head"], o["ln"], lo, hi, o["head"],
+                                wrong[0].w.get("S"), o["want_s"], o["want_s"],
+                                o["head"]))
+            else:
+                codes07.append("FS_WAIT_MISSING")
+                unmet.append("%s activation of T%d at line %d: the serving station "
+                             "visit at %d..%d carries no M109 for T%d; required "
+                             "M109 S%d T%d, found [%s]"
+                             % (o["kind"], o["head"], o["ln"], lo, hi, o["head"],
+                                o["want_s"], o["head"],
+                                ", ".join("T%d@%d" % (int(c.w.get("T", -1)), c.n)
+                                          for c in inb) or "no waits"))
+            res["wait_obligations"].append(row)
+            continue
+        row["ok"] = True
+        row["wait_ln"] = o["wait"].n
+        row["wait_s"] = o["wait"].w.get("S")
+        res["wait_obligations"].append(row)
+
+    n_ok = sum(1 for r in res["wait_obligations"] if r["ok"])
+    s07.note("%d managed activations (1 startup + %d physical head changes), each "
+             "requiring its own parked wait; %d satisfied; %d hotend waits present; "
+             "%d bed/chamber waits out of scope"
+             % (len(ob), len(ob) - 1, n_ok, len(hot_waits),
+                len(waits) - len(hot_waits)))
+    if unmet:
+        s07.bad("%d of %d managed activations lack a parked wait for the incoming "
+                "head at its active temperature: %s"
+                % (len(unmet), len(ob), unmet[0]), code=codes07[0])
+        for cd in sorted(set(codes07)):
+            if cd not in s07.codes:
+                s07.codes.append(cd)
+        for u in unmet[1:5]:
+            s07.note(u)
     if off:
         s07.bad("%d of %d hotend waits outside a station bracket: %s"
                 % (len(off), len(hot_waits), off[0]),
                 code="FS_WAIT_OUTSIDE_STATION")
         for o in off[1:5]:
             s07.note(o)
-    if not off and not missing:
-        s07.ok("all %d hotend waits (T0 %d, T1 %d, including the startup one) "
-               "execute inside an explicit station bracket and meet the required "
-               "inventory of %d T0 + %d T1 for %d fibre windows"
-               % (len(hot_waits), len(t0_waits), len(t1_waits), need_t0, need_t1,
-                  len(wins)))
+    if not off and not unmet:
+        s07.ok("all %d hotend waits execute inside an explicit station bracket, and "
+               "each of the %d managed activations (startup plus %d physical head "
+               "changes) is served by its own parked wait for the incoming head at "
+               "its active temperature"
+               % (len(hot_waits), len(ob), len(ob) - 1))
     res["checks"]["S07"] = s07
 
     # ---- S08 outgoing thermal order -----------------------------------
@@ -1358,6 +1507,60 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
             s11.note("tail payout worst absolute deviation %.4f mm (tolerance "
                      "%.2f mm)" % (worst_t, TOL_TAIL_V))
 
+    # --- departure tool-change withdrawal --------------------------------
+    # The stationary-V ledger above stops at M1002, which is exactly where the
+    # departure withdrawal begins, so it never judged that amount. Spec section
+    # 3 step 4 requires the additional V withdrawal ONCE for an actual T0
+    # departure, between the window close and the lift, and NONE for a close
+    # that keeps T0 active. Deleting all 16 of them used to pass S11.
+    tcv = spec.get("fs_toolchange_retract_v")
+    if tcv is None:
+        tcv = 4.0
+        s11.note("fs_toolchange_retract_v absent from the effective config; the "
+                 "registered default 4.0 mm is used as the required departure "
+                 "withdrawal")
+    if tcv > 0.0:
+        want_dep = -tcv
+        dep_bad = []
+        dep_ok = 0
+        dep_rows = []
+        for k, w in enumerate(wins, start=1):
+            head = head_at(lines, w.close_idx)
+            expect = (head == 0)
+            hits = [ln for ln, val in w.depart_v if near(val, want_dep,
+                                                         TOL_STATIONARY_V)]
+            dep_rows.append(dict(window=k, head=head, expected=expect,
+                                 lines=hits, values=[round(v, 3) for _, v in
+                                                     w.depart_v]))
+            if expect and len(hits) != 1:
+                dep_bad.append("W%d closes while T0 is selected, so it is a real "
+                               "T0 departure: requires exactly 1 stationary V %+.3f "
+                               "between M1002 at line %d and the first lift at line "
+                               "%d, found %d (window carries stationary V %s after "
+                               "the close)"
+                               % (k, want_dep, w.close_ln, w.lift_ln or 0,
+                                  len(hits),
+                                  ", ".join("%+.3f@%d" % (v, ln) for ln, v in
+                                            w.depart_v) or "none"))
+            elif (not expect) and hits:
+                dep_bad.append("W%d closes while T%d is still active (inter-strand "
+                               "move, no physical head change): must carry NO "
+                               "departure withdrawal, found %d at lines %s"
+                               % (k, head, len(hits), hits))
+            elif expect:
+                dep_ok += 1
+        res["departure_withdrawals"] = dep_rows
+        n_exp = sum(1 for r in dep_rows if r["expected"])
+        s11.note("departure withdrawal: %d of %d windows are a real T0 departure "
+                 "and each requires exactly one stationary V %+.3f after M1002 and "
+                 "before the lift; %d verified"
+                 % (n_exp, len(wins), want_dep, dep_ok))
+        if dep_bad:
+            bad.extend(dep_bad[:4])
+            codes11.append("FS_DEPART_WITHDRAWAL_MISSING")
+            for b in dep_bad[4:8]:
+                s11.note(b)
+
     # --- stationary V amounts ------------------------------------------
     # Classified by VALUE, never by comment: a re-labelled payout is still a
     # payout, and a comment-sorted ledger is exactly what let a 30x tail payout
@@ -1418,7 +1621,10 @@ def evaluate_file(variant, path, spec, evidence, macro_status):
                 s11.codes.append(cd)
     else:
         s11.ok("M1001 L agrees with the recalculated window U under the established "
-               "floor contract in all %d windows; U55 reload preserved on every window"
+               "floor contract in all %d windows; U55 reload preserved on every "
+               "window; body and tail matrix payouts match the configured formula; "
+               "every real T0 departure carries exactly one withdrawal between "
+               "M1002 and the lift and no inter-strand close carries one"
                % len(wins))
     res["checks"]["S11"] = s11
 
@@ -1811,6 +2017,48 @@ def render_md(payload):
                  cell(t.get("first_deposition_ln")),
                  t["available_s"], t["required_s"], t["measured_s"], t["delta_s"]))
         A("")
+
+    # Per-activation wait obligations. The point of this table is that the row
+    # count equals the activation count: a tally that hides an unwaited
+    # activation cannot survive a row per activation.
+    if r.get("wait_obligations"):
+        A("### Wait obligations, one row per managed activation")
+        A("")
+        A("Each activation must be served by its own station visit waiting for "
+          "the incoming head at its active temperature. A station visit appears "
+          "at most once.")
+        A("")
+        A("| kind | head | activation line | serving station visit | wait line | "
+          "wait S | required S | verdict |")
+        A("|---|---|---|---|---|---|---|---|")
+        for o in r["wait_obligations"]:
+            A("| %s | T%d | %d | %s | %s | %s | %s | %s |"
+              % (o["kind"], o["head"], o["activation_ln"],
+                 o["station"] or "-", cell(o["wait_ln"]),
+                 cell(o["wait_s"], "%.0f"), cell(o["required_s"], "%.0f"),
+                 "served" if o["ok"] else (o["why"] or "unmet")))
+        A("")
+
+    # Departure withdrawals: one row per fibre window, so a missing withdrawal
+    # is a visible row rather than an absent line in a count.
+    if r.get("departure_withdrawals"):
+        A("### Departure tool-change withdrawals, one row per fibre window")
+        A("")
+        A("A window that closes while T0 is selected is a real T0 departure and "
+          "owes exactly one stationary V withdrawal between M1002 and the lift. "
+          "An inter-strand close that keeps T0 active owes none.")
+        A("")
+        A("| window | head at close | departure owed | withdrawal lines | "
+          "stationary V after close | verdict |")
+        A("|---|---|---|---|---|---|")
+        for d in r["departure_withdrawals"]:
+            ok = (len(d["lines"]) == 1) if d["expected"] else (not d["lines"])
+            A("| %d | T%s | %s | %s | %s | %s |"
+              % (d["window"], d["head"], "yes" if d["expected"] else "no",
+                 ", ".join(str(x) for x in d["lines"]) or "-",
+                 ", ".join("%+.3f" % v for v in d["values"]) or "-",
+                 "ok" if ok else "FAIL"))
+        A("")
     A("## Cross-check: cut through release end")
     A("")
     A("| variant | expected total | deposition | release | verdict |")
@@ -1870,10 +2118,20 @@ def main(argv=None):
         # slicer actually sliced with rather than a re-read of one preset file.
         eff = entry.get("effective_config") or {}
         for fk in ("fs_fiber_rate", "fs_matrix_ratio", "fs_tail_v_factor",
-                   "fs_prime_v", "fs_retract_v", "fs_toolchange_retract_v"):
+                   "fs_prime_v", "fs_retract_v", "fs_toolchange_retract_v",
+                   "fs_t0_temp", "fs_t1_temp"):
             if eff.get(fk) is not None:
                 try:
                     spec[fk] = float(eff[fk])
+                except (TypeError, ValueError):
+                    pass
+        # T1 is the plastic head; its active temperature is the filament
+        # nozzle target, which is what its M109 must wait for.
+        if eff.get("fs_t1_temp") is None:
+            nt = eff.get("nozzle_temperature")
+            if isinstance(nt, list) and nt:
+                try:
+                    spec["fs_t1_temp"] = float(nt[0])
                 except (TypeError, ValueError):
                     pass
         nd = eff.get("nozzle_diameter")

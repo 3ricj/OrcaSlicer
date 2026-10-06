@@ -8,7 +8,7 @@
   "filament_preset_sha256": "51bb091c2465366b7f85122ce4e34aab3c712e57dfe8285c5b6402be61d52d54",
   "machine_preset_base": "resources/profiles/FibreSeeker3/machine/FibreSeeker3 SK3 CF nozzle.json",
   "machine_preset_base_sha256": "3e9f837be6b26239f4672015c9141d5d56d4d06f605cd78fe3a05d99df143e02",
-  "source_revision": "a e 7 3 f 0 6 8 7 4 a 4 2 b 0 4 c 4 0 7 b 0 d 5 6 3 3 1 7 2 9 9 3 4 3 6 1 e f 0",
+  "source_revision": "7 f e 1 8 0 e 1 d c 9 8 1 c f b 1 d 3 4 b 9 5 3 2 2 9 4 4 4 d 6 a 9 3 5 8 8 8 8",
   "source_dirty_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "build_command": "cmake --build build --target OrcaSlicer --config Release -j 8",
   "executable": "build/src/Release/orca-slicer.exe",
@@ -16,7 +16,7 @@
   "runtime_dll": "build/src/Release/OrcaSlicer.dll",
   "runtime_dll_sha256": "2490aef02bd0d95de7b086d1df27f44bb488ef9ec669229309954bd11fac6af4",
   "verifier": "tools/verify_fs_shook.py",
-  "verifier_sha256": "db6b3db10056d3373cc163295fe315673595bb7d2b799c62c96b6658e3f354e3"
+  "verifier_sha256": "e25f6b778bc35a09adc806b20a0cf088a5d8626c8e36900fc2afff3dcc3b6fda"
  },
  "clock": {
   "translating": "60 * XYZ distance / modal F",
@@ -34,7 +34,7 @@
   {
    "variant": "shook_A_park_wait",
    "gcode": "gcode/shook_A_park_wait.gcode",
-   "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+   "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
    "lines": 19594,
    "cmd": "C:/Users/3ricj/Documents/GitHub/OrcaSlicer/build/src/Release/orca-slicer.exe --datadir C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/datadir --load-settings C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/datadir/user/default/machine/shook_A_park_wait.json;C:/Users/3ricj/Documents/GitHub/OrcaSlicer/resources/profiles/FibreSeeker3/process/0.12mm Reinforced L5 @FibreSeeker3 SK3.json --load-filaments C:/Users/3ricj/Documents/GitHub/OrcaSlicer/resources/profiles/FibreSeeker3/filament/FibreSeek PETG @FibreSeeker3 SK3.json --slice 0 --outputdir C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/gcode/shook_A_park_wait C:/Users/3ricj/Documents/GitHub/FibreSeeker3/Test_files/2026-09-25 S-hook/S Hook.3mf",
    "exit": 0,
@@ -67,7 +67,12 @@
     "fs_tail_v_factor": "0.72",
     "fs_brush_on_toolchange": null,
     "fs_aux_fans_on_toolchange": null,
-    "nozzle_diameter": "['0.4']",
+    "nozzle_diameter": [
+     "0.4"
+    ],
+    "nozzle_temperature": [
+     "250"
+    ],
     "first_layer_height": null,
     "layer_height": null
    },
@@ -82,7 +87,7 @@
   {
    "variant": "shook_B_forward_release",
    "gcode": "gcode/shook_B_forward_release.gcode",
-   "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+   "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
    "lines": 19653,
    "cmd": "C:/Users/3ricj/Documents/GitHub/OrcaSlicer/build/src/Release/orca-slicer.exe --datadir C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/datadir --load-settings C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/datadir/user/default/machine/shook_B_forward_release.json;C:/Users/3ricj/Documents/GitHub/OrcaSlicer/resources/profiles/FibreSeeker3/process/0.12mm Reinforced L5 @FibreSeeker3 SK3.json --load-filaments C:/Users/3ricj/Documents/GitHub/OrcaSlicer/resources/profiles/FibreSeeker3/filament/FibreSeek PETG @FibreSeeker3 SK3.json --slice 0 --outputdir C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/gcode/shook_B_forward_release C:/Users/3ricj/Documents/GitHub/FibreSeeker3/Test_files/2026-09-25 S-hook/S Hook.3mf",
    "exit": 0,
@@ -115,7 +120,12 @@
     "fs_tail_v_factor": "0.72",
     "fs_brush_on_toolchange": null,
     "fs_aux_fans_on_toolchange": null,
-    "nozzle_diameter": "['0.4']",
+    "nozzle_diameter": [
+     "0.4"
+    ],
+    "nozzle_temperature": [
+     "250"
+    ],
     "first_layer_height": null,
     "layer_height": null
    },
@@ -130,7 +140,7 @@
   {
    "variant": "shook_C_release_margin_1mm",
    "gcode": "gcode/shook_C_release_margin_1mm.gcode",
-   "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+   "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
    "lines": 19661,
    "cmd": "C:/Users/3ricj/Documents/GitHub/OrcaSlicer/build/src/Release/orca-slicer.exe --datadir C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/datadir --load-settings C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/datadir/user/default/machine/shook_C_release_margin_1mm.json;C:/Users/3ricj/Documents/GitHub/OrcaSlicer/resources/profiles/FibreSeeker3/process/0.12mm Reinforced L5 @FibreSeeker3 SK3.json --load-filaments C:/Users/3ricj/Documents/GitHub/OrcaSlicer/resources/profiles/FibreSeeker3/filament/FibreSeek PETG @FibreSeeker3 SK3.json --slice 0 --outputdir C:/Users/3ricj/Documents/GitHub/OrcaSlicer/out/fs_shook/gcode/shook_C_release_margin_1mm C:/Users/3ricj/Documents/GitHub/FibreSeeker3/Test_files/2026-09-25 S-hook/S Hook.3mf",
    "exit": 0,
@@ -163,7 +173,12 @@
     "fs_tail_v_factor": "0.72",
     "fs_brush_on_toolchange": null,
     "fs_aux_fans_on_toolchange": null,
-    "nozzle_diameter": "['0.4']",
+    "nozzle_diameter": [
+     "0.4"
+    ],
+    "nozzle_temperature": [
+     "250"
+    ],
     "first_layer_height": null,
     "layer_height": null
    },

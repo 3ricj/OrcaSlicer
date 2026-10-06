@@ -77,6 +77,21 @@ def dirty_patch_sha256():
     return sha(cache)
 
 
+def _cfgval(val):
+    """Normalise one preset value for the manifest.
+
+    Lists must stay lists: nozzle_temperature and nozzle_diameter are arrays, and
+    str()-ing them produced "['250']", which no consumer could parse back into a
+    number. S07 needs the T1 active temperature and S13 needs the bead width, so
+    flattening them to a repr string silently disabled both.
+    """
+    if isinstance(val, (list, tuple)):
+        return [_cfgval(v) for v in val]
+    if isinstance(val, str):
+        return val
+    return str(val)
+
+
 def effective_config(preset_path):
     """The merged config the run actually used, read back off the export.
 
@@ -109,17 +124,25 @@ def main(argv=None):
                               encoding="utf-8-sig"))
         eff = {}
         for k, val in base.items():
-            eff[k] = str(val) if not isinstance(val, str) else val
+            eff[k] = _cfgval(val)
         for k, val in pj.items():
             if k in ("type", "name", "from", "inherits", "version"):
                 continue
-            eff[k] = str(val) if not isinstance(val, str) else val
+            eff[k] = _cfgval(val)
         # The process preset overrides the machine preset for shared keys.
         proc = json.load(open(mnt(os.path.join(ROOT, PROC)), encoding="utf-8-sig"))
         for k, val in proc.items():
             if k in ("type", "name", "from", "inherits", "version"):
                 continue
-            eff[k] = str(val) if not isinstance(val, str) else val
+            eff[k] = _cfgval(val)
+        # Filament supplies the plastic head's active nozzle temperature, which
+        # is the temperature its blocking wait must target. Merge it last so the
+        # effective config is the full three-way merge the slicer used.
+        fila = json.load(open(mnt(os.path.join(ROOT, FILA)), encoding="utf-8-sig"))
+        for k, val in fila.items():
+            if k in ("type", "name", "from", "inherits", "version"):
+                continue
+            eff[k] = _cfgval(val)
         gcode = r["gcode"]
         files.append(dict(
             variant=v,
@@ -143,7 +166,8 @@ def main(argv=None):
                 # must be in the effective config the verifier may trust.
                 "fs_tail_v_factor",
                 "fs_brush_on_toolchange", "fs_aux_fans_on_toolchange",
-                "nozzle_diameter", "first_layer_height", "layer_height")},
+                "nozzle_diameter", "nozzle_temperature",
+                "first_layer_height", "layer_height")},
             evidence=dict(kind="independent_reconstruction",
                           method="deposited-material mask rebuilt from emitted "
                                  "coordinates by the verifier itself",

@@ -11,7 +11,7 @@
   "filament_preset_sha256": "51bb091c2465366b7f85122ce4e34aab3c712e57dfe8285c5b6402be61d52d54",
   "machine_preset_base": "resources/profiles/FibreSeeker3/machine/FibreSeeker3 SK3 CF nozzle.json",
   "machine_preset_base_sha256": "3e9f837be6b26239f4672015c9141d5d56d4d06f605cd78fe3a05d99df143e02",
-  "source_revision": "a e 7 3 f 0 6 8 7 4 a 4 2 b 0 4 c 4 0 7 b 0 d 5 6 3 3 1 7 2 9 9 3 4 3 6 1 e f 0",
+  "source_revision": "7 f e 1 8 0 e 1 d c 9 8 1 c f b 1 d 3 4 b 9 5 3 2 2 9 4 4 4 d 6 a 9 3 5 8 8 8 8",
   "source_dirty_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "build_command": "cmake --build build --target OrcaSlicer --config Release -j 8",
   "executable": "build/src/Release/orca-slicer.exe",
@@ -19,7 +19,7 @@
   "runtime_dll": "build/src/Release/OrcaSlicer.dll",
   "runtime_dll_sha256": "2490aef02bd0d95de7b086d1df27f44bb488ef9ec669229309954bd11fac6af4",
   "verifier": "tools/verify_fs_shook.py",
-  "verifier_sha256": "db6b3db10056d3373cc163295fe315673595bb7d2b799c62c96b6658e3f354e3"
+  "verifier_sha256": "e25f6b778bc35a09adc806b20a0cf088a5d8626c8e36900fc2afff3dcc3b6fda"
  },
  "clock": {
   "translating": "60 * XYZ distance / modal F",
@@ -418,14 +418,14 @@
     },
     "S07": {
      "id": "S07",
-     "title": "hotend waits execute parked",
+     "title": "hotend waits parked, one per managed activation",
      "status": "PASS",
      "measured": 0,
      "expected": 0,
      "codes": [],
      "detail": [
-      "hotend waits measured: 33 (T0 16, T1 17); required T0 16 + T1 17 for 16 fibre windows; 3 bed/chamber waits are out of scope",
-      "all 33 hotend waits (T0 16, T1 17, including the startup one) execute inside an explicit station bracket and meet the required inventory of 16 T0 + 17 T1 for 16 fibre windows"
+      "33 managed activations (1 startup + 32 physical head changes), each requiring its own parked wait; 33 satisfied; 33 hotend waits present; 3 bed/chamber waits out of scope",
+      "all 33 hotend waits execute inside an explicit station bracket, and each of the 33 managed activations (startup plus 32 physical head changes) is served by its own parked wait for the incoming head at its active temperature"
      ]
     },
     "S08": {
@@ -731,9 +731,11 @@
      "detail": [
       "body payout rate worst relative deviation 0.477 percent (tolerance 2.0 percent)",
       "tail payout worst absolute deviation 0.0093 mm (tolerance 0.05 mm)",
+      "fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal",
+      "departure withdrawal: 16 of 16 windows are a real T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified",
       "stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000",
       "U55 reload present on 16 of 16 windows",
-      "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window"
+      "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one"
      ]
     },
     "S13": {
@@ -786,7 +788,372 @@
    "errors": [],
    "lines": 19595,
    "unsupported": [],
-   "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+   "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
+   "wait_obligations": [
+    {
+     "kind": "startup",
+     "head": 1,
+     "activation_ln": 33,
+     "required_s": 250.0,
+     "station": "34..37",
+     "wait_ln": 35,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 51,
+     "required_s": 270.0,
+     "station": "42..48",
+     "wait_ln": 47,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 80,
+     "required_s": 250.0,
+     "station": "72..77",
+     "wait_ln": 76,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 1587,
+     "required_s": 270.0,
+     "station": "1577..1582",
+     "wait_ln": 1581,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 1962,
+     "required_s": 250.0,
+     "station": "1952..1957",
+     "wait_ln": 1956,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 2584,
+     "required_s": 270.0,
+     "station": "2574..2579",
+     "wait_ln": 2578,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 2970,
+     "required_s": 250.0,
+     "station": "2960..2965",
+     "wait_ln": 2964,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 3638,
+     "required_s": 270.0,
+     "station": "3628..3633",
+     "wait_ln": 3632,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 4039,
+     "required_s": 250.0,
+     "station": "4029..4034",
+     "wait_ln": 4033,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 4841,
+     "required_s": 270.0,
+     "station": "4831..4836",
+     "wait_ln": 4835,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 5223,
+     "required_s": 250.0,
+     "station": "5213..5218",
+     "wait_ln": 5217,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 6025,
+     "required_s": 270.0,
+     "station": "6015..6020",
+     "wait_ln": 6019,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 6410,
+     "required_s": 250.0,
+     "station": "6400..6405",
+     "wait_ln": 6404,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 7212,
+     "required_s": 270.0,
+     "station": "7202..7207",
+     "wait_ln": 7206,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 7590,
+     "required_s": 250.0,
+     "station": "7580..7585",
+     "wait_ln": 7584,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 8392,
+     "required_s": 270.0,
+     "station": "8382..8387",
+     "wait_ln": 8386,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 8775,
+     "required_s": 250.0,
+     "station": "8765..8770",
+     "wait_ln": 8769,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 9577,
+     "required_s": 270.0,
+     "station": "9567..9572",
+     "wait_ln": 9571,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 9959,
+     "required_s": 250.0,
+     "station": "9949..9954",
+     "wait_ln": 9953,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 10761,
+     "required_s": 270.0,
+     "station": "10751..10756",
+     "wait_ln": 10755,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 11145,
+     "required_s": 250.0,
+     "station": "11135..11140",
+     "wait_ln": 11139,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 11945,
+     "required_s": 270.0,
+     "station": "11935..11940",
+     "wait_ln": 11939,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 12328,
+     "required_s": 250.0,
+     "station": "12318..12323",
+     "wait_ln": 12322,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 13156,
+     "required_s": 270.0,
+     "station": "13146..13151",
+     "wait_ln": 13150,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 13538,
+     "required_s": 250.0,
+     "station": "13528..13533",
+     "wait_ln": 13532,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 14371,
+     "required_s": 270.0,
+     "station": "14361..14366",
+     "wait_ln": 14365,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 14759,
+     "required_s": 250.0,
+     "station": "14749..14754",
+     "wait_ln": 14753,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 15484,
+     "required_s": 270.0,
+     "station": "15474..15479",
+     "wait_ln": 15478,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 15867,
+     "required_s": 250.0,
+     "station": "15857..15862",
+     "wait_ln": 15861,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 16510,
+     "required_s": 270.0,
+     "station": "16500..16505",
+     "wait_ln": 16504,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 16878,
+     "required_s": 250.0,
+     "station": "16868..16873",
+     "wait_ln": 16872,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 17472,
+     "required_s": 270.0,
+     "station": "17462..17467",
+     "wait_ln": 17466,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 17841,
+     "required_s": 250.0,
+     "station": "17831..17836",
+     "wait_ln": 17835,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    }
+   ],
    "preheat_rows": [
     {
      "switch": 80,
@@ -2773,6 +3140,184 @@
      "moved": false
     }
    ],
+   "departure_withdrawals": [
+    {
+     "window": 1,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      70
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 2,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      1950
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 3,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      2958
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 4,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      4027
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 5,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      5211
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 6,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      6398
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 7,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      7578
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 8,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      8763
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 9,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      9947
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 10,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      11133
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 11,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      12316
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 12,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      13526
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 13,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      14747
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 14,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      15855
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 15,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      16866
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 16,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      17829
+     ],
+     "values": [
+      -4.0
+     ]
+    }
+   ],
    "effective_config": {
     "fs_fiber_enabled": "1",
     "fs_t0_temp": "270",
@@ -2801,7 +3346,12 @@
     "fs_tail_v_factor": "0.72",
     "fs_brush_on_toolchange": null,
     "fs_aux_fans_on_toolchange": null,
-    "nozzle_diameter": "['0.4']",
+    "nozzle_diameter": [
+     "0.4"
+    ],
+    "nozzle_temperature": [
+     "250"
+    ],
     "first_layer_height": null,
     "layer_height": null
    },
@@ -2810,7 +3360,7 @@
    "window_rows": [
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 1,
      "kind": "purge",
@@ -2850,7 +3400,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 2,
      "kind": "model",
@@ -2890,7 +3440,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 3,
      "kind": "model",
@@ -2930,7 +3480,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 4,
      "kind": "model",
@@ -2970,7 +3520,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 5,
      "kind": "model",
@@ -3010,7 +3560,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 6,
      "kind": "model",
@@ -3050,7 +3600,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 7,
      "kind": "model",
@@ -3090,7 +3640,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 8,
      "kind": "model",
@@ -3130,7 +3680,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 9,
      "kind": "model",
@@ -3170,7 +3720,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 10,
      "kind": "model",
@@ -3210,7 +3760,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 11,
      "kind": "model",
@@ -3250,7 +3800,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 12,
      "kind": "model",
@@ -3290,7 +3840,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 13,
      "kind": "model",
@@ -3330,7 +3880,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 14,
      "kind": "model",
@@ -3370,7 +3920,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 15,
      "kind": "model",
@@ -3410,7 +3960,7 @@
     },
     {
      "file": "shook_A_park_wait.gcode",
-     "sha256": "eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7",
+     "sha256": "d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d",
      "variant": "shook_A_park_wait",
      "window": 16,
      "kind": "model",
@@ -4560,14 +5110,14 @@
     },
     "S07": {
      "id": "S07",
-     "title": "hotend waits execute parked",
+     "title": "hotend waits parked, one per managed activation",
      "status": "PASS",
      "measured": 0,
      "expected": 0,
      "codes": [],
      "detail": [
-      "hotend waits measured: 33 (T0 16, T1 17); required T0 16 + T1 17 for 16 fibre windows; 3 bed/chamber waits are out of scope",
-      "all 33 hotend waits (T0 16, T1 17, including the startup one) execute inside an explicit station bracket and meet the required inventory of 16 T0 + 17 T1 for 16 fibre windows"
+      "33 managed activations (1 startup + 32 physical head changes), each requiring its own parked wait; 33 satisfied; 33 hotend waits present; 3 bed/chamber waits out of scope",
+      "all 33 hotend waits execute inside an explicit station bracket, and each of the 33 managed activations (startup plus 32 physical head changes) is served by its own parked wait for the incoming head at its active temperature"
      ]
     },
     "S08": {
@@ -4873,9 +5423,11 @@
      "detail": [
       "body payout rate worst relative deviation 0.291 percent (tolerance 2.0 percent)",
       "tail payout worst absolute deviation 0.0086 mm (tolerance 0.05 mm)",
+      "fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal",
+      "departure withdrawal: 16 of 16 windows are a real T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified",
       "stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000",
       "U55 reload present on 16 of 16 windows",
-      "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window"
+      "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one"
      ]
     },
     "S13": {
@@ -4928,7 +5480,372 @@
    "errors": [],
    "lines": 19654,
    "unsupported": [],
-   "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+   "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
+   "wait_obligations": [
+    {
+     "kind": "startup",
+     "head": 1,
+     "activation_ln": 33,
+     "required_s": 250.0,
+     "station": "34..37",
+     "wait_ln": 35,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 51,
+     "required_s": 270.0,
+     "station": "42..48",
+     "wait_ln": 47,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 83,
+     "required_s": 250.0,
+     "station": "75..80",
+     "wait_ln": 79,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 1590,
+     "required_s": 270.0,
+     "station": "1580..1585",
+     "wait_ln": 1584,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 1968,
+     "required_s": 250.0,
+     "station": "1958..1963",
+     "wait_ln": 1962,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 2590,
+     "required_s": 270.0,
+     "station": "2580..2585",
+     "wait_ln": 2584,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 2980,
+     "required_s": 250.0,
+     "station": "2970..2975",
+     "wait_ln": 2974,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 3648,
+     "required_s": 270.0,
+     "station": "3638..3643",
+     "wait_ln": 3642,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 4054,
+     "required_s": 250.0,
+     "station": "4044..4049",
+     "wait_ln": 4048,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 4856,
+     "required_s": 270.0,
+     "station": "4846..4851",
+     "wait_ln": 4850,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 5241,
+     "required_s": 250.0,
+     "station": "5231..5236",
+     "wait_ln": 5235,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 6043,
+     "required_s": 270.0,
+     "station": "6033..6038",
+     "wait_ln": 6037,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 6430,
+     "required_s": 250.0,
+     "station": "6420..6425",
+     "wait_ln": 6424,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 7232,
+     "required_s": 270.0,
+     "station": "7222..7227",
+     "wait_ln": 7226,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 7614,
+     "required_s": 250.0,
+     "station": "7604..7609",
+     "wait_ln": 7608,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 8417,
+     "required_s": 270.0,
+     "station": "8407..8412",
+     "wait_ln": 8411,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 8804,
+     "required_s": 250.0,
+     "station": "8794..8799",
+     "wait_ln": 8798,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 9606,
+     "required_s": 270.0,
+     "station": "9596..9601",
+     "wait_ln": 9600,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 9991,
+     "required_s": 250.0,
+     "station": "9981..9986",
+     "wait_ln": 9985,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 10793,
+     "required_s": 270.0,
+     "station": "10783..10788",
+     "wait_ln": 10787,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 11179,
+     "required_s": 250.0,
+     "station": "11169..11174",
+     "wait_ln": 11173,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 11979,
+     "required_s": 270.0,
+     "station": "11969..11974",
+     "wait_ln": 11973,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 12365,
+     "required_s": 250.0,
+     "station": "12355..12360",
+     "wait_ln": 12359,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 13193,
+     "required_s": 270.0,
+     "station": "13183..13188",
+     "wait_ln": 13187,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 13578,
+     "required_s": 250.0,
+     "station": "13568..13573",
+     "wait_ln": 13572,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 14411,
+     "required_s": 270.0,
+     "station": "14401..14406",
+     "wait_ln": 14405,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 14803,
+     "required_s": 250.0,
+     "station": "14793..14798",
+     "wait_ln": 14797,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 15527,
+     "required_s": 270.0,
+     "station": "15517..15522",
+     "wait_ln": 15521,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 15917,
+     "required_s": 250.0,
+     "station": "15907..15912",
+     "wait_ln": 15911,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 16560,
+     "required_s": 270.0,
+     "station": "16550..16555",
+     "wait_ln": 16554,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 16932,
+     "required_s": 250.0,
+     "station": "16922..16927",
+     "wait_ln": 16926,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 17526,
+     "required_s": 270.0,
+     "station": "17516..17521",
+     "wait_ln": 17520,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 17900,
+     "required_s": 250.0,
+     "station": "17890..17895",
+     "wait_ln": 17894,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    }
+   ],
    "preheat_rows": [
     {
      "switch": 83,
@@ -6915,6 +7832,184 @@
      "moved": false
     }
    ],
+   "departure_withdrawals": [
+    {
+     "window": 1,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      73
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 2,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      1956
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 3,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      2968
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 4,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      4042
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 5,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      5229
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 6,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      6418
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 7,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      7602
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 8,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      8792
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 9,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      9979
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 10,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      11167
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 11,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      12353
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 12,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      13566
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 13,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      14791
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 14,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      15905
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 15,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      16920
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 16,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      17888
+     ],
+     "values": [
+      -4.0
+     ]
+    }
+   ],
    "effective_config": {
     "fs_fiber_enabled": "1",
     "fs_t0_temp": "270",
@@ -6943,7 +8038,12 @@
     "fs_tail_v_factor": "0.72",
     "fs_brush_on_toolchange": null,
     "fs_aux_fans_on_toolchange": null,
-    "nozzle_diameter": "['0.4']",
+    "nozzle_diameter": [
+     "0.4"
+    ],
+    "nozzle_temperature": [
+     "250"
+    ],
     "first_layer_height": null,
     "layer_height": null
    },
@@ -6952,7 +8052,7 @@
    "window_rows": [
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 1,
      "kind": "purge",
@@ -6992,7 +8092,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 2,
      "kind": "model",
@@ -7035,7 +8135,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 3,
      "kind": "model",
@@ -7078,7 +8178,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 4,
      "kind": "model",
@@ -7121,7 +8221,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 5,
      "kind": "model",
@@ -7164,7 +8264,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 6,
      "kind": "model",
@@ -7207,7 +8307,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 7,
      "kind": "model",
@@ -7250,7 +8350,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 8,
      "kind": "model",
@@ -7293,7 +8393,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 9,
      "kind": "model",
@@ -7336,7 +8436,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 10,
      "kind": "model",
@@ -7379,7 +8479,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 11,
      "kind": "model",
@@ -7422,7 +8522,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 12,
      "kind": "model",
@@ -7465,7 +8565,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 13,
      "kind": "model",
@@ -7508,7 +8608,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 14,
      "kind": "model",
@@ -7551,7 +8651,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 15,
      "kind": "model",
@@ -7594,7 +8694,7 @@
     },
     {
      "file": "shook_B_forward_release.gcode",
-     "sha256": "0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991",
+     "sha256": "66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326",
      "variant": "shook_B_forward_release",
      "window": 16,
      "kind": "model",
@@ -8747,14 +9847,14 @@
     },
     "S07": {
      "id": "S07",
-     "title": "hotend waits execute parked",
+     "title": "hotend waits parked, one per managed activation",
      "status": "PASS",
      "measured": 0,
      "expected": 0,
      "codes": [],
      "detail": [
-      "hotend waits measured: 33 (T0 16, T1 17); required T0 16 + T1 17 for 16 fibre windows; 3 bed/chamber waits are out of scope",
-      "all 33 hotend waits (T0 16, T1 17, including the startup one) execute inside an explicit station bracket and meet the required inventory of 16 T0 + 17 T1 for 16 fibre windows"
+      "33 managed activations (1 startup + 32 physical head changes), each requiring its own parked wait; 33 satisfied; 33 hotend waits present; 3 bed/chamber waits out of scope",
+      "all 33 hotend waits execute inside an explicit station bracket, and each of the 33 managed activations (startup plus 32 physical head changes) is served by its own parked wait for the incoming head at its active temperature"
      ]
     },
     "S08": {
@@ -9060,9 +10160,11 @@
      "detail": [
       "body payout rate worst relative deviation 0.286 percent (tolerance 2.0 percent)",
       "tail payout worst absolute deviation 0.0092 mm (tolerance 0.05 mm)",
+      "fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal",
+      "departure withdrawal: 16 of 16 windows are a real T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified",
       "stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000",
       "U55 reload present on 16 of 16 windows",
-      "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window"
+      "M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one"
      ]
     },
     "S13": {
@@ -9115,7 +10217,372 @@
    "errors": [],
    "lines": 19662,
    "unsupported": [],
-   "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+   "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
+   "wait_obligations": [
+    {
+     "kind": "startup",
+     "head": 1,
+     "activation_ln": 33,
+     "required_s": 250.0,
+     "station": "34..37",
+     "wait_ln": 35,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 51,
+     "required_s": 270.0,
+     "station": "42..48",
+     "wait_ln": 47,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 83,
+     "required_s": 250.0,
+     "station": "75..80",
+     "wait_ln": 79,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 1590,
+     "required_s": 270.0,
+     "station": "1580..1585",
+     "wait_ln": 1584,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 1968,
+     "required_s": 250.0,
+     "station": "1958..1963",
+     "wait_ln": 1962,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 2590,
+     "required_s": 270.0,
+     "station": "2580..2585",
+     "wait_ln": 2584,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 2980,
+     "required_s": 250.0,
+     "station": "2970..2975",
+     "wait_ln": 2974,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 3648,
+     "required_s": 270.0,
+     "station": "3638..3643",
+     "wait_ln": 3642,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 4054,
+     "required_s": 250.0,
+     "station": "4044..4049",
+     "wait_ln": 4048,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 4856,
+     "required_s": 270.0,
+     "station": "4846..4851",
+     "wait_ln": 4850,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 5242,
+     "required_s": 250.0,
+     "station": "5232..5237",
+     "wait_ln": 5236,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 6044,
+     "required_s": 270.0,
+     "station": "6034..6039",
+     "wait_ln": 6038,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 6432,
+     "required_s": 250.0,
+     "station": "6422..6427",
+     "wait_ln": 6426,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 7234,
+     "required_s": 270.0,
+     "station": "7224..7229",
+     "wait_ln": 7228,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 7617,
+     "required_s": 250.0,
+     "station": "7607..7612",
+     "wait_ln": 7611,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 8420,
+     "required_s": 270.0,
+     "station": "8410..8415",
+     "wait_ln": 8414,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 8808,
+     "required_s": 250.0,
+     "station": "8798..8803",
+     "wait_ln": 8802,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 9610,
+     "required_s": 270.0,
+     "station": "9600..9605",
+     "wait_ln": 9604,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 9996,
+     "required_s": 250.0,
+     "station": "9986..9991",
+     "wait_ln": 9990,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 10798,
+     "required_s": 270.0,
+     "station": "10788..10793",
+     "wait_ln": 10792,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 11185,
+     "required_s": 250.0,
+     "station": "11175..11180",
+     "wait_ln": 11179,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 11985,
+     "required_s": 270.0,
+     "station": "11975..11980",
+     "wait_ln": 11979,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 12372,
+     "required_s": 250.0,
+     "station": "12362..12367",
+     "wait_ln": 12366,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 13200,
+     "required_s": 270.0,
+     "station": "13190..13195",
+     "wait_ln": 13194,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 13586,
+     "required_s": 250.0,
+     "station": "13576..13581",
+     "wait_ln": 13580,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 14419,
+     "required_s": 270.0,
+     "station": "14409..14414",
+     "wait_ln": 14413,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 14811,
+     "required_s": 250.0,
+     "station": "14801..14806",
+     "wait_ln": 14805,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 15535,
+     "required_s": 270.0,
+     "station": "15525..15530",
+     "wait_ln": 15529,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 15925,
+     "required_s": 250.0,
+     "station": "15915..15920",
+     "wait_ln": 15919,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 16568,
+     "required_s": 270.0,
+     "station": "16558..16563",
+     "wait_ln": 16562,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 16940,
+     "required_s": 250.0,
+     "station": "16930..16935",
+     "wait_ln": 16934,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 0,
+     "activation_ln": 17534,
+     "required_s": 270.0,
+     "station": "17524..17529",
+     "wait_ln": 17528,
+     "wait_s": 270.0,
+     "ok": true,
+     "why": null
+    },
+    {
+     "kind": "switch",
+     "head": 1,
+     "activation_ln": 17908,
+     "required_s": 250.0,
+     "station": "17898..17903",
+     "wait_ln": 17902,
+     "wait_s": 250.0,
+     "ok": true,
+     "why": null
+    }
+   ],
    "preheat_rows": [
     {
      "switch": 83,
@@ -11102,6 +12569,184 @@
      "moved": false
     }
    ],
+   "departure_withdrawals": [
+    {
+     "window": 1,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      73
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 2,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      1956
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 3,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      2968
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 4,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      4042
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 5,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      5230
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 6,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      6420
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 7,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      7605
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 8,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      8796
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 9,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      9984
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 10,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      11173
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 11,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      12360
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 12,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      13574
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 13,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      14799
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 14,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      15913
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 15,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      16928
+     ],
+     "values": [
+      -4.0
+     ]
+    },
+    {
+     "window": 16,
+     "head": 0,
+     "expected": true,
+     "lines": [
+      17896
+     ],
+     "values": [
+      -4.0
+     ]
+    }
+   ],
    "effective_config": {
     "fs_fiber_enabled": "1",
     "fs_t0_temp": "270",
@@ -11130,7 +12775,12 @@
     "fs_tail_v_factor": "0.72",
     "fs_brush_on_toolchange": null,
     "fs_aux_fans_on_toolchange": null,
-    "nozzle_diameter": "['0.4']",
+    "nozzle_diameter": [
+     "0.4"
+    ],
+    "nozzle_temperature": [
+     "250"
+    ],
     "first_layer_height": null,
     "layer_height": null
    },
@@ -11139,7 +12789,7 @@
    "window_rows": [
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 1,
      "kind": "purge",
@@ -11179,7 +12829,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 2,
      "kind": "model",
@@ -11222,7 +12872,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 3,
      "kind": "model",
@@ -11265,7 +12915,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 4,
      "kind": "model",
@@ -11308,7 +12958,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 5,
      "kind": "model",
@@ -11351,7 +13001,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 6,
      "kind": "model",
@@ -11394,7 +13044,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 7,
      "kind": "model",
@@ -11437,7 +13087,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 8,
      "kind": "model",
@@ -11480,7 +13130,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 9,
      "kind": "model",
@@ -11523,7 +13173,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 10,
      "kind": "model",
@@ -11566,7 +13216,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 11,
      "kind": "model",
@@ -11609,7 +13259,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 12,
      "kind": "model",
@@ -11652,7 +13302,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 13,
      "kind": "model",
@@ -11695,7 +13345,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 14,
      "kind": "model",
@@ -11738,7 +13388,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 15,
      "kind": "model",
@@ -11781,7 +13431,7 @@
     },
     {
      "file": "shook_C_release_margin_1mm.gcode",
-     "sha256": "310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda",
+     "sha256": "0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509",
      "variant": "shook_C_release_margin_1mm",
      "window": 16,
      "kind": "model",

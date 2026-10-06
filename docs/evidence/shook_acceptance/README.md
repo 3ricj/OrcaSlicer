@@ -76,11 +76,11 @@ coordinates, measured lengths and error IDs behind every verdict.
 | S04 | release uses F600, holds strand Z, carries no E/U/V |
 | S05 | no U drive from cut through close |
 | S06 | final deposition, V-1, release, M1002, departure V-4, lift, station entry |
-| S07 | **every required hotend wait exists AND is parked** |
+| S07 | **every managed activation is served by its own parked wait for the incoming head at its active temperature** |
 | S08 | outgoing head holds its active target; standby after cleaning, before the incoming wait |
 | S09 | both transition directions meet the 15 s lead within 0.10 s |
 | S10 | pending withdrawal survives travel and is recovered once at the next deposition start |
-| S11 | **body and tail V payout match the configured formula; stationary V amounts are the contracted ones** |
+| S11 | **body and tail V payout match the configured formula; stationary V amounts are the contracted ones; exactly one departure withdrawal per actual T0 departure** |
 | S12 | A/B/C differ only as listed; B/C deposited path and seam agree; C cuts 1 mm earlier |
 | S13 | **the full buffered release footprint, not its centreline, lies inside material deposited earlier in the same layer** |
 
@@ -91,9 +91,40 @@ closed, and each is pinned by a negative test that failed against the old code:
 
 | Hole | Old behaviour | Now | Negative test |
 |---|---|---|---|
-| S07 presence | deleting all 33 `M109` passed, reporting "all 0 hotend waits are parked" | S07 requires one wait per window per head plus the startup wait, and fails with `FS_WAIT_MISSING` | `t10_all_hotend_waits_deleted` |
+| S07 presence | deleting all 33 `M109` passed, reporting "all 0 hotend waits are parked" | S07 requires a wait for every managed activation and fails with `FS_WAIT_MISSING` | `t10_all_hotend_waits_deleted` |
 | S11 payout | the V ledger was noted, never judged; a 30x tail payout passed | body rate and tail payout are judged against `fs_fiber_rate`, `fs_matrix_ratio` and `fs_tail_v_factor` from the effective config; stationary V is classified by value, not by comment | `t11_tail_payout_times_30` |
 | S13 containment | centreline-to-centreline distance, so a release on a bead edge passed | the swept strip is sampled along and across and judged against each supporting segment's own half-width | `t12_release_on_bead_edge` |
+
+## Detector hardening, second round (2026-10-06)
+
+The owner re-tested the hardened verifier and found two more holes that still
+produced a full acceptance PASS. Both were real, both are closed, and both were
+confirmed against the previous revision before being fixed: each mutant was run
+through the old verifier with a complete three-file manifest, where it returned
+`exit=0` / `SOFTWARE_EXPORT_ACCEPTANCE: PASS`.
+
+| Hole | Old behaviour | Now | Negative test |
+|---|---|---|---|
+| S07 judged a file-wide tally | deleting the first model T0 activation's `M109` and duplicating it in the startup visit preserved the tally, so the activation ran with no temperature wait and S07 passed | obligations are derived per **activation**, not per file: 1 startup + 32 physical head changes = 33, each needing its own wait for the incoming head at its active temperature, served by the station visit that actually precedes it. Duplicate waits cannot discharge a later obligation | `t13_startup_wait_relocated` |
+| S11 ledger stopped at `M1002` | the departure withdrawal is issued *after* the close, so it sat outside the judged range; deleting all 16 passed, S11 included | the ledger extends from `M1002` to the first lift and requires exactly one `V -fs_toolchange_retract_v` per **actual T0 departure**, and none for an inter-strand close that keeps T0 active | `t14_all_departure_withdrawals_deleted` |
+
+Deriving obligations from physical head changes rather than from the window list
+also fixes a latent over-strictness: several fibre windows inside one T0
+activation need one wait, not one per window, because there is one physical
+change into T0. The startup head is taken from the first `T` command in the file
+rather than from the first recorded *change*, which is what left the vendor
+startup `M109 S250 T1` with no obligation attached to it.
+
+Two supporting defects surfaced while writing these tests:
+
+- `make_manifest.py` stringified list-valued presets, so `nozzle_temperature`
+  reached the manifest as the literal text `['250']`. T1's active temperature was
+  therefore unresolvable and S07 could not judge the plastic head at all. Values
+  now keep their list structure, and the filament preset is merged into the
+  effective config because that is where the plastic nozzle temperature lives.
+- The bash harness on this machine masks process exit codes to zero, so every
+  `EXIT=` reading taken through it was meaningless. Exit codes are now captured
+  inside Python; the verifier's own exit logic was correct.
 
 The payout formula the verifier enforces is
 `tail V = tail path x fs_tail_v_factor x fs_fiber_rate x fs_matrix_ratio`, with

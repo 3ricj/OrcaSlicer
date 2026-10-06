@@ -391,6 +391,58 @@ def mut_release_on_bead_edge(lines):
                  % (moves[0] + 1, OFF))
 
 
+def mut_startup_wait_duplicated(lines):
+    """Move the first model T0 wait into the startup station visit.
+
+    This is the owner's test: delete the M109 that serves the first model
+    activation of T0 and re-issue it during the startup visit instead, so the
+    file-wide T0 wait count is unchanged. A tally-based S07 sees 16 T0 waits and
+    passes; a per-activation S07 sees that the visit immediately serving that
+    activation no longer waits for T0.
+    """
+    out = list(lines)
+    t0 = None
+    for i, ln in enumerate(out):
+        c, t = cmd_of(out, i)
+        if c == "M109" and word(t, "T") == 0:
+            t0 = i
+            break
+    if t0 is None:
+        raise RuntimeError("no T0 M109 found")
+    ent = next((i for i, ln in enumerate(out)
+                if ln.strip().startswith("MOVE_TO_BRUSH_STATION")), None)
+    exi = next((i for i in range(ent + 1, len(out))
+                if out[i].strip().startswith("MOVE_OUT_BRUSH_STATION")), None)
+    if ent is None or exi is None:
+        raise RuntimeError("no startup station visit")
+    moved = out[t0]
+    out[t0] = "; MUTANT: T0 wait removed from its own station visit"
+    out.insert(exi, moved + " ; MUTANT: duplicated at startup to keep the tally")
+    return out, ("removed the T0 wait at line %d from its serving station visit "
+                 "and duplicated it inside the startup visit %d..%d, preserving "
+                 "the file-wide wait count" % (t0 + 1, ent + 1, exi + 1))
+
+
+def mut_delete_departure_withdrawals(lines):
+    """Delete every departure tool-change withdrawal (the V-4 after M1002).
+
+    The previous S11 stationary-V ledger stopped at M1002, so these moves were
+    outside the judged range entirely and deleting all of them passed.
+    """
+    out = list(lines)
+    hits = []
+    for i, ln in enumerate(out):
+        c, t = cmd_of(out, i)
+        if c in ("G0", "G1") and has_word(t, "V") and (not has_word(t, "X")):
+            if abs(word(t, "V") + 4.0) < 1e-6:
+                hits.append(i)
+    if len(hits) < 10:
+        raise RuntimeError("only %d departure withdrawals found" % len(hits))
+    for i in hits:
+        out[i] = "; MUTANT: departure tool-change withdrawal deleted"
+    return out, "deleted all %d departure V -4.000 withdrawals" % len(hits)
+
+
 def mut_hash_only(lines):
     out = list(lines)
     out.insert(0, "; MUTANT: content changed, manifest hash left stale")
@@ -427,10 +479,19 @@ CASES = [
      mut_tail_v_times_30, "FS_TAIL_PAYOUT_FORMULA"),
     ("t12_release_on_bead_edge", "shook_B_forward_release",
      mut_release_on_bead_edge, "FS_RELEASE_UNSUPPORTED"),
+    # The two holes the owner measured in the SECOND review round: a wait check
+    # that tallied the whole file instead of judging each activation, and a
+    # stationary-V ledger that stopped at M1002 and so never saw the departure
+    # withdrawal.
+    ("t13_startup_wait_relocated", "shook_B_forward_release",
+     mut_startup_wait_duplicated, "FS_WAIT_MISSING", "S07"),
+    ("t14_all_departure_withdrawals_deleted", "shook_B_forward_release",
+     mut_delete_departure_withdrawals, "FS_DEPART_WITHDRAWAL_MISSING", "S11"),
 ]
 
 
-def run_case(root, manifest, name, src_variant, mutate, expect, workdir):
+def run_case(root, manifest, name, src_variant, mutate, expect, workdir,
+           expect_check=None):
     src = next((os.path.join(root, f["gcode"]) for f in manifest["files"]
                 if f["variant"] == src_variant), None)
     if src is None:
@@ -477,9 +538,14 @@ def run_case(root, manifest, name, src_variant, mutate, expect, workdir):
         return dict(name=name, ok=False, why="no parseable report: %s" % exc,
                     exit=proc.returncode)
 
-    ok = proc.returncode != 0 and expect in codes
+    # Requiring the semantic code is the point; requiring it from the intended
+    # check stops a mutant passing on an unrelated failure that happens to carry
+    # the same code.
+    ok = (proc.returncode != 0 and expect in codes
+          and (expect_check is None or expect_check in failed))
     return dict(name=name, ok=ok, exit=proc.returncode, expected=expect,
-                codes=sorted(set(codes)), failed=sorted(failed), note=note)
+                expected_check=expect_check, codes=sorted(set(codes)),
+                failed=sorted(failed), note=note)
 
 
 def main(argv=None):
@@ -495,8 +561,11 @@ def main(argv=None):
     os.makedirs(args.workdir)
 
     results = []
-    for name, variant, mut, expect in CASES:
-        r = run_case(root, manifest, name, variant, mut, expect, args.workdir)
+    for case in CASES:
+        name, variant, mut, expect = case[:4]
+        exp_check = case[4] if len(case) > 4 else None
+        r = run_case(root, manifest, name, variant, mut, expect, args.workdir,
+                     exp_check)
         results.append(r)
         print("%-34s %-4s expected=%-26s exit=%s codes=%s"
               % (r["name"], "PASS" if r.get("ok") else "FAIL", r.get("expected", "?"),

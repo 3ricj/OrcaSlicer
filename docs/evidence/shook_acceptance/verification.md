@@ -24,7 +24,7 @@ adapter contract, not that the firmware macros behave that way on hardware.
 | filament_preset_sha256 | `51bb091c2465366b7f85122ce4e34aab3c712e57dfe8285c5b6402be61d52d54` |
 | machine_preset_base | `resources/profiles/FibreSeeker3/machine/FibreSeeker3 SK3 CF nozzle.json` |
 | machine_preset_base_sha256 | `3e9f837be6b26239f4672015c9141d5d56d4d06f605cd78fe3a05d99df143e02` |
-| source_revision | `a e 7 3 f 0 6 8 7 4 a 4 2 b 0 4 c 4 0 7 b 0 d 5 6 3 3 1 7 2 9 9 3 4 3 6 1 e f 0` |
+| source_revision | `7 f e 1 8 0 e 1 d c 9 8 1 c f b 1 d 3 4 b 9 5 3 2 2 9 4 4 4 d 6 a 9 3 5 8 8 8 8` |
 | source_dirty_patch_sha256 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
 | build_command | `cmake --build build --target OrcaSlicer --config Release -j 8` |
 | executable | `build/src/Release/orca-slicer.exe` |
@@ -32,7 +32,7 @@ adapter contract, not that the firmware macros behave that way on hardware.
 | runtime_dll | `build/src/Release/OrcaSlicer.dll` |
 | runtime_dll_sha256 | `2490aef02bd0d95de7b086d1df27f44bb488ef9ec669229309954bd11fac6af4` |
 | verifier | `tools/verify_fs_shook.py` |
-| verifier_sha256 | `db6b3db10056d3373cc163295fe315673595bb7d2b799c62c96b6658e3f354e3` |
+| verifier_sha256 | `e25f6b778bc35a09adc806b20a0cf088a5d8626c8e36900fc2afff3dcc3b6fda` |
 
 ## Mandatory checks
 
@@ -44,7 +44,7 @@ adapter contract, not that the firmware macros behave that way on hardware.
 | S04 | release motion legality | PASS | PASS | PASS |
 | S05 | no post-cut fibre drive | PASS | PASS | PASS |
 | S06 | window exit sequence | PASS | PASS | PASS |
-| S07 | hotend waits execute parked | PASS | PASS | PASS |
+| S07 | hotend waits parked, one per managed activation | PASS | PASS | PASS |
 | S08 | outgoing thermal order | PASS | PASS | PASS |
 | S09 | preheat schedule, both directions | PASS | PASS | PASS |
 | S10 | pending E recovery at the deposition start | PASS | PASS | PASS |
@@ -55,7 +55,7 @@ adapter contract, not that the firmware macros behave that way on hardware.
 ## shook_A_park_wait
 
 - file: `shook_A_park_wait.gcode`
-- SHA-256: `eead8026b06f9169c64bf004fbf49171515130f68c6528dc7d9a1814eaefc4b7`
+- SHA-256: `d145c2e5f2b20d5481f1d503b0f9173fdb1d2b83787a370cc3a16573c5f9a79d`
 - lines: 19595
 
 ### Check detail
@@ -74,9 +74,9 @@ adapter contract, not that the firmware macros behave that way on hardware.
   - no U feed or withdrawal from cut through window close in any window
 - **S06 window exit sequence - PASS**
   - final deposition -> V-1 -> release -> M1002 -> lift -> station entry in all 16 windows
-- **S07 hotend waits execute parked - PASS**
-  - hotend waits measured: 33 (T0 16, T1 17); required T0 16 + T1 17 for 16 fibre windows; 3 bed/chamber waits are out of scope
-  - all 33 hotend waits (T0 16, T1 17, including the startup one) execute inside an explicit station bracket and meet the required inventory of 16 T0 + 17 T1 for 16 fibre windows
+- **S07 hotend waits parked, one per managed activation - PASS**
+  - 33 managed activations (1 startup + 32 physical head changes), each requiring its own parked wait; 33 satisfied; 33 hotend waits present; 3 bed/chamber waits out of scope
+  - all 33 hotend waits execute inside an explicit station bracket, and each of the 33 managed activations (startup plus 32 physical head changes) is served by its own parked wait for the incoming head at its active temperature
 - **S08 outgoing thermal order - PASS**
   - in every transition the outgoing head stays at its active target through deposition, release and cleaning; standby follows cleaning and precedes the incoming wait
 - **S09 preheat schedule, both directions - PASS**
@@ -86,9 +86,11 @@ adapter contract, not that the firmware macros behave that way on hardware.
 - **S11 payout formula and budgets - PASS**
   - body payout rate worst relative deviation 0.477 percent (tolerance 2.0 percent)
   - tail payout worst absolute deviation 0.0093 mm (tolerance 0.05 mm)
+  - fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal
+  - departure withdrawal: 16 of 16 windows are a real T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified
   - stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000
   - U55 reload present on 16 of 16 windows
-  - M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window
+  - M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one
 - **S12 comparison isolation - PASS**
   - configs differ only in release length and tail margin; B and C share a polyline-equivalent deposited centreline (5226 vs 5234 vertices, all mutually on-polyline, length delta -0.0034 mm) and seam placement; C's cut is 1.00 mm earlier along it (max vertex shift 1.006 mm)
   - A-to-B changes the seam policy as well as adding the release; that is the intended experimental distinction, not a control violation
@@ -162,7 +164,7 @@ withdrawal the transition owed; E rec is where it was actually paid.
 ## shook_B_forward_release
 
 - file: `shook_B_forward_release.gcode`
-- SHA-256: `0bf89e3bef42ee50f8456a8ab217c561f79513390529737989123105368c4991`
+- SHA-256: `66d47d49f73f613a48c4f778761d67e8e43fb2897493994a3d42b28a9aa8c326`
 - lines: 19654
 
 ### Check detail
@@ -181,9 +183,9 @@ withdrawal the transition owed; E rec is where it was actually paid.
   - no U feed or withdrawal from cut through window close in any window
 - **S06 window exit sequence - PASS**
   - final deposition -> V-1 -> release -> M1002 -> lift -> station entry in all 16 windows
-- **S07 hotend waits execute parked - PASS**
-  - hotend waits measured: 33 (T0 16, T1 17); required T0 16 + T1 17 for 16 fibre windows; 3 bed/chamber waits are out of scope
-  - all 33 hotend waits (T0 16, T1 17, including the startup one) execute inside an explicit station bracket and meet the required inventory of 16 T0 + 17 T1 for 16 fibre windows
+- **S07 hotend waits parked, one per managed activation - PASS**
+  - 33 managed activations (1 startup + 32 physical head changes), each requiring its own parked wait; 33 satisfied; 33 hotend waits present; 3 bed/chamber waits out of scope
+  - all 33 hotend waits execute inside an explicit station bracket, and each of the 33 managed activations (startup plus 32 physical head changes) is served by its own parked wait for the incoming head at its active temperature
 - **S08 outgoing thermal order - PASS**
   - in every transition the outgoing head stays at its active target through deposition, release and cleaning; standby follows cleaning and precedes the incoming wait
 - **S09 preheat schedule, both directions - PASS**
@@ -193,9 +195,11 @@ withdrawal the transition owed; E rec is where it was actually paid.
 - **S11 payout formula and budgets - PASS**
   - body payout rate worst relative deviation 0.291 percent (tolerance 2.0 percent)
   - tail payout worst absolute deviation 0.0086 mm (tolerance 0.05 mm)
+  - fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal
+  - departure withdrawal: 16 of 16 windows are a real T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified
   - stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000
   - U55 reload present on 16 of 16 windows
-  - M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window
+  - M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one
 - **S12 comparison isolation - PASS**
   - configs differ only in release length and tail margin; B and C share a polyline-equivalent deposited centreline (5226 vs 5234 vertices, all mutually on-polyline, length delta -0.0034 mm) and seam placement; C's cut is 1.00 mm earlier along it (max vertex shift 1.006 mm)
   - A-to-B changes the seam policy as well as adding the release; that is the intended experimental distinction, not a control violation
@@ -269,7 +273,7 @@ withdrawal the transition owed; E rec is where it was actually paid.
 ## shook_C_release_margin_1mm
 
 - file: `shook_C_release_margin_1mm.gcode`
-- SHA-256: `310e27d156d54542735e8a94b78d3b30939f0f4a6421eed40df9500177d45dda`
+- SHA-256: `0f0ec9fda5f79d59ed8f1b7565f35ec2ea7d751506449ddba91259a573906509`
 - lines: 19662
 
 ### Check detail
@@ -288,9 +292,9 @@ withdrawal the transition owed; E rec is where it was actually paid.
   - no U feed or withdrawal from cut through window close in any window
 - **S06 window exit sequence - PASS**
   - final deposition -> V-1 -> release -> M1002 -> lift -> station entry in all 16 windows
-- **S07 hotend waits execute parked - PASS**
-  - hotend waits measured: 33 (T0 16, T1 17); required T0 16 + T1 17 for 16 fibre windows; 3 bed/chamber waits are out of scope
-  - all 33 hotend waits (T0 16, T1 17, including the startup one) execute inside an explicit station bracket and meet the required inventory of 16 T0 + 17 T1 for 16 fibre windows
+- **S07 hotend waits parked, one per managed activation - PASS**
+  - 33 managed activations (1 startup + 32 physical head changes), each requiring its own parked wait; 33 satisfied; 33 hotend waits present; 3 bed/chamber waits out of scope
+  - all 33 hotend waits execute inside an explicit station bracket, and each of the 33 managed activations (startup plus 32 physical head changes) is served by its own parked wait for the incoming head at its active temperature
 - **S08 outgoing thermal order - PASS**
   - in every transition the outgoing head stays at its active target through deposition, release and cleaning; standby follows cleaning and precedes the incoming wait
 - **S09 preheat schedule, both directions - PASS**
@@ -300,9 +304,11 @@ withdrawal the transition owed; E rec is where it was actually paid.
 - **S11 payout formula and budgets - PASS**
   - body payout rate worst relative deviation 0.286 percent (tolerance 2.0 percent)
   - tail payout worst absolute deviation 0.0092 mm (tolerance 0.05 mm)
+  - fs_toolchange_retract_v absent from the effective config; the registered default 4.0 mm is used as the required departure withdrawal
+  - departure withdrawal: 16 of 16 windows are a real T0 departure and each requires exactly one stationary V -4.000 after M1002 and before the lift; 16 verified
   - stationary V per window: recover +1.000, prime extra +3.000, retract -1.000, tool-change -4.000
   - U55 reload present on 16 of 16 windows
-  - M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window
+  - M1001 L agrees with the recalculated window U under the established floor contract in all 16 windows; U55 reload preserved on every window; body and tail matrix payouts match the configured formula; every real T0 departure carries exactly one withdrawal between M1002 and the lift and no inter-strand close carries one
 - **S12 comparison isolation - PASS**
   - configs differ only in release length and tail margin; B and C share a polyline-equivalent deposited centreline (5226 vs 5234 vertices, all mutually on-polyline, length delta -0.0034 mm) and seam placement; C's cut is 1.00 mm earlier along it (max vertex shift 1.006 mm)
   - A-to-B changes the seam policy as well as adding the release; that is the intended experimental distinction, not a control violation
@@ -372,6 +378,69 @@ withdrawal the transition owed; E rec is where it was actually paid.
 | T0 | T1 | 16930 | 16931 | 16932 | 16934 | 16935 | 16940 | 16736 | 250 | 16949 | 16951 | -10.0 | 16955 | 31.020 | 15.000 | 14.973 | -0.027 |
 | T1 | T0 | 17524 | 17525 | 17526 | 17528 | 17529 | 17534 | 16948 | 270 | 17538 | 17918 | -10.0 | - | 10.426 | 10.426 | 10.426 | +0.000 |
 | T0 | T1 | 17898 | 17899 | 17900 | 17902 | 17903 | 17908 | 17702 | 250 | 17916 | 17918 | -10.0 | 17921 | 30.254 | 15.000 | 14.997 | -0.003 |
+
+### Wait obligations, one row per managed activation
+
+Each activation must be served by its own station visit waiting for the incoming head at its active temperature. A station visit appears at most once.
+
+| kind | head | activation line | serving station visit | wait line | wait S | required S | verdict |
+|---|---|---|---|---|---|---|---|
+| startup | T1 | 33 | 34..37 | 35 | 250 | 250 | served |
+| switch | T0 | 51 | 42..48 | 47 | 270 | 270 | served |
+| switch | T1 | 83 | 75..80 | 79 | 250 | 250 | served |
+| switch | T0 | 1590 | 1580..1585 | 1584 | 270 | 270 | served |
+| switch | T1 | 1968 | 1958..1963 | 1962 | 250 | 250 | served |
+| switch | T0 | 2590 | 2580..2585 | 2584 | 270 | 270 | served |
+| switch | T1 | 2980 | 2970..2975 | 2974 | 250 | 250 | served |
+| switch | T0 | 3648 | 3638..3643 | 3642 | 270 | 270 | served |
+| switch | T1 | 4054 | 4044..4049 | 4048 | 250 | 250 | served |
+| switch | T0 | 4856 | 4846..4851 | 4850 | 270 | 270 | served |
+| switch | T1 | 5242 | 5232..5237 | 5236 | 250 | 250 | served |
+| switch | T0 | 6044 | 6034..6039 | 6038 | 270 | 270 | served |
+| switch | T1 | 6432 | 6422..6427 | 6426 | 250 | 250 | served |
+| switch | T0 | 7234 | 7224..7229 | 7228 | 270 | 270 | served |
+| switch | T1 | 7617 | 7607..7612 | 7611 | 250 | 250 | served |
+| switch | T0 | 8420 | 8410..8415 | 8414 | 270 | 270 | served |
+| switch | T1 | 8808 | 8798..8803 | 8802 | 250 | 250 | served |
+| switch | T0 | 9610 | 9600..9605 | 9604 | 270 | 270 | served |
+| switch | T1 | 9996 | 9986..9991 | 9990 | 250 | 250 | served |
+| switch | T0 | 10798 | 10788..10793 | 10792 | 270 | 270 | served |
+| switch | T1 | 11185 | 11175..11180 | 11179 | 250 | 250 | served |
+| switch | T0 | 11985 | 11975..11980 | 11979 | 270 | 270 | served |
+| switch | T1 | 12372 | 12362..12367 | 12366 | 250 | 250 | served |
+| switch | T0 | 13200 | 13190..13195 | 13194 | 270 | 270 | served |
+| switch | T1 | 13586 | 13576..13581 | 13580 | 250 | 250 | served |
+| switch | T0 | 14419 | 14409..14414 | 14413 | 270 | 270 | served |
+| switch | T1 | 14811 | 14801..14806 | 14805 | 250 | 250 | served |
+| switch | T0 | 15535 | 15525..15530 | 15529 | 270 | 270 | served |
+| switch | T1 | 15925 | 15915..15920 | 15919 | 250 | 250 | served |
+| switch | T0 | 16568 | 16558..16563 | 16562 | 270 | 270 | served |
+| switch | T1 | 16940 | 16930..16935 | 16934 | 250 | 250 | served |
+| switch | T0 | 17534 | 17524..17529 | 17528 | 270 | 270 | served |
+| switch | T1 | 17908 | 17898..17903 | 17902 | 250 | 250 | served |
+
+### Departure tool-change withdrawals, one row per fibre window
+
+A window that closes while T0 is selected is a real T0 departure and owes exactly one stationary V withdrawal between M1002 and the lift. An inter-strand close that keeps T0 active owes none.
+
+| window | head at close | departure owed | withdrawal lines | stationary V after close | verdict |
+|---|---|---|---|---|---|
+| 1 | T0 | yes | 73 | -4.000 | ok |
+| 2 | T0 | yes | 1956 | -4.000 | ok |
+| 3 | T0 | yes | 2968 | -4.000 | ok |
+| 4 | T0 | yes | 4042 | -4.000 | ok |
+| 5 | T0 | yes | 5230 | -4.000 | ok |
+| 6 | T0 | yes | 6420 | -4.000 | ok |
+| 7 | T0 | yes | 7605 | -4.000 | ok |
+| 8 | T0 | yes | 8796 | -4.000 | ok |
+| 9 | T0 | yes | 9984 | -4.000 | ok |
+| 10 | T0 | yes | 11173 | -4.000 | ok |
+| 11 | T0 | yes | 12360 | -4.000 | ok |
+| 12 | T0 | yes | 13574 | -4.000 | ok |
+| 13 | T0 | yes | 14799 | -4.000 | ok |
+| 14 | T0 | yes | 15913 | -4.000 | ok |
+| 15 | T0 | yes | 16928 | -4.000 | ok |
+| 16 | T0 | yes | 17896 | -4.000 | ok |
 
 ## Cross-check: cut through release end
 

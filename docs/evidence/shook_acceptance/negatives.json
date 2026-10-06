@@ -4,6 +4,7 @@
   "ok": true,
   "exit": 1,
   "expected": "FS_RELEASE_NOT_EXECUTED",
+  "expected_check": null,
   "codes": [
    "FS_PREHEAT_SCHEDULE",
    "FS_RELEASE_EXTRUSION",
@@ -22,6 +23,7 @@
   "ok": true,
   "exit": 1,
   "expected": "FS_RELEASE_NOT_EXECUTED",
+  "expected_check": null,
   "codes": [
    "FS_PREHEAT_SCHEDULE",
    "FS_RELEASE_EXTRUSION",
@@ -40,6 +42,7 @@
   "ok": true,
   "exit": 1,
   "expected": "FS_E_RECOVERY_LOCATION",
+  "expected_check": null,
   "codes": [
    "FS_E_RECOVERY_LOCATION"
   ],
@@ -53,6 +56,7 @@
   "ok": true,
   "exit": 1,
   "expected": "FS_STANDBY_AFTER_WAIT",
+  "expected_check": null,
   "codes": [
    "FS_STANDBY_AFTER_WAIT"
   ],
@@ -66,6 +70,7 @@
   "ok": true,
   "exit": 1,
   "expected": "FS_COOL_BEFORE_CLEAN",
+  "expected_check": null,
   "codes": [
    "FS_COOL_BEFORE_CLEAN"
   ],
@@ -79,7 +84,9 @@
   "ok": true,
   "exit": 1,
   "expected": "FS_WAIT_OUTSIDE_STATION",
+  "expected_check": null,
   "codes": [
+   "FS_WAIT_MISSING",
    "FS_WAIT_OUTSIDE_STATION"
   ],
   "failed": [
@@ -92,6 +99,7 @@
   "ok": true,
   "exit": 1,
   "expected": "FS_PREHEAT_MISSING",
+  "expected_check": null,
   "codes": [
    "FS_PREHEAT_MISSING"
   ],
@@ -105,6 +113,7 @@
   "ok": true,
   "exit": 1,
   "expected": "FS_TAIL_DISTANCE_MISMATCH",
+  "expected_check": null,
   "codes": [
    "FS_TAIL_DISTANCE_MISMATCH",
    "FS_TAIL_PAYOUT_FORMULA"
@@ -121,6 +130,7 @@
   "ok": true,
   "exit": 1,
   "expected": "FS_RELEASE_UNSUPPORTED",
+  "expected_check": null,
   "codes": [
    "FS_PREHEAT_SCHEDULE",
    "FS_RELEASE_UNSUPPORTED",
@@ -139,6 +149,7 @@
   "ok": true,
   "exit": 1,
   "expected": "FS_HASH_MISMATCH",
+  "expected_check": null,
   "codes": [
    "FS_HASH_MISMATCH"
   ],
@@ -152,6 +163,7 @@
   "ok": true,
   "exit": 1,
   "expected": "FS_WAIT_MISSING",
+  "expected_check": null,
   "codes": [
    "FS_WAIT_MISSING"
   ],
@@ -165,6 +177,7 @@
   "ok": true,
   "exit": 1,
   "expected": "FS_TAIL_PAYOUT_FORMULA",
+  "expected_check": null,
   "codes": [
    "FS_TAIL_PAYOUT_FORMULA"
   ],
@@ -178,6 +191,7 @@
   "ok": true,
   "exit": 1,
   "expected": "FS_RELEASE_UNSUPPORTED",
+  "expected_check": null,
   "codes": [
    "FS_RELEASE_UNSUPPORTED"
   ],
@@ -185,5 +199,33 @@
    "S13"
   ],
   "note": "offset the release at line 9975 by 0.20 mm sideways: centreline still on the bead, outer edge 0.20 mm past the support"
+ },
+ {
+  "name": "t13_startup_wait_relocated",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_WAIT_MISSING",
+  "expected_check": "S07",
+  "codes": [
+   "FS_WAIT_MISSING"
+  ],
+  "failed": [
+   "S07"
+  ],
+  "note": "removed the T0 wait at line 47 from its serving station visit and duplicated it inside the startup visit 34..37, preserving the file-wide wait count"
+ },
+ {
+  "name": "t14_all_departure_withdrawals_deleted",
+  "ok": true,
+  "exit": 1,
+  "expected": "FS_DEPART_WITHDRAWAL_MISSING",
+  "expected_check": "S11",
+  "codes": [
+   "FS_DEPART_WITHDRAWAL_MISSING"
+  ],
+  "failed": [
+   "S11"
+  ],
+  "note": "deleted all 16 departure V -4.000 withdrawals"
  }
 ]
