@@ -3964,6 +3964,7 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
                     // at Z0.24 and the subsequent lift reaches Z0.84.
                     fs_ep.defer_departure_lift = true;
                     fs_ep.restart_feed_mm = m_config.fs_restart_feed.value;
+                    fs_ep.restart_feed_f  = m_config.fs_restart_feed_rate.value;
                     fs_ep.restart_z_mm    = m_config.fs_restart_z_hop.value;
                     fs_ep.prime_v_mm      = m_config.fs_prime_v.value;
                     fs_ep.retract_v_mm    = m_config.fs_retract_v.value;
@@ -7899,6 +7900,10 @@ LayerResult GCode::process_layer(
             }
             Fiber::FiberEmitParams ep;
             ep.restart_feed_mm = m_config.fs_restart_feed.value;
+            // Restart feedrate from the key, not from the struct default: the
+            // above-layer purge move is a pump/purge behaviour the machine
+            // profile owns, and it was previously unreachable from any config.
+            ep.restart_feed_f  = m_config.fs_restart_feed_rate.value;
             ep.tail_length_mm  = m_config.fs_tail_length.value; // ignored by emit_strand: the strand carries its own
             ep.restart_z_mm    = m_config.fs_restart_z_hop.value;
             ep.prime_v_mm      = m_config.fs_prime_v.value;
@@ -8241,6 +8246,7 @@ void GCode::append_full_config(const Print &print, std::string &str)
         "fs_fiber_speed_finish"sv, "fs_fiber_speed_finish_length"sv,
         "fs_tool_preheat_lead_s"sv, "fs_fiber_tail_margin_mm"sv, "fs_fiber_release_length_mm"sv,
         "fs_fiber_release_speed_mm_s"sv, "fs_fiber_release_anchor_mm"sv,
+        "fs_restart_feed_rate"sv,
         "compatible_printers"sv,
         "compatible_prints"sv,
         "filament_colour_type"sv,

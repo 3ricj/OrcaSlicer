@@ -944,11 +944,23 @@ TEST_CASE("FiberTailRelease: the preheat is spliced into the outgoing plastic co
         "G1 F1200 X110 Y60 E2.5\n"
         "G1 F1200 X110 Y110 E2.5\n";
 
+    // Lead 0 means "no predictive preheat", not "no temperature protection":
+    // the incoming head is brought to its working temperature inside the paired
+    // tool-change block instead, so nothing is spliced here and the caller's
+    // text comes back byte-identical. This used to be the probe the clock was
+    // read through, which stopped working the moment lead 0 became inert.
+    PreheatPlan zero;
+    const std::string untouched = schedule_preheat_into_plastic(plastic, 0, 270, 0.0, zero, 0.0);
+    CHECK_FALSE(zero.inserted);
+    CHECK(untouched == plastic);
+    CHECK(untouched.find("M109") != std::string::npos);
+
     // F1200 is 20 mm/s, so each 50 mm deposit is 2.5 s: four deposits give 10 s
     // nominal, and the M109 contributes nothing. The opening travel has no known
-    // predecessor, so it is timed as zero rather than invented.
+    // predecessor, so it is timed as zero rather than invented. The clock is
+    // therefore read off a plan that actually asks for a lead.
     PreheatPlan probe;
-    const std::string all = schedule_preheat_into_plastic(plastic, 0, 270, 0.0, probe, 0.0);
+    const std::string all = schedule_preheat_into_plastic(plastic, 0, 270, 5.0, probe, 0.0);
     CHECK(Approx(probe.endpoint_s).margin(1e-6) == 10.0);
     CHECK(all.find("M109") != std::string::npos);
 

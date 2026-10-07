@@ -1921,6 +1921,11 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloat, fs_fiber_release_length_mm))
     ((ConfigOptionFloat, fs_fiber_release_speed_mm_s))
     ((ConfigOptionFloat, fs_fiber_release_anchor_mm))
+    // Feedrate of the above-layer U restart move. Declared here and not beside
+    // the other fs_ motion keys in GCodeConfig for the same reason as the two
+    // blocks above: GCodeConfig is at the MSVC BOOST_PP ceiling. PrintConfig
+    // derives from GCodeConfig, so the m_config access is identical.
+    ((ConfigOptionFloat, fs_restart_feed_rate))
     ((ConfigOptionPoints,             printable_area))
     ((ConfigOptionPointsGroups,       extruder_printable_area))
     ((ConfigOptionBool,               support_parallel_printheads))

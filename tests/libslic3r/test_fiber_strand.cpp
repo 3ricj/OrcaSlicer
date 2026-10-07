@@ -122,7 +122,7 @@ TEST_CASE("FiberStrand early-cut schedule on a straight path", "[Fiber]")
         "M1001 L66\n"
         "G1 F1200 Z1.50\n"
         "G1 X100.00 Y100.00 F1200\n"
-        "G1 F1200 U55.000 ; Extrude restart\n"
+        "G1 F1500 U55.000 ; Extrude restart\n"
         "G1 F1200 Z0.30\n"
         "G1 F600 V1.000 ; Recover matrix retract\n"
         "G1 F600 V3.000 ; Matrix prime\n"
@@ -454,7 +454,7 @@ TEST_CASE("emit_fiber_prime_line writes the reference priming window", "[Fiber][
         "M1001 L79\n"
         "G1 F1200 Z1.40\n"
         "G1 X10.00 Y10.00 F1200\n"
-        "G1 F1200 U55.000 ; Extrude restart\n"
+        "G1 F1500 U55.000 ; Extrude restart\n"
         "G1 F1200 Z0.20\n"
         "G1 F600 V1.000 ; Recover matrix retract\n"
         "G1 F600 V3.000 ; Matrix prime\n"
@@ -609,4 +609,46 @@ TEST_CASE("plan_fiber_prime_placement keeps an oversized line inside the bed", "
     REQUIRE(plan_fiber_prime_placement(0., 0., 100., 100., true, 40., 40., 60., 60., 250., p));
     CHECK(p.from.x >= 0.0);
     CHECK(p.to.x   <= 100.0);
+}
+
+TEST_CASE("The above-layer restart move runs at the configured feedrate", "[Fiber][FiberEmitter][RestartFeed]")
+{
+    // The restart feedrate used to be unreachable: FiberEmitParams::restart_feed_f
+    // had no fs_* key and no call site anywhere in src/, so every window emitted
+    // the struct default F1200 and the reference slicer's F1500 could not be
+    // matched. It is now fs_restart_feed_rate, whose declared default is 1500 and
+    // whose struct default agrees with it.
+    FiberEmitParams defaults;
+    REQUIRE(defaults.restart_feed_f == 1500.0);
+
+    FiberStrand s;
+    s.layer_id       = 3;
+    s.z              = 0.30;
+    s.pts            = {{100.0, 100.0}, {200.0, 100.0}};
+    s.ratio_p        = 2.0;
+    s.fiber_rate     = 0.25;
+    s.feed_mm_min    = 1200.0;
+    s.tail_length_mm = 54.8;
+    std::string err;
+    REQUIRE(s.finalize(&err));
+
+    std::string out;
+    REQUIRE(emit_strand(s, defaults, out, &err));
+    CHECK(out.find("G1 F1500 U55.000 ; Extrude restart\n") != std::string::npos);
+    CHECK(out.find("G1 F1200 U55.000") == std::string::npos);
+
+    // The key is an override, not a constant: a profile that asks for something
+    // else must get it, verbatim, on the emitted line.
+    FiberEmitParams tuned;
+    tuned.restart_feed_f = 900.0;
+    std::string tuned_out;
+    REQUIRE(emit_strand(s, tuned, tuned_out, &err));
+    CHECK(tuned_out.find("G1 F900 U55.000 ; Extrude restart\n") != std::string::npos);
+
+    // The window budget is a LENGTH, so re-tuning the feedrate must not move it.
+    // If this ever changes, the firmware's L check and the emitted budget drift
+    // apart, which is the failure mode R10/R16 exist to catch.
+    CHECK(s.budget_L(55.0) == 66);
+    CHECK(emit_strand(s, defaults, out, &err));
+    CHECK(out.find("M1001 L66\n") != std::string::npos);
 }

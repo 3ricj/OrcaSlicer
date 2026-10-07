@@ -12,7 +12,7 @@ T0
 M106 P2 S255
 ; LAYER:1 [0.2]
 M1001 L57
-G1 F1200 U55 ; Extrude restart
+G1 F1500 U55 ; Extrude restart
 G0 X107.500 Z0.200 F30000
 G1 F600 V4 ; Extrude restart
 G1 X110.000 V0.04200 U2.00000 P0.021 F300
@@ -32,7 +32,7 @@ M1002
 ; --------------------------------------------------------------------------
 G0 X120.000 F600
 M1001 L57
-G1 F1200 U55 ; Extrude restart
+G1 F1500 U55 ; Extrude restart
 G0 X120.000 Z0.200 F30000
 G1 F600 V4 ; Extrude restart
 G1 X122.000 V0.04200 U2.00000 P0.021 F300

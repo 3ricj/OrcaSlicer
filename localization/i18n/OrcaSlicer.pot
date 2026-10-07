@@ -14532,6 +14532,12 @@ msgstr ""
 msgid "Fiber restart feed"
 msgstr ""
 
+msgid "Fiber restart feedrate"
+msgstr ""
+
+msgid "Feedrate of the above-layer fiber restart move (axis U) that charges the cutter-to-nozzle path at the start of every fiber run, mm/min. This move deposits nothing, so its speed is a purge/pump behaviour rather than a surface-quality choice; the reference slicer runs it at 1500 mm/min. Lower it if the tow is not fully charged before the first deposit, raise it to shorten the non-depositing start of each strand."
+msgstr ""
+
 msgid "Forward-only fiber feed (axis U) emitted above the layer at the start of each fiber run, mm. This is the length of fresh fiber pulled through the cutter-to-nozzle path so the next strand starts on virgin tow. It is a machine calibration, not a process choice: the reference machine feeds exactly 55 mm on every strand."
 msgstr ""
 
@@ -14701,7 +14707,7 @@ msgstr ""
 msgid "Incoming head preheat lead"
 msgstr ""
 
-msgid "Nominal seconds before the end of the outgoing head's deposition and release at which the incoming head is given its working temperature with a nonblocking M104, clamped to the outgoing head's own activation interval. 0 means no predictive lead, not no temperature protection: the incoming target is still set and the blocking M109 at the brush station stays mandatory. The clock is nominal: temperature waits and opaque macro calls contribute zero, and acceleration and heater behaviour are not modelled."
+msgid "Nominal seconds before the end of the outgoing head's deposition and release at which the incoming head is given its working temperature with a nonblocking M104 (FS_PREHEAT), clamped to the outgoing head's own activation interval. 0 disables that predictive preheat entirely so the idle head stays at standby until the brush tool-change block charges it (M104 pre-charge and blocking M109 there). Use 0 when hot idle heads cause streaking; use 15 (default) to shorten waits at the station on long plastic or fiber passes. The clock is nominal: temperature waits and opaque macro calls contribute zero, and acceleration and heater behaviour are not modelled."
 msgstr ""
 
 msgid "Fiber tail margin"

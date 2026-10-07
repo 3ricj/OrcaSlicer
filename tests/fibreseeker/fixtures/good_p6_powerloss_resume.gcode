@@ -37,7 +37,7 @@ M2000 L6
 ; === RESUMED WINDOW (file continues at recorded byte offset) ================
 ; LAYER:12 [2.4]
 M1001 L57
-G1 F1200 U55 ; Extrude restart
+G1 F1500 U55 ; Extrude restart
 G0 X200.000 Z2.400 F30000
 G1 F600 V4 ; Extrude restart
 G1 X202.000 V0.04200 U2.00000 P0.021 F300

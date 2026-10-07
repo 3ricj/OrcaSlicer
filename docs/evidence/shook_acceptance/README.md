@@ -1,5 +1,21 @@
 # FibreSeeker3 S-hook export acceptance run
 
+## STATUS: STALE against `main` -- do not quote a verdict from this set
+
+The three exports here were sliced at `ff08bb74a6`, which predates
+`e19ea0c979` (purge placement, composite deposit height, zone-ladder speeds on
+the purge) and the `fs_restart_feed_rate` change that moved the restart move from
+`F1200` to `F1500`. Every one of those changes alters emitted motion, so the
+recorded `SOFTWARE_EXPORT_ACCEPTANCE: PASS` describes the OLD motion, and the
+manifest's `effective_config` records `fs_fiber_z_step: 0.24` where the shipped
+presets now say `0.36`.
+
+The set is retained as the evidence of the v1.1 gate as it stood, and as the
+**pre-fix baseline** the purge-placement work was measured against. Regenerate it
+with `run_export.py` + `make_manifest.py` before quoting any S01-S13 verdict.
+
+---
+
 This directory is the handoff for the owner follow-up of 2026-10-05. It contains
 three **freshly sliced** exports of the real S-hook project, the manifest that
 describes how they were produced, and the verifier output that measures them.

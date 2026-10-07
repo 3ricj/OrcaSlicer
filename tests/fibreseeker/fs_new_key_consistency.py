@@ -24,6 +24,7 @@ NEW_KEYS = [
     "fs_fiber_release_length_mm",
     "fs_fiber_release_speed_mm_s",
     "fs_fiber_release_anchor_mm",
+    "fs_restart_feed_rate",
 ]
 
 FILES = {

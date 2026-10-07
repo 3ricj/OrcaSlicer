@@ -46,7 +46,12 @@ struct FiberEmitParams
     // Feedrates mm/min, lengths mm. Defaults match the FibreSeeker3 SK3
     // machine profile and are overridden from fs_* keys at the call site.
     double restart_feed_mm  = 55.0;
-    double restart_feed_f   = 1200.0;
+    // Feedrate of the above-layer U restart move. Previously 1200 with no key
+    // and no call site anywhere in src/, so it was untunable and 300 mm/min
+    // below the reference slicer. Now driven by fs_restart_feed_rate, whose
+    // default matches this value; the struct default stays the single source
+    // for callers (tests, harnesses) that do not build a config.
+    double restart_feed_f   = 1500.0;
     double restart_z_mm     = 1.2;
     double prime_v_mm       = 4.0;
     double prime_f          = 600.0;

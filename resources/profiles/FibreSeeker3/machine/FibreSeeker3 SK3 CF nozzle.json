@@ -44,6 +44,7 @@
 	"fs_fiber_reserve": "band",
 	"fs_fiber_bond_overlap": "0.1",
 	"fs_restart_feed": "55",
+	"fs_restart_feed_rate": "1500",
 	"fs_tail_length": "54.8",
 	"fs_fiber_release_length_mm": "6.8",
 	"fs_restart_z_hop": "1.2",

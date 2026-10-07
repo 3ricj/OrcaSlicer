@@ -42,6 +42,7 @@
 	"fs_fiber_enabled": "0",
 	"fs_fiber_nozzle_diameter": "0.7",
 	"fs_restart_feed": "55",
+	"fs_restart_feed_rate": "1500",
 	"fs_tail_length": "54.8",
 	"fs_restart_z_hop": "1.2",
 	"fs_prime_v": "4",

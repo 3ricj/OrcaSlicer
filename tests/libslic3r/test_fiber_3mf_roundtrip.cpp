@@ -57,7 +57,7 @@ const std::vector<std::pair<std::string, std::string>> fs_vendor_expectations = 
     // differ from the declared defaults so the round trip proves they travelled.
     {"fs_tool_preheat_lead_s", "20"}, {"fs_fiber_tail_margin_mm", "1"},
     {"fs_fiber_release_length_mm", "6.8"}, {"fs_fiber_release_speed_mm_s", "12"},
-    {"fs_fiber_release_anchor_mm", "10"},
+    {"fs_fiber_release_anchor_mm", "10"}, {"fs_restart_feed_rate", "1500"},
 };
 
 // Declared defaults from PrintConfig.cpp (must stay in sync with the defs).
@@ -95,7 +95,11 @@ const std::vector<std::pair<std::string, std::string>> fs_default_expectations =
     // the paired tool-change sequence itself is not emitted.
     {"fs_tool_preheat_lead_s", "15"}, {"fs_fiber_tail_margin_mm", "0"},
     {"fs_fiber_release_length_mm", "0"}, {"fs_fiber_release_speed_mm_s", "10"},
-    {"fs_fiber_release_anchor_mm", "8"},
+    {"fs_fiber_release_anchor_mm", "8"}, {"fs_restart_feed_rate", "1500"},
+    // The restart feedrate is a machine calibration whose declared default
+    // IS the vendor value, so a legacy project keeps the reference motion
+    // rather than the old unreachable struct constant. Same shape as
+    // fs_restart_feed / fs_tail_length / fs_prime_v above.
 };
 
 struct Scene {

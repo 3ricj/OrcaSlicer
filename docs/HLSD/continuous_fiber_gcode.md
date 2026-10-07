@@ -18,6 +18,32 @@ U is never negative. E never appears on T0 moves; U/V never appear on T1 moves.
 `M1001`/`M1002` have no firmware handler; they exist so the independent
 validator (`tests/fibreseeker/fs_gcode_validator.py`) can bound a window.
 
+### The restart move's feedrate is a key, not a constant
+
+Step 3's U-only restart is the one move in the window that deposits nothing: it
+charges the cutter-to-nozzle path with fresh tow so the strand starts on virgin
+material. Its **length** has always been `fs_restart_feed` (55 mm, a machine
+calibration); its **feedrate** used to be hard-wired to the emitter struct
+default of `F1200`, with no key and no call site anywhere in `src/`, so it could
+not be tuned at all and ran 300 mm/min below the reference slicer's `F1500`.
+
+It is now `fs_restart_feed_rate` (mm/min, default 1500), declared in
+`PrintConfig` rather than beside the other `fs_` motion keys in `GCodeConfig`
+for the standing BOOST_PP/MSVC ceiling reason, wired at BOTH emission call sites
+(the model strand in `GCode::process_layer` and the composite priming line in
+`_do_export`) so the purge and the model cannot drift apart.
+
+Two things this does NOT change, because they were never feedrate-dependent:
+
+- **`M1001 L<budget>` is unchanged.** L is `floor(restart_mm + printed body U)`
+  — a length, not a duration — so re-tuning the restart feedrate cannot move the
+  budget the firmware checks against.
+- **The validator does not judge it.** Rule R08 requires the first material move
+  in a window to be a U-only restart and R16 warns when the restart LENGTH is
+  short; neither reads the `F` word. Proven by mutating every restart line in
+  the fixture set to `F1500` and re-running: 36/36 unchanged. The fixtures were
+  still re-cut to `F1500`, so they stay byte-faithful to what the emitter ships.
+
 Tool changes and dock/brush motion are not the emitter's job. When
 `fs_t0_wrap` is on, the G-code writer wraps a layer's fiber block in `T0`/`T1`
 and the machine start/end macros own offsets. The one emission exception is the

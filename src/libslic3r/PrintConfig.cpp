@@ -4434,6 +4434,19 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionFloat(55));
 
+    // The feedrate of that same restart move. It was previously hard-wired to
+    // the emitter struct default (F1200) with no key and no call site, so the
+    // one move whose job is to purge the cutter-to-nozzle path could not be
+    // tuned at all, and it ran 300 mm/min slower than the reference slicer.
+    def = this->add("fs_restart_feed_rate", coFloat);
+    def->label = L("Fiber restart feedrate");
+    def->tooltip = L("Feedrate of the above-layer fiber restart move (axis U) that charges the cutter-to-nozzle path at the start of every fiber run, mm/min. This move deposits nothing, so its speed is a purge/pump behaviour rather than a surface-quality choice; the reference slicer runs it at 1500 mm/min. Lower it if the tow is not fully charged before the first deposit, raise it to shorten the non-depositing start of each strand.");
+    def->sidetext = L("mm/min");
+    def->min = 1;
+    def->max = 12000;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(1500));
+
     def = this->add("fs_tail_length", coFloat);
     def->label = L("Fiber cut tail");
     def->tooltip = L("Length of the cut-fiber tail the nozzle keeps depositing (matrix only, no new fiber) after the cutter fires, mm. Also the value written into the CUT DISTANCE comment. This is a machine calibration matching the cutter-to-nozzle path: the reference machine's CutCode comments 54.8 and its deposited tails land within about a millimetre of that. The ExtruderCs CutDistance preset key of 58 does not appear in the G-code.");

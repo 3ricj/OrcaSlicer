@@ -18,7 +18,7 @@ T0 ; switch extruder type to:FIBER
 M1001 L79
 G1 F1200 Z1.40
 G1 X10.00 Y10.00 F1200
-G1 F1200 U55.000 ; Extrude restart
+G1 F1500 U55.000 ; Extrude restart
 G1 F1200 Z0.20
 G1 F600 V1.000 ; Recover matrix retract
 G1 F600 V3.000 ; Matrix prime
